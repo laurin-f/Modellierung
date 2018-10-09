@@ -131,9 +131,6 @@ aktivity(pco2 = 1)
 #Diffusion function
 ##############################################################
 
-#sinoidal oscillating temperature with an average of 10?C and an amplitude of 10
-t<-seq(10,20,len=10)
-
 co2_soil_depth <- function(epsilon_t=0.2,#air filled soil [vol/vol]
                            timestep=1,#timestep for calculation [s] 
                            max_depth=18, #maximal depth for calculation [cm]
