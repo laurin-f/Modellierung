@@ -137,10 +137,10 @@ co2_soil_depth <- function(epsilon_t=0.2,#air filled soil [vol/vol]
                            z=1, #depth for each cell [cm]
                            ambient=0.04, #pco2 kPa
                            temp=20, #temperature [?C] (without depth gradient)
-                           outputresolution=60, #in sec = one day
+                           outputresolution=60, #in sec = one minute
                            total_t= 48, #time of interest in hours
-                           ls=30,
-                           sec=1:ncol(epsilon_t)){#constant describing decrease of S_c with depth [cm]
+                           ls=30,#constant describing decrease of S_c with depth [cm]
+                           sec=1:ncol(epsilon_t)){
   
   #calculate CO2 production for each cell center (z/2 = 5 cm) and temperature
   p_t <- novak(depth = seq(z,max_depth,z)-z/2, temp=temp,l_s=ls)
@@ -218,12 +218,14 @@ ca_mg<-ca_soil_depth()
 #####
 #tests
 
-epsilon<-matrix(0,60*60,18)
-for (i in 1:(60*60)){ epsilon[i,]<-seq(0.01+i*0.0005,0.8-i*0.0005,length.out = 60*60)[i]}
+epsilon<-matrix(0.1,60*60,18)
+#for (i in 1:(60*60)){ epsilon[i,]<-seq(0.01+i*0.0005,0.8-i*0.0005,length.out = 60*60)[i]}
 image(epsilon)
 t<-rep(20,3600)
+
 co2_vals<-co2_soil_depth(temp=t,epsilon_t = epsilon)
 
+matplot(co2_vals[1:(60*2),],type="l")
 image(co2_vals)
 plot(co2_vals[2880,])
 pco2_cal<-seq(min(co2_vals),max(co2_vals),length.out = 100)
