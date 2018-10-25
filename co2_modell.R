@@ -3,6 +3,19 @@ source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/read_all.R")
 okt18<-read_all(datum="18.10",start = "09:30")
 bf<-okt18$theta[okt18$tiefe==-14]
 co2<-okt18$CO2_raw[okt18$tiefe==-14]
+plot(bf)
+bf<-bf[!is.na(bf)]
+co2<-co2[!is.na(bf)]
+offset<-which.max(co2)-which.max(bf)
+plot(bf*13000)
+lines(co2[-(1:offset)])
+co2mod<-co2
+for (i in 1:(length(co2)-offset)){
+
+co2mod[i+offset+1]<-co2mod[i+offset]+((bf[i+1]-bf[i])*1000)-0.0001*i^1.1
+}
+plot(co2mod)
+lines(co2)
 
 n<-10000
 bfmod<-filter(bf,rep(1/n,n))
