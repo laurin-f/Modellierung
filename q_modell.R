@@ -2,67 +2,70 @@
 #Funktion um log-regression an q-Werte zu fitten
 q_modell<-function(datum,#datum der Messung
                    start,#startzeit der Kamera
-                   mov_avg=31,#zellenweite des gleitenden mittels für die Modellierten Werte
-                   q_filter=3){#zellenweite des gleitenden mittels für den Input
+                   mov_avg=61,#zellenweite des gleitenden mittels für die Modellierten Werte
+                   q_filter=1){#zellenweite des gleitenden mittels für den Input
   
   #skript für read_waage funktion ausführen
   source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/waage.R")
   source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
 
   #daten einlesen  
-  q<-read_waage(datum,start,q_filter,na_interpolation = F)
+  q<-read_waage(datum,start,q_filter=q_filter,na_interpolation = F)
+  max(which(q$q==0))
+  sub<-q[-(1:max(which((q$wasser)<1)-1)),]
   #q$q<-zoo::rollapply(q$q,filter,mean,na.rm=T,fill=NA)
     #Subset der daten bei denen q nicht null ist
-  sub<-subset(q,q!=0)
+  sub<-subset(sub,!is.na(q))
   events<-event()
   begin<-events$start[events$datum==datum]
   
   offset0<-as.numeric(min(difftime(sub$date,begin,units = "min")))
   #Vektor mit offsets
-  offset<-seq(1-offset0,1000,1)
+  x.offset<-seq(1-offset0,1000,1)
   #Vektor für R² werte anlegen
-  rsq<-offset
+  rsq<-x.offset
 
   #schleife um besten Offset zu finden
-  for (i in 1:length(offset)){
+  for (i in 1:length(x.offset)){
     #id als zeitlicher Abstand vom beginn des Abflusses in Minuten
     #i unterschiedliche Offsets verwenden um log-regression daran zu fitten
-    id<-as.numeric(difftime(sub$date,begin,units = "min"))+offset[i]
+    id<-as.numeric(difftime(sub$date,begin,units = "min"))+x.offset[i]
     #fitten des Modells
     fm<-glm(sub$wasser~log(id))
     #berechnen des R² des Modells
     rsq[i]<-1-fm$deviance/fm$null.deviance}
 
   #Offset des Modells mit dem besten fit wird verwendet
-  best.offset<-offset[which.max(rsq)]
-  id<-as.numeric(difftime(sub$date,begin,units = "min"))+best.offset
+  best.x.offset<-x.offset[which.max(rsq)]
+  id<-as.numeric(difftime(sub$date,begin,units = "min"))+best.x.offset
   #modell wird damit gefittet
   fm<-glm(sub$wasser~log(id))
   
   #Modellierte Werte in Minutenabständen
   preds<-predict(fm,data.frame(id=(min(id):max(id))))
   
+ 
   #offset der q-Kurve von den Modellierten Werten bestimmen
   #Vektor mit offsets anlegen
-  offset2<-seq(0,0.05,len=1000)
+  y.offset<-seq(0,0.05,len=1000)
   #Vektor für RMSE anlegen
-  rmse<-offset2
+  rmse<-y.offset
   #Schleife um besten Offset zu finden
-  for (i in 1:length(offset2)){
+  for (i in 1:length(y.offset)){
     #modellierte Wassermenge-Werte werden über die Zeit abgeleitet und der i-te Offset abgezogen
-    qmod<-c(0,diff(predict(fm))/as.numeric(diff(sub$date))-offset2[i])
+    qmod<-c(0,diff(predict(fm))/as.numeric(diff(sub$date))-y.offset[i])
     #RMSE zwischen modellierten und gemessenen Werten berechnen
     rmse[i]<-sqrt(mean((qmod-sub$q)^2))}
   
   #Zeitsequenz in Minutenabständen vom start des Events an
   date<-seq(begin,max(sub$date),60)
   #der Offset mit dem besten RMSE wird verwendet um die modellierten Werte an die gemessenen anzugleichen
-  best.offset2<-offset2[which.min(rmse)]
+  best.y.offset<-y.offset[which.min(rmse)]
   #unterschied der länge vom Zeitvektor und der modellierten Werte
   lag<-length(date)-length(preds)
-  #die modellierten q-Werte werden durch die Ableitung der Wassermenge-Werte minus offset2 bestimmt.
+  #die modellierten q-Werte werden durch die Ableitung der Wassermenge-Werte minus y.offset bestimmt.
   #an den Anfang werden soviele 0 Werte geschrieben, dass die Zeitreihe am beginn der Beregnung beginnt
-  qpreds<-c(rep(0,lag),0,diff(preds)-best.offset2)
+  qpreds<-c(rep(0,lag),0,diff(preds)-best.y.offset)
   #Werte unter Null gibt es nicht
   qpreds[qpreds<0]<-0
 
@@ -79,7 +82,7 @@ q_modell<-function(datum,#datum der Messung
   #Modellierte und gemessene Werte in einen Datensatz
   qs<-merge(q,mod,all=T)
   #Modellparameter in einen Datensatz
-  params<-data.frame(datum,best.offset,best.offset2,lag,Intercept=fm$coefficients[1],log_id=fm$coefficients[2])
+  params<-data.frame(datum,best.x.offset,best.y.offset,lag,Intercept=fm$coefficients[1],log_id=fm$coefficients[2])
   
   #Output
   return(list(qs,params))}
@@ -104,20 +107,20 @@ events<-event()
 library(ggplot2)
 
 ggplot()+
-  geom_point(data=q22,aes(date,q))+
-  geom_line(data=q22,aes(date,q_filter))+
+  geom_point(data=q22,aes(date,q),na.rm = T)+
+  geom_line(data=q22,aes(date,q_filter),na.rm = T)+
   theme_classic()+
   geom_rect(data=subset(events,datum=="22.10"),aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf), alpha = 0.15,fill="blue")
 
 ggplot()+
-  geom_point(data=q18,aes(date,q))+
-  geom_line(data=q18,aes(date,q_filter))+
+  geom_point(data=q18,aes(date,q),na.rm = T)+
+  geom_line(data=q18,aes(date,q_filter),na.rm = T)+
   theme_classic()+
   geom_rect(data=subset(events,datum=="18.10"),aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf), alpha = 0.15,fill="blue")
 
 ggplot()+
-  geom_point(data=q15,aes(date,q))+
-  geom_line(data=q15,aes(date,q_filter),col=2)+
+  geom_point(data=q15,aes(date,q),na.rm = T)+
+  geom_line(data=q15,aes(date,q_filter),col=2,na.rm = T)+
   theme_classic()+
   geom_rect(data=subset(events,datum=="15.10"),aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf), alpha = 0.15,fill="blue")
 
@@ -139,3 +142,121 @@ lines(q18$date,q18$wasser_mod)
 plot(q18$date,q18$q)
 lines(q18$date,q18$q_mod)
 
+
+qmod18<-q_modell(datum="18.10",start = "09:30",q_filter = 1)
+
+datum<-c("15.10","18.10","22.10")
+start<-c("09:21","09:30","13:27")
+########################################################
+#Funktion um log-regression an q-Werte zu fitten
+q_modell<-function(datum,#datum der Messung
+                   start,#startzeit der Kamera
+                   mov_avg=61,#zellenweite des gleitenden mittels für die Modellierten Werte
+                   q_filter=3){#zellenweite des gleitenden mittels für den Input
+  
+  #skript für read_waage funktion ausführen
+  source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/waage.R")
+  source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
+  
+  q<-vector("list", length(datum))
+  date<-vector("list", length(datum))
+  offset0<-Inf
+  for (i in 1:length(datum)){
+  #daten einlesen  
+  dat<-read_waage(datum[i],start[i],q_filter=1,na_interpolation = F)
+  dat$datum<-datum[i]
+  dat<-dat[-(1:max(which((dat$wasser)<1)-1)),]
+  
+  events<-event()
+  begin<-events$start[events$datum==datum[i]]
+  dat$id<-as.numeric(difftime(dat$date,begin,units = "min"))
+  
+  dat$rain_mm_h<-events$rain_mm_h[events$datum==datum[i]]
+  
+  offset0_new<-as.numeric(min(difftime(dat$date,begin,units = "min")))
+  if (offset0_new<offset0){
+    offset0<-offset0_new
+  }
+  #Zeitsequenz in Minutenabständen vom start des Events an
+  date[[i]]<-seq(begin,max(dat$date),60)
+  
+  q[[i]]<-dat}
+  
+  sub<-do.call("rbind",q)
+  date<-do.call("c",date)
+
+  plot(sub$id,sub$q)
+  #q$q<-zoo::rollapply(q$q,filter,mean,na.rm=T,fill=NA)
+  #Subset der daten bei denen q nicht null ist
+  sub<-subset(sub,!is.na(q))
+  
+  #Vektor mit offsets
+  x.offset<-seq(1-offset0,1000,1)
+  #Vektor für R² werte anlegen
+  rsq<-x.offset
+  
+  #schleife um besten Offset zu finden
+  for (i in 1:length(x.offset)){
+    #id als zeitlicher Abstand vom beginn des Abflusses in Minuten
+    #i unterschiedliche Offsets verwenden um log-regression daran zu fitten
+    id<-sub$id+x.offset[i]
+    #fitten des Modells
+    fm<-glm(sub$wasser~log(id)*sub$rain_mm_h)
+    #berechnen des R² des Modells
+    rsq[i]<-1-fm$deviance/fm$null.deviance}
+  
+  plot(rsq)
+  #Offset des Modells mit dem besten fit wird verwendet
+  best.x.offset<-x.offset[which.max(rsq)]
+  id<-sub$id+best.x.offset
+  #modell wird damit gefittet
+  fm<-glm(sub$wasser~log(id)*sub$rain_mm_h)
+  
+  #Modellierte Werte in Minutenabständen
+  preds<-predict(fm,data.frame(id=(min(id):max(id)),sub$rain_mm_h=))
+  
+  plot(sub$id,predict(fm))
+  points(sub$id,sub$wasser)
+  #offset der q-Kurve von den Modellierten Werten bestimmen
+  #Vektor mit offsets anlegen
+  y.offset<-seq(0,0.05,len=1000)
+  #Vektor für RMSE anlegen
+  rmse<-y.offset
+  #Schleife um besten Offset zu finden
+  for (i in 1:length(y.offset)){
+    #modellierte Wassermenge-Werte werden über die Zeit abgeleitet und der i-te Offset abgezogen
+    qmod<-c(0,diff(predict(fm))/as.numeric(diff(sub$date))-y.offset[i])
+    #RMSE zwischen modellierten und gemessenen Werten berechnen
+    rmse[i]<-sqrt(mean((qmod-sub$q)^2))
+    }
+  
+
+  plot(rmse)
+  #der Offset mit dem besten RMSE wird verwendet um die modellierten Werte an die gemessenen anzugleichen
+  best.y.offset<-y.offset[which.min(rmse)]
+  #unterschied der länge vom Zeitvektor und der modellierten Werte
+  lag<-min(sub$id)
+  #die modellierten q-Werte werden durch die Ableitung der Wassermenge-Werte minus y.offset bestimmt.
+  #an den Anfang werden soviele 0 Werte geschrieben, dass die Zeitreihe am beginn der Beregnung beginnt
+  qpreds<-c(rep(0,lag),0,diff(preds)-best.y.offset)
+  #Werte unter Null gibt es nicht
+  qpreds[qpreds<0]<-0
+  
+  #gleitendes Mittel über die modellierten Werte
+  q_filter<-zoo::rollapply(qpreds,mov_avg,mean,na.rm=T,fill=NA)
+  #startwert ist Null
+  q_filter[1]<-0  
+  
+  #auch der Wassermenge Vektor wird am anfang mit Nullen verlängert um mit dem Event zu beginnen
+  preds<-c(rep(0,lag),preds)
+  
+  
+  #Modellierte Werte in einen Datensatz
+  mod<-data.frame(date=date,q_mod=qpreds,wasser_mod=preds,q_filter=q_filter)
+  #Modellierte und gemessene Werte in einen Datensatz
+  qs<-merge(q,mod,all=T)
+  #Modellparameter in einen Datensatz
+  params<-data.frame(datum,best.x.offset,best.y.offset,lag,Intercept=fm$coefficients[1],log_id=fm$coefficients[2])
+  
+  #Output
+  return(list(qs,params))}
