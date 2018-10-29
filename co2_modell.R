@@ -1,5 +1,7 @@
 source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/read_all.R")
 
+load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
+
 okt18<-read_all(datum="18.10",start = "09:30")
 bf<-okt18$theta[okt18$tiefe==-14]
 co2<-okt18$CO2_raw[okt18$tiefe==-14]
@@ -7,35 +9,37 @@ plot(bf)
 bf<-bf[!is.na(bf)]
 co2<-co2[!is.na(bf)]
 offset<-which.max(co2)-which.max(bf)
-plot(bf*13000)
-lines(co2[-(1:offset)])
-co2mod<-co2
-for (i in 1:(length(co2)-offset)){
 
-co2mod[i+offset+1]<-co2mod[i+offset]+((bf[i+1]-bf[i])*1000)-0.0001*i^1.1
-}
+
+bf<-all$theta[all$tiefe==-14]
+co2<-all$CO2_raw[all$tiefe==-14]
+date<-all$date[all$tiefe==-14]
+plot(bf)
+plot(co2)
 plot(co2mod)
 lines(co2)
 
-n<-10000
-bfmod<-filter(bf,rep(1/n,n))
-plot(bf,type="l")
-offset<-0:(length(bf)-1000)
-rsq<-offset
-for (i in 1:length(offset)){
-bf_off<-bf[offset[i]:length(bf)]
-co22<-co2[1:length(bf_off)]
-co2fm<-glm(co22~bf_off)
-rsq[i]<-1-co2fm$deviance/co2fm$null.deviance
-if((i/length(offset)*100)%%5==0){
-print(round(i/length(offset)*100))}
+
+#co2mod<-c(rep(bf[1],10000),bf,rep(tail(bf,1),10000))*16000
+co2mod<-bf
+co2mod<-zoo::na.approx(co2mod)
+co2<-co2[-(1:offset)]
+date<-date[-(1:offset)]
+
+for(j in 1:500){
+n<-101
+co2mod<-as.numeric(filter(co2mod,rep(1/n,n),circular = T))
+#co2mod-zoo::rollapply(co2mod,100,mean,fill=NA)
 }
-plot(rsq)
-bf_off<-bf[offset[which.max(rsq)]:length(bf)]
-co22<-co2[1:length(bf_off)]
-co2fm<-glm(co22~bf_off)
+co2mod<-co2mod[1:(length(co2mod)-offset)]
+co2fm<-glm(co2~co2mod)
+nas<-which(is.na(co2))
+data<-data.frame(date,co2)
+data<-data[-nas,]
+
 preds<-predict(co2fm)
-plot(preds)
-lines(co2)
-lines(bfmod)
-0.1%%0.1
+
+data$co2_mod<-preds
+
+
+ggplot(data)+geom_line(aes(date,co2))+geom_line(aes(date,co2_mod),col=2)
