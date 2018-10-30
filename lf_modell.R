@@ -3,6 +3,19 @@ source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/read_all.R")
 library(scales)
 load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
 
+
+schlauchinhalt_ml_cm<-8.4/80#ml/cm
+schlauchlänge_cm<-10#cm
+lf_kammer<-5#ml
+schlauch<-schlauchinhalt_ml_cm*schlauchlänge_cm#+lf_kammer#ml
+
+delay<-schlauch/all$q_interpol#ml/ml*min->min
+13.4/0.00
+
+summary(all$q_interpol)
+summary(delay)
+
+plot(delay,ylim=c(0,1000))
 okt15<-read_all("15.10","09:21")
 tiefe2_15.10<-read_vaisala("tiefe2_15.10.2","C:/Users/ThinkPad/Documents/Masterarbeit/daten/co2/",aggregate = T,temp_line = 31,Sonde=2)
 tiefe2_15.10$datum<-round_date(tiefe2_15.10$date,"min")
@@ -17,24 +30,42 @@ okt22<-read_all(datum="22.10",start = "13:36")
 lf_co2_sub<-function(data){
 zeiten<-data$date[!is.na(data$lf)&data$lf>200]
 zeiten<-zeiten[zeiten<"2018-10-28 02:00:00 CEST"|zeiten>"2018-10-28 03:00:00 CEST"]
-co2sub<-data$CO2_raw[data$tiefe==-14&data$date%in%zeiten]
-lfsub<-data$lf[data$tiefe==-17&data$date%in%zeiten]
-date<-data$date[data$tiefe==-14&data$date%in%zeiten]
-t_min<-data$t_min[data$tiefe==-14&data$date%in%zeiten]
-int<-data$treatment[data$tiefe==-14&data$date%in%zeiten]
-return(data.frame(co2=co2sub,lf=lfsub,date,t_min,int))
+sub<-data[data$tiefe==-14&data$date%in%zeiten,-(8:15)]
+sub2<-data[data$tiefe==-17&data$date%in%zeiten,(8:15)]
+sub<-cbind(sub,sub2)
+#date<-data$date[data$tiefe==-14&data$date%in%zeiten]
+#t_min<-data$t_min[data$tiefe==-14&data$date%in%zeiten]
+#int<-data$treatment[data$tiefe==-14&data$date%in%zeiten]
+#lf<-data$lf[data$tiefe==-14&data$date%in%zeiten]
+return(sub)
+  #data.frame(co2=co2sub,lf=lfsub,date,t_min,int))
 }
 
 
 sub15<-lf_co2_sub(okt15)
-sub18<-lf_co2_sub(okt18)
+sub<-lf_co2_sub(okt18)
 sub22<-lf_co2_sub(okt22)
 sub<-lf_co2_sub(all)
 
-plot(sub)
-plot(sub15)
-plot(sub18)
-plot(sub22)
+delay<-schlauch/sub$q_interpol
+lf<-sub$lf
+date<-sub$date
+
+datedel<-date-delay*60
+
+par(mfrow=c(1,1))
+plot(date,lf)
+points(datedel,lf,col=2)
+
+
+#mischung
+#u<-2:length(lf)
+#lf_unmix<-c(0,(lf[u]-lf[u-1]*((lf_kammer-sub$q_interpol[u])/lf_kammer))/(sub$q_interpol[u]/lf_kammer))
+
+#lf_mix<-c(0,(lf[u]*(sub$q_interpol[u]/lf_kammer)+lf[u-1]*((lf_kammer-sub$q_interpol[u])/lf_kammer)))
+
+#plot(date,lf)
+#points(date,lf_mix)
 
 sub<-sub[!is.na(sub$co2),]
 co2lffm<-glm(lf~log(co2-min(sub$co2)+1)+int,data=sub)

@@ -5,6 +5,7 @@ load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
 okt18<-read_all(datum="18.10",start = "09:30")
 bf<-okt18$theta[okt18$tiefe==-14]
 co2<-okt18$CO2_raw[okt18$tiefe==-14]
+
 plot(bf)
 bf<-bf[!is.na(bf)]
 co2<-co2[!is.na(bf)]
@@ -14,10 +15,7 @@ offset<-which.max(co2)-which.max(bf)
 bf<-all$theta[all$tiefe==-14]
 co2<-all$CO2_raw[all$tiefe==-14]
 date<-all$date[all$tiefe==-14]
-plot(bf)
-plot(co2)
-plot(co2mod)
-lines(co2)
+
 
 
 #co2mod<-c(rep(bf[1],10000),bf,rep(tail(bf,1),10000))*16000

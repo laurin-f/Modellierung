@@ -11,6 +11,7 @@ q_modell<-function(datum,#datum der Messung
 
   #daten einlesen  
   q<-read_waage(datum,start,q_filter=q_filter,na_interpolation = F)
+
   max(which(q$q==0))
   sub<-q[-(1:max(which((q$wasser)<1))),]
   #q$q<-zoo::rollapply(q$q,filter,mean,na.rm=T,fill=NA)
@@ -21,7 +22,7 @@ q_modell<-function(datum,#datum der Messung
   
   offset0<-as.numeric(min(difftime(sub$date,begin,units = "min")))
   #Vektor mit offsets
-  x.offset<-seq(1-offset0,1000,1)
+  x.offset<-seq(1-offset0,400,0.5)
   #Vektor für R² werte anlegen
   rsq<-x.offset
 
@@ -287,6 +288,6 @@ qs[[2]]
 
 library(ggplot2)
 ggplot(q)+geom_line(aes(id_min,q_mod,col=as.factor(int)))+
-  geom_point(aes(id_min,q))
+  geom_point(aes(id_min,q))+theme_classic()
 +
   facet_wrap(~int)
