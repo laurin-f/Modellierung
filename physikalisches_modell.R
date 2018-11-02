@@ -133,7 +133,7 @@ aktivity(pco2 = 1)
 
 co2_soil_depth <- function(epsilon_t=0.2,#air filled soil [vol/vol]
                            timestep=1,#timestep for calculation [s] 
-                           max_depth=18, #maximal depth for calculation [cm]
+                           max_depth=17, #maximal depth for calculation [cm]
                            z=1, #depth for each cell [cm]
                            ambient=0.04, #pco2 kPa
                            temp=20, #temperature [?C] (without depth gradient)
