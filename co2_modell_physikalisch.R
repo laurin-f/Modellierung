@@ -1,9 +1,11 @@
 # Respiration ####
 
 #create function to calculate soil respiration for different depths
-novak <- function(l_s=30, #constant describing decrease of S_c with depth [cm]
-                  depth, #forest type
-                  temp=10){#temperature in ?C
+novak <- function(depth, #forest type
+                  l_s=30, #constant describing decrease of S_c with depth [cm]
+                  temp=10,#temperature in ?C
+                  theta,
+                  fw_model="pumpanen"){
   
   #parameters for spruce & beech forest (vesterdal et al. 2011)
   #1.Q10 = change of s_c with temp change of 10 ?C
@@ -32,24 +34,22 @@ novak <- function(l_s=30, #constant describing decrease of S_c with depth [cm]
   #create matrix for s_c results
   s_c<-matrix(nrow=length(depth),ncol=length(temp))
   #loop for s_c with changing temperatures 
-  for (i in 1:length(depth)){
-    #claculate s_c (depth dependent source term co2)
-    s_c[i,] <- s_10 *exp(-depth[i]/l_s)*params[1]^((temp - 10)/10)
-  }
-  #modell output is s_c
-  return(s_c)#[vol/(vol*s)]=kPa/s
-}
 
+
+
+
+  if(fw_model=="fang"){
 ########################################
 #f(w) PATCIS model Fang & Moncrieff (1999)
 a<-7.5
 c<-0.15
 W<-seq(0,1,0.01)
 fw<-1-exp(-a*W+c)
-plot(fw)
+plot(fw)}
 
-fO2<-
-  
+#fO2<-
+ 
+if(fw_model=="jassal"){ 
 ##########################################
 #f(W) Jassal et al. (2004)
 
@@ -58,29 +58,41 @@ thetaR<-seq(0,1,0.01)
 Ws<-c(seq(0,0.1,0.01),seq(0.1,0.3,0.01),seq(0.3,0.8,0.01),seq(0.8,1,0.01))
 fws<-c(seq(0,0.6,len=11),seq(0.6,1,len=21),rep(1,51),seq(1,0.5,len=21))
 fw<-approx(Ws,fws,xout=thetaR)
-plot(fw)
+plot(fw)}
 
 
+if(fw_model=="pumpanen"){
 ##########################################
 #f(W) Pumpanen et al. (2003)
 
-E0<-0.7
-thetav<-seq(0,E0,0.01)
+#E0<-max(theta)
+thetav<-theta
 a<-3.83
 b<-4.43
 g<-0.854
 d<-1.25
 
 fw<-thetav
-for (i in 1:length(thetav)){
-fw[i]<-min(a*thetav[i]^d,b*(E0-thetav[i])^g,1)}
-plot(fw)
+for (j in 1:ncol(thetav)){
+  E0<-max(thetav[,j])
+for (i in 1:nrow(thetav)){
+fw[i,j]<-min(a*thetav[i,j]^d,b*(E0-thetav[i,j])^g,1)}}#ende j-loop
+  }#ende pumpanen
+for (i in 1:length(depth)){
+  #claculate s_c (depth dependent source term co2)
+  s_c[i,] <- s_10 *exp(-depth[i]/l_s)*params[1]^((temp - 10)/10)*fw[,i]
+}
+
+return(s_c)  #modell output is s_c
+#[vol/(vol*s)]=kPa/s
+}#ende novak funcktion
+
 
 ##############################################################
 #Diffusion function
 ##############################################################
 
-co2_soil_depth <- function(epsilon_t=0.2,#air filled soil [vol/vol]
+co2_soil_depth <- function(theta_t,#soil moisture [vol/vol]
                            timestep=1,#timestep for calculation [s] 
                            max_depth=17, #maximal depth for calculation [cm]
                            z=1, #depth for each cell [cm]
@@ -91,8 +103,14 @@ co2_soil_depth <- function(epsilon_t=0.2,#air filled soil [vol/vol]
                            ls=30#constant describing decrease of S_c with depth [cm]
                           ){
   
+  epsilon_t<-theta_t
+  for (j in 1:ncol(theta_t)){
+    E0<-max(theta_t[,j])
+    epsilon_t<-E0-theta_t[,j]}
+  epsilon_t<-max(theta_t)-theta_t
   #calculate CO2 production for each cell center (z/2 = 5 cm) and temperature
-  p_t <- novak(depth = seq(z,max_depth,z)-z/2, temp=temp,l_s=ls)
+  p_t <- novak(depth = seq(z,max_depth,z)-z/2, temp=temp,l_s=ls,theta = theta_t)
+
   min<-1:nrow(epsilon_t)
   #set number of iteration steps -> J
   total_t<-nrow(epsilon_t) #time of interest in minutes
@@ -157,7 +175,7 @@ colnames(thetas[[i]])<-c("date",paste0("tiefe",i))
 bfs<-Reduce(function(x,y) merge(x,y,by="date"),thetas)
 zeitseq<-seq(min(bfs[,1]),max(bfs[,1]),by=60)
 
-bfs_interpol<-apply(bfs[,2:5],2,function(x) approx(x=bfs[,1],y=x,xout = zeitseq)$y)
+bfs_interpol<-apply(bfs[,2:5],2,function(x) approx(x=bfs[,1],y=x,xout = zeitseq,rule=2)$y)
 
 
 bfmat<-matrix(NA,nrow(bfs_interpol),17)
@@ -167,29 +185,19 @@ for (i in 1:4){
 bfmat[,-tiefenstufen[i]]<-bfs_interpol[,i]}
 
 #nas<-apply(bfmat,1,function(x) length(which(!is.na(x))))
-
 #bfmat<-bfmat[(nas==4),]
 bfmat<-t(apply(bfmat,1,function(y) approx(y,xout = 1:17,rule = 2)$y))
 image(bfmat)
-temp<-all$temp[all$tiefe==-6]
-epsilonmat<-max(bfmat)-bfmat
+#temp<-all$temp[all$tiefe==-6]
+#epsilonmat<-max(bfmat)-bfmat
 
-epsilon_t<-matrix(0,nrow(bfs_interpol),17)
 
-t<-rep(20,nrow(bfmat))
-co2_mod<-co2_soil_depth(epsilon_t = epsilonmat,temp=t)
+temp<-rep(20,nrow(bfmat))
+co2_mod<-co2_soil_depth(theta_t = bfmat,temp=temp)
 co2_mod<-co2_mod*10000
 
-image(epsilonmat)
+#image(epsilonmat)
 image(co2_mod)
 plot(co2_mod[,17])
 matplot((co2_mod[seq(1,nrow(co2_mod),100),(-tiefenstufen)]),type="l")
 matplot(bfmat[seq(1,nrow(co2_mod),100),(-tiefenstufen)],type="l")
-library(lattice)
-#levelplot(,co2_mod)
-library(ggplot2)
-
-#for (i in 1:nrow(bfmat)){
-#bfmat[i,]<-approx(bfmat[i,],xout = 1:17,rule = 2)$y
-#}
-#image(bfmat)
