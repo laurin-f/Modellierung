@@ -33,12 +33,7 @@ zeiten<-zeiten[zeiten<"2018-10-28 02:00:00 CEST"|zeiten>"2018-10-28 03:00:00 CES
 sub<-data[data$tiefe==-14&data$date%in%zeiten,-(8:15)]
 sub2<-data[data$tiefe==-17&data$date%in%zeiten,(8:15)]
 sub<-cbind(sub,sub2)
-#date<-data$date[data$tiefe==-14&data$date%in%zeiten]
-#t_min<-data$t_min[data$tiefe==-14&data$date%in%zeiten]
-#int<-data$treatment[data$tiefe==-14&data$date%in%zeiten]
-#lf<-data$lf[data$tiefe==-14&data$date%in%zeiten]
 return(sub)
-  #data.frame(co2=co2sub,lf=lfsub,date,t_min,int))
 }
 
 
@@ -67,48 +62,48 @@ points(datedel,lf,col=2)
 #plot(date,lf)
 #points(date,lf_mix)
 
-sub<-sub[!is.na(sub$co2),]
-co2lffm<-glm(lf~log(co2-min(sub$co2)+1)+int,data=sub)
-sub$preds<-predict(co2lffm)
+sub<-sub[!is.na(sub$CO2),]
+CO2lffm<-glm(lf~log(CO2-min(sub$CO2)+1)+int,data=sub)
+sub$preds<-predict(CO2lffm)
 
 library(ggplot2)
-ggplot(sub)+geom_point(aes(co2,lf,col=date))+facet_wrap(~int)+
-  geom_point(aes(co2,preds),size=0.1)
+ggplot(sub)+geom_point(aes(CO2,lf,col=date))+facet_wrap(~int)+
+  geom_point(aes(CO2,preds),size=0.1)
 + scale_color_gradient(trans = time_trans(), low="blue", high="green")
 par(mfrow=c(1,1))
-plot(sub$co2,sub$lf)
-points(sub$co2,preds,col=2)
+plot(sub$CO2,sub$lf)
+points(sub$CO2,preds,col=2)
 
 par(mfrow=c(2,1))
-plot(sub$t_min,sub$co2)
+plot(sub$t_min,sub$CO2)
 plot(sub$t_min,sub$lf)
 lines(sub$date,preds)
 
-sub18<-sub18[!is.na(sub18$co2),]
-co2lffm<-glm(lf~log(co2-min(sub18$co2)+1),data=sub18)
-preds<-predict(co2lffm)
+sub18<-sub18[!is.na(sub18$CO2),]
+CO2lffm<-glm(lf~log(CO2-min(sub18$CO2)+1),data=sub18)
+preds<-predict(CO2lffm)
 
 par(mfrow=c(1,1))
-plot(sub18$co2,sub18$lf)
-lines(sub18$co2,preds)
+plot(sub18$CO2,sub18$lf)
+lines(sub18$CO2,preds)
 
 par(mfrow=c(2,1))
-plot(sub18$date,sub18$co2)
+plot(sub18$date,sub18$CO2)
 plot(sub18$date,sub18$lf)
 lines(sub18$date,preds)
 
 
-sub22<-sub22[!is.na(sub22$co2),]
-co2lffm<-glm(lf~log(co2-min(sub22$co2)+1),data=sub22)
-preds2<-predict(co2lffm)
+sub22<-sub22[!is.na(sub22$CO2),]
+CO2lffm<-glm(lf~log(CO2-min(sub22$CO2)+1),data=sub22)
+preds2<-predict(CO2lffm)
 
 
 par(mfrow=c(1,1))
-plot(sub22$co2,sub22$lf)
-lines(sub22$co2,preds2)
+plot(sub22$CO2,sub22$lf)
+lines(sub22$CO2,preds2)
 
 par(mfrow=c(2,1))
-plot(sub22$date,sub22$co2)
+plot(sub22$date,sub22$CO2)
 plot(sub22$date,sub22$lf)
 lines(sub22$date,preds2)
 
