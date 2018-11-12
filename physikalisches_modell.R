@@ -12,6 +12,8 @@ caroll<-function(t){
   return(kh)
 }
 
+caroll(20)*0.04*2*1000
+
 # Respiration ####
 
 #create function to calculate soil respiration for different depths
