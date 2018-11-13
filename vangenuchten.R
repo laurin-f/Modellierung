@@ -22,6 +22,14 @@ x<-seq(0,5,length.out = 100)
 sarpy$psi<-sarpy$Psi.cm
 lines(x, predict(fm, data.frame(b=x)), col="red")
 sarpy$psi[20]<-0
+
+
+
+
+
+
+
+
 mua<-nls(sarpy$thetatilde~(1+(-al*sarpy$psi)^N)^-(1-1/N),data=sarpy,start = list(al=0.02,N=1.2))
 alpha<-coef(mua)[1]
 n<-coef(mua)[2]
