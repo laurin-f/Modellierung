@@ -2,7 +2,7 @@
 #############################
 #function to execute hydrus
 
-hydrus.exe<-function(file="undisturbed",scriptpath="C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/",sleep=3,UNSC=T,taskkill=F){
+hydrus.exe<-function(file="undisturbed",scriptpath="C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/",sleep=3,UNSC=T,taskkill=F,Inverse=F){
   level_01<-readLines(paste0(hydruspfad,"Level_01.dir"))
   level_01<-sub("file",file,level_01)
   writeLines(level_01,paste0(programmpfad,"Level_01.dir"))
@@ -15,14 +15,17 @@ hydrus.exe<-function(file="undisturbed",scriptpath="C:/Users/ThinkPad/Documents/
   script<-sub("secs",sleep,script)
   if(UNSC==F){
     script<-sub("UNSC","CALC",script)}
+  if(Inverse==T){
+    script<-sub("CALC","CLCI",script)
+  }
   writeLines(script,paste0(scriptpath,"hydrus_exe2.ps1"))
   shell(paste0("powershell.exe -noprofile -executionpolicy bypass -file ",scriptpath,"hydrus_exe2.ps1"))}
 
 
 ######################################
 #function to set atmospheric input
-atmos.in<-function(int=0,event=0,total_t=4000,all=F,projektpfad=projektpfad1){
-  if(all==T){
+atmos.in<-function(int=0,event=0,total_t=4000,alle=F,projektpfad=projektpfad1){
+  if(alle==T){
     lines<-readLines(paste0(projektpfad,"ATMOSPH.IN"))
     
     head<-lines[1:grep("tAtm",lines)]
@@ -32,16 +35,23 @@ atmos.in<-function(int=0,event=0,total_t=4000,all=F,projektpfad=projektpfad1){
     
     source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
     events<-event()
-    events<-events[-c(1,nrow(events)),]
+    events<-events[-1,]
+    events<-subset(events,stop<=max(all$date))
     
     time_start<-as.numeric(difftime(events$start,events$start[1],units = "min"))
     time_stop<-as.numeric(difftime(events$stop,events$start[1],units = "min"))
     time<-sort(c(time_start,time_start-1,time_stop,time_stop+1,total_t))[-1]
     time[1]<-1
     
+    evaps<-read.csv("C:/Users/ThinkPad/Documents/Masterarbeit/daten/events/verdunstung.csv",sep=";")
+    radius<-9/2
+    area<-pi*radius^2
+    evap<-mean((evaps$vorher-evaps$nachher)/evaps$t_min)#ml/min = cm3/min
+    
+    evap<-evap/area
     int_paste<-paste(events$rain_mm_h/10/60,events$rain_mm_h/10/60,0,0)
     int<-do.call("c",strsplit(int_paste,split=" "))
-    vals<-paste(time,int,"                   0           0      100000           0           0           0           0           0           0           0           0 ")
+    vals<-paste(time,int,evap,"           0      100000           0           0           0           0           0           0           0           0 ")
     
     head[grep("MaxAL",head)+1]<-format(length(time),width = 7)
     lines<-c(head,vals,tail)
@@ -155,6 +165,64 @@ profile.in<-function(n_nodes=18,
   writeLines(lines,paste0(projektpfad,"PROFILE.DAT"))
 }
 
+
+############################################
+#function to write obs data ta fit.in
+
+fit.in<-function(obs=all,treat=17,projektpfad=projektpfad2,params,q_fit=T){
+  
+  lines<-readLines(paste0(projektpfad,"FIT.IN"))
+  head<-lines[1:grep("ITYPE",lines)]
+  
+  vals<-paste(params$thr,params$ths,params$alpha,params$n,params$ks,params$l)
+  if(length(params$ths2)==0){
+    vals2<-vals
+  }else{
+    vals2<-paste(params$thr2,params$ths2,params$alpha2,params$n2,params$ks2,params$l)
+  }
+  vals_bot<-paste(params$thr_bot,params$ths_bot,params$alpha_bot,params$n_bot,params$ks_bot,params$l)
+  
+  head[grep("thr",head)+1][1]<-vals
+  head[grep("thr",head)+1][2]<-vals2
+  head[grep("thr",head)+1][3]<-vals_bot
+  
+  tail<-lines[grep("END",lines)]
+  if(treat=="all"){
+    sub<-all
+    source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
+    events<-event()
+    sub$t_min<-as.numeric(difftime(all$date,events$start[2],units = "min"))
+    sub<-sub[sub$t_min%%100==0&sub$t_min>0,]
+  }else{
+  sub<-subset(obs,treatment%in%treat)
+  sub<-sub[sub$t_min%%10==0&sub$t_min>0,]}
+  sub_th<-subset(sub,!is.na(theta))
+  sub_q<-subset(sub,!is.na(q_interpol)&q_interpol>0)
+  vals_th<-paste(sub_th$t_min,sub_th$theta,2,(-sub_th$tiefe+2)/4,1)
+  if(q_fit==T){
+    vals_q<-paste(sub_q$t_min,sub_q$q_interpol*5,3,2,1)
+    head[grep("NOBB",head)+1]<-paste(" ",length(c(vals_q,vals_th)) ,"     30       2")
+    lines<-c(head,vals_th,vals_q,tail)
+  }else{
+    head[grep("NOBB",head)+1]<-paste(" ",length(vals_th) ,"     30       2")
+    lines<-c(head,vals_th,tail)
+  }
+
+  
+  writeLines(lines,paste0(projektpfad,"FIT.IN"))
+}
+
+########################################
+#read fit.out
+
+fit.out<-function(projektpfad=projektpfad2){
+  lines<-readLines(paste0(projektpfad,"Fit.out"))
+  results<-grep("final results",lines)
+  res_list<-strsplit(lines[(results+4):(results+12)],"\\s+")
+  pars<-as.data.frame(do.call("cbind",res_list))[3,]
+  colnames(pars)<-paste0(rep(c("alpha","n","ks"),3),rep(c("","2","_bot"),each=3))
+  return(pars)
+}
 ######################################
 #function to set read Hydrus outputfile
 
@@ -205,27 +273,29 @@ read_hydrus.out<-function(obs=all,treat=17,projektpfad=projektpfad1,UNSC=T){
     # 
     # q_approx<-as.data.frame(apply(vals_mod[vals_mod$tiefe==tiefenstufen[5],c(1:2,ncol(vals_mod))],2,function(x) approx(vals_mod$t_min[vals_mod$tiefe==tiefenstufen[5]],x,xout=t_min)$y))
     
-    modelled_approx<-vals_mod
-    
     
     if(treat=="all"){
       sub<-all[,c(1:3,6,11,17)]
       source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
       events<-event()
       sub$t_min<-as.numeric(difftime(all$date,events$start[2],units = "min"))
-      sub<-sub[sub$t_min%%10==0,]
+      
     }else{
     sub<-subset(obs,treatment==treat&tiefe%in%tiefenstufen)}
-    sub<-merge(sub,modelled_approx,by=c("t_min","tiefe"),all=T)
+    sub<-sub[sub$t_min%%10==0,]
+    sub<-merge(sub,vals_mod,by=c("t_min","tiefe"),all=T)
     #sub<-merge(sub,q_approx,by=c("t_min","tiefe"),all=T)
     
     rmse_theta<-sqrt(mean((sub$theta-sub$theta_mod)^2,na.rm = T))
-    rmse_q<-sqrt(mean((sub$q_interpol-sub$q_mod/5)^2,na.rm = T))
+    rmse_q<-sqrt(mean((sub$q_interpol*5-sub$q_mod)^2,na.rm = T))
     if(UNSC==T){
       rmse_CO2<-sqrt(mean((sub$CO2_raw-sub$CO2_mod)^2,na.rm = T))
-      rmse<-rmse_theta+rmse_CO2+rmse_q
+      #rmse<-rmse_theta/sd(sub$theta,na.rm = T)^2+rmse_CO2/sd(sub$CO2_raw,na.rm = T)^2+rmse_q/sd(sub$q_interpol*5,na.rm = T)^2
+      rmse<-rmse_CO2
+      #rmse<-rmse_theta+rmse_CO2+rmse_q
     }else{
-      rmse<-rmse_theta+rmse_q
+      #rmse<-rmse_theta+rmse_q
+      rmse<-rmse_theta/sd(sub$theta,na.rm = T)^2+rmse_q/sd(sub$q_interpol*5,na.rm = T)^2
     }
     return(list(sub,rmse))}else{
       return(list(NA,NA))
