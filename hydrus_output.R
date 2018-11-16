@@ -30,20 +30,20 @@ selector.in(params = data.frame(thr=0.08,
                    ths=c(0.75,0.63),
                    alpha=c(0.65,0.55),
                    n=c(1.8,1.8),
-                   ks=c(1,1),
+                   ks=c(0.05,0.05),
                    thr_bot=c(0.05),
                    ths_bot=c(0.6),
                    alpha_bot=c(0.6),
                    n_bot=c(1.8),
-                   ks_bot=c(0.2),
+                   ks_bot=c(0.002),
                    l=0.5,
-                   hseep = -100),
+                   hseep = 0),
             co2_params =data.frame(p_opt=0.001,
                        act_en=6677,
                        h_opt=-50,
                        h_crit=-10^6),
-            tmax = 4000,
-            free_drain = T,
+            tmax = 6000,
+            free_drain = F,
             print_times = 100)
 
 # selector.in(params = pars,
@@ -54,7 +54,7 @@ selector.in(params = data.frame(thr=0.08,
 #             tmax = 4000)
 
 #selector.in(params = params,n_mats = 2)
-atmos.in(17,180,4000)
+atmos.in(17,180,6000)
 profile.in(n_nodes = 18,Mat = c(rep(1,10),rep(2,7),3))
 hydrus.exe(sleep = 1)
 
