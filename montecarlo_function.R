@@ -68,7 +68,9 @@ monte_carlo<-function(nr=100,#anzahl Modellläufe
     }else{
       par<-as.data.frame(apply(ranges, 2, function(x) runif(nr,x[1],x[2])))
     }
-
+  
+  #Parameter auf 3 signifikante Nachkommastellen Runden
+  par<-signif(par,3)
   #file enstsprechend zu UNSC == T/F auswählen
   file<-ifelse(UNSAT==T,"undisturbed","undisturbed2")    
   
@@ -99,7 +101,7 @@ monte_carlo<-function(nr=100,#anzahl Modellläufe
            projektpfad = pfad)
   
   #profile.in funktion ausführen
-  profile.in(projektpfad = pfad,Mat = c(rep(1,10),rep(2,7),3))
+  profile.in(projektpfad = pfad,Mat = c(rep(1,7),rep(2,10),3))
   
   #Vektoren für RMSE & NSE anlegen
   rmse<-rep(NA,nr)
@@ -110,6 +112,7 @@ monte_carlo<-function(nr=100,#anzahl Modellläufe
     
     #Parametersatz i mit den fix-Parametern zusammenfügen
     pars<-cbind(par[i,],fixed)
+    
     
     #selector.in funktion mit dem i-ten Parametersatz
     selector.in(params = pars,
@@ -143,7 +146,7 @@ monte_carlo<-function(nr=100,#anzahl Modellläufe
   mc<-list(rmse,par,nse)
   #falls 
   if(nr>100){
-  save(mc,file = paste0(mcpfad,"mc_out-nr:",nr,"-",format(Sys.time(),"%m-%d_%H:%M"),".R"))}
+  save(mc,file = paste0(mcpfad,"mc_out-nr_",nr,"-",format(Sys.time(),"%m-%d_%H.%M"),".R"))}
   
   #ausgabe der Parameter & Objective Function
     return(mc)
@@ -153,13 +156,54 @@ monte_carlo<-function(nr=100,#anzahl Modellläufe
 mc_out<-function(fixed,
                  loadfile,
                  treat="all",
-                 sleep=3){
-  
+                 sleep=3,
+                 ndottys=200,
+                 free_drain=F){
+  mcpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/"
+  plotpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/abbildungen/plots/mc/"
   load(file = paste0(mcpfad,loadfile,".R"))
   
   par<-mc[[2]]
   rmse<-mc[[1]]
-  #nse<-mc[[3]]
+  nse<-mc[[3]]
+  
+  library(ggplot2)
+  
+  ##################################
+  #export dottyplots for RMSE
+  ##################################
+  
+  best.100<-sort(rmse)[ndottys]
+  pargood<-par[rmse<best.100&!is.na(rmse),]
+  rmsegood<-rmse[rmse<best.100&!is.na(rmse)]
+  dotty_rmse<-cbind(rmsegood,pargood)
+  
+  dotty_melt<-data.table::melt(dotty_rmse,id=1)
+  dotty_melt$variable<-as.character(dotty_melt$variable)
+  dotty_melt<-dotty_melt[order(dotty_melt$variable),]
+  
+  ggplot()+geom_point(data=dotty_melt,aes(value,rmsegood))+geom_point(data=subset(dotty_melt,rmsegood==min(rmsegood)),aes(value,rmsegood),col=2)+facet_wrap(~variable,scales = "free")+ggsave(paste0(plotpfad,"dottyplots/RMSE/dotty_",loadfile,".pdf"))
+  
+  
+  ##################################
+  #export dottyplots for NSE
+  ##################################
+  
+  best.nse<-sort(nse,decreasing = T)[ndottys]
+  pargood<-par[nse>best.nse&!is.na(nse),]
+  nsegood<-nse[nse>best.nse&!is.na(nse)]
+  
+  dotty_nse<-cbind(nsegood,pargood)
+  
+  dotty_melt<-data.table::melt(dotty_nse,id=1)
+  dotty_melt$variable<-as.character(dotty_melt$variable)
+  dotty_melt<-dotty_melt[order(dotty_melt$variable),]
+  
+  ggplot()+geom_point(data=dotty_melt,aes(value,nsegood))+geom_point(data=subset(dotty_melt,nsegood==max(nsegood)),aes(value,nsegood),col=2)+facet_wrap(~variable,scales = "free")+ggsave(paste0(plotpfad,"dottyplots/NSE/dotty_",loadfile,".pdf"))
+  
+  #######################################
+  # export  mod vs. obs data plots
+  #######################################
   
   pars<-cbind(par[which.min(rmse),],fixed)
   
@@ -167,8 +211,11 @@ mc_out<-function(fixed,
               UNSC=T,
               sleep = sleep,
               treat = treat,
-              taskkill=T)[[1]]
+              taskkill=T,
+              free_drain=free_drain)[[1]]
   
+  
+  out$tiefe<-as.numeric(out$tiefe)
   
   ggplot(subset(out,tiefe%in%tiefenstufen))+geom_point(aes(t_min,theta,col="obs"),na.rm = T)+geom_line(aes(t_min,theta_mod,col="mod"),na.rm = T)+facet_wrap(~tiefe,ncol=1)+theme_classic()+labs(x="zeit [min]",y=expression(theta*" [Vol %]"))+ggsave(paste0(plotpfad,"theta/thetas_treat-",treat,"-",loadfile,".pdf"))
   

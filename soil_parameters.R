@@ -9,7 +9,7 @@ soil<-aggregate(soil.xls[,4:41],list(soil.xls$Horizon),function(x) mean(x,na.rm 
 
 soil$Dichte
 
-#muafit<-function(data){
+muafit<-function(data){
   mua<-nls(th_norm~(1+(-alpha*psi)^n)^-(1-1/n),data=data,start = list(alpha=0.02,n=1.2))
   alpha<-coef(mua)[1]
   n<-coef(mua)[2]

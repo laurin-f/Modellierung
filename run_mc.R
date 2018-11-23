@@ -10,7 +10,7 @@ load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/bodenparameter/params.R")
 source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/hydrus_input.R")
 source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/montecarlo_function.R")
 
-
+library(ggplot2)
 
 tmax_all<-as.numeric(difftime(max(all$date),min(all$date),units = "min"))
 
@@ -268,76 +268,188 @@ ggplot(subset(out,tiefe%in%c(-10,-14)))+geom_point(aes(t_min,CO2_raw,col="obs"),
 
 
 ###############################################################
-#with changing water paramters
+#co2 with changing ks paramters
 ###############################################################
 
 fixed_co2<-data.frame(act_en=6677,
-                      h_opt=-50,
                       h_crit=-10^6,
                       michaelis=0.19,
-                      DispW=0.00106181)
+                      DispW=0.00106181,
+                      Disper=5)
 
-
-
-mc<-monte_carlo(nr=100,sleep=7,ranges=data.frame(alpha=c(0.05,0.75),
-                                                                    n=c(1.5,4.5),
-                                                                    ks=c(0.1,3),
-                                                                    alpha2=c(0.05,0.75),
-                                                                    n2=c(1.5,4.5),
-                                                                    ks2=c(0.1,3),
-                                                                    alpha_bot=c(0.06,0.5),
-                                                                    n_bot=c(1.2,1.9),
-                                                                    ks_bot=c(0.001,0.002),
-                                                                    p_opt=c(0.0001,0.01),
-                                                                    DispA=c(0.1,9),
-                                                  Disper=c(1,10)),
-                fixed=cbind(fixed,fixed_co2),
+fixed_wp<-data.frame(alpha=0.7,
+                     n=2,
+                     alpha2=0.7,
+                     n2=1.5,
+                     alpha_bot=0.4,
+                     n_bot=1.8)
+fixed<-data.frame(thr=0.11,
+                  ths=0.75,
+                  thr2=0.13,
+                  ths2=0.64,
+                  thr_bot=0.13,
+                  ths_bot=0.64,
+                  hseep=-100,
+                  l=0.5,
+                  bulk=0.7561984,
+                  bulk2=1.1480438,
+                  difuz=0,
+                  difuz2=0,
+                  disperl=1.7,
+                  disperl2=1.7,
+                  cec=0,
+                  cec2=0,
+                  calcit=0.2,
+                  calcit2=0.2)
+mc<-monte_carlo(nr=200,sleep=5,ranges=data.frame(ks=c(0.001,2),
+                                                 ks2=c(0.001,0.05),
+                                                 ks_bot=c(0.0001,0.01),
+                                                 p_opt=c(0.00001,0.0002),
+                                                 DispA=c(0.1,6),
+                                                 h_opt=c(-80,-10),
+                                                 p_distr=c(0.01,0.2)),
+                                                 #hseep=c(-100,-20)),
+                fixed=cbind(fixed,fixed_co2,fixed_wp),
                 treatm = "all",
-                fit.tiefe = c(-10,-14))
+                free_drain = T,
+                fit.tiefe = tiefenstufen)
+
 
 #save(mc,file = paste0(mcpfad,"mc_wp_co2-",Sys.Date(),".R"))
-
-load(file = paste0(mcpfad,"mc_wp_co2-2018-11-21",".R"))
-
-par<-mc[[2]]
-rmse<-mc[[1]]
+#loadfile<-"mc_out-nr_700-11-23_14.20"
+#load(file = paste0(mcpfad,loadfile,".R"))
 
 par<-mc[[2]]
 rmse<-mc[[1]]
 nse<-mc[[3]]
 
-best.100<-sort(rmse)[300]
-pargood<-par[rmse<best.100,]
-rmsegood<-rmse[rmse<best.100]
-par(mfrow=c(3,4),mar=c(3,4,2,1))
-for(i in 1:ncol(pargood)) plot(pargood[,i],rmsegood,main = colnames(par)[i])
-par(mfrow=c(1,1))
+##################################
+#dottyplots for RMSE
+##################################
 
-best.nse<-sort(nse,decreasing = T)[300]
-pargood<-par[nse>best.nse,]
-nsegood<-nse[nse>best.nse]
-par(mfrow=c(3,4),mar=c(3,4,2,1))
-for(i in 1:ncol(pargood)) plot(pargood[,i],nsegood,main = colnames(par)[i])
-par(mfrow=c(1,1))
+best.100<-sort(rmse)[100]
+pargood<-par[rmse<best.100&!is.na(rmse),]
+rmsegood<-rmse[rmse<best.100&!is.na(rmse)]
+dotty_rmse<-cbind(rmsegood,pargood)
 
-pars<-cbind(par[which.min(rmse),],fixed,fixed_co2)
-pars$Disper<-5
+dotty_melt<-data.table::melt(dotty_rmse,id=1)
+dotty_melt$variable<-as.character(dotty_melt$variable)
+dotty_melt<-dotty_melt[order(dotty_melt$variable),]
 
-mc_out(cbind(fixed,fixed_co2),loadfile = "mc_wp_co2-2018-11-21",treat = 17)
+ggplot()+geom_point(data=dotty_melt,aes(value,rmsegood))+geom_point(data=subset(dotty_melt,rmsegood==min(rmsegood)),aes(value,rmsegood),col=2)+facet_wrap(~variable,scales = "free")
 
-out<-hydrus(params=pars)[[1]]
+##################################
+#dottyplots for NSE
+##################################
+
+best.nse<-sort(nse,decreasing = T)[100]
+pargood<-par[nse>best.nse&!is.na(nse),]
+nsegood<-nse[nse>best.nse&!is.na(nse)]
+
+dotty_nse<-cbind(nsegood,pargood)
+
+dotty_melt<-data.table::melt(dotty_nse,id=1)
+dotty_melt$variable<-as.character(dotty_melt$variable)
+dotty_melt<-dotty_melt[order(dotty_melt$variable),]
+
+ggplot()+geom_point(data=dotty_melt,aes(value,nsegood))+geom_point(data=subset(dotty_melt,nsegood==max(nsegood)),aes(value,nsegood),col=2)+facet_wrap(~variable,scales = "free")
+
+
+pars<-cbind(par[which.min(rmse),],fixed,fixed_co2,fixed_wp)
+parsnse<-cbind(par[which.max(nse),],fixed,fixed_co2,fixed_wp)
+
+
+mc_out(cbind(fixed,fixed_co2,fixed_wp),loadfile = "mc_out-nr_200-11-23_16.53",treat = "all",ndottys = 100,free_drain = T)
+
+out<-hydrus(params=pars,sleep = 4,dtmin = 0.0001,dtmax = 10)[[1]]
+#out<-hydrus(params=parsnse,sleep = 10,dtmin = 0.0001,dtmax = 10)[[1]]
+sort(out$tiefe)
 
 ggplot(subset(out,tiefe%in%tiefenstufen))+geom_point(aes(t_min,theta,col="obs"),na.rm = T)+geom_line(aes(t_min,theta_mod,col="mod"),na.rm = T)+facet_wrap(~tiefe,ncol=1)
 
 ggplot(subset(out,tiefe==-17))+geom_point(aes(t_min,q_interpol*5,col="obs"),na.rm = T)+geom_line(aes(t_min,q_mod,col="mod"),na.rm = T)
 
 
-ggplot(subset(out,tiefe%in%c(-10,-14)))+geom_point(aes(t_min,CO2_raw,col="obs"),na.rm = T)+geom_point(aes(t_min,CO2_mod,col="mod"),na.rm = T)
+ggplot(subset(out,tiefe%in%tiefenstufen))+geom_point(aes(t_min,CO2_raw,col="obs"),na.rm = T)+geom_point(aes(t_min,CO2_mod,col="mod"),na.rm = T)+facet_wrap(~tiefe)
+
+###############################################################
+#co2 with changing water paramters
+###############################################################
+
+fixed_co2<-data.frame(act_en=6677,
+                      h_crit=-10^6,
+                      michaelis=0.19,
+                      DispW=0.00106181,
+                      Disper=5)
+
+
+mc<-monte_carlo(nr=700,sleep=5,ranges=data.frame(alpha=c(0.1,0.75),
+                                                  n=c(1.5,4.5),
+                                                  ks=c(0.001,1),
+                                                  alpha2=c(0.1,0.75),
+                                                  n2=c(1.5,4.5),
+                                                  ks2=c(0.001,0.05),
+                                                  alpha_bot=c(0.1,0.5),
+                                                  n_bot=c(1,1.9),
+                                                  ks_bot=c(0.0001,0.01),
+                                                  p_opt=c(0.00001,0.0005),
+                                                  DispA=c(0.1,6),
+                                                  h_opt=c(-80,-10),
+                                                  p_distr=c(0.01,0.2)),
+                fixed=cbind(fixed,fixed_co2),
+                treatm = "all",
+                free_drain = F,
+                fit.tiefe = c(-10,-14))
+
+mc2<-mc
+#save(mc,file = paste0(mcpfad,"mc_wp_co2-",Sys.Date(),".R"))
+loadfile<-"mc_out-nr_700-11-23_14.20"
+load(file = paste0(mcpfad,loadfile,".R"))
+
+par<-mc[[2]]
+rmse<-mc[[1]]
+nse<-mc[[3]]
+
+best.100<-sort(rmse)[200]
+pargood<-par[rmse<best.100,]
+rmsegood<-rmse[rmse<best.100]
+par(mfrow=c(4,4),mar=c(3,4,2,1))
+for(i in 1:ncol(pargood)){ plot(pargood[,i],rmsegood,main = colnames(par)[i])
+points(par[which.min(rmse),i],rmse[which.min(rmse)],col=2)}
+par(mfrow=c(1,1))
+
+best.nse<-sort(nse,decreasing = T)[100]
+pargood<-par[nse>best.nse,]
+nsegood<-nse[nse>best.nse]
+par(mfrow=c(4,4),mar=c(3,4,2,1))
+for(i in 1:ncol(pargood)){ plot(pargood[,i],nsegood,main = colnames(par)[i])
+points(par[which.max(nse),i],nse[which.max(nse)],col=2)}
+par(mfrow=c(1,1))
+
+pars<-cbind(par[which.min(rmse),],fixed,fixed_co2)
+parsnse<-cbind(par[which.max(nse),],fixed,fixed_co2)
+
+ggplot()+geom_point(pars[,1:9],aes(1:9,))
+plot(1:9,pars[,1:9],ylim=c(0,4))
+points(1:9,parsnse[,1:9],col=2)
+#pars$Disper<-5
+mc_out(cbind(fixed,fixed_co2),loadfile = "mc_wp_co2-2018-11-23.2",treat = "all")
+
+out<-hydrus(params=pars,sleep = 4,dtmin = 0.0001,dtmax = 10)[[1]]
+#out<-hydrus(params=parsnse,sleep = 10,dtmin = 0.0001,dtmax = 10)[[1]]
+
+
+ggplot(subset(out,tiefe%in%tiefenstufen))+geom_point(aes(t_min,theta,col="obs"),na.rm = T)+geom_line(aes(t_min,theta_mod,col="mod"),na.rm = T)+facet_wrap(~tiefe,ncol=1)
+
+ggplot(subset(out,tiefe==-17))+geom_point(aes(t_min,q_interpol*5,col="obs"),na.rm = T)+geom_line(aes(t_min,q_mod,col="mod"),na.rm = T)
+
+
+ggplot(subset(out,tiefe%in%tiefenstufen))+geom_point(aes(t_min,CO2_raw,col="obs"),na.rm = T)+geom_point(aes(t_min,CO2_mod,col="mod"),na.rm = T)+facet_wrap(~tiefe)
 
 ############################################################
 #everything changes
 ########################################################
-2000*17/3600
+
 mc<-monte_carlo(nr=3000,sleep=15,ranges=data.frame(alpha=c(0.005,0.75),
                                                                     n=c(1.2,4.5),
                                                                     ks=c(0.01,3),
@@ -385,7 +497,7 @@ rmse<-mc[[1]]
 
 mc_out(data.frame(l=0.5),loadfile = "mc_alle_wp_co2-2018-11-22",treat = "all")
   
-  loadfile<-"mc_alle_wp_co2-2018-11-22"
+  loadfile<-"mc_2018-11-23"
   load(file = paste0(mcpfad,loadfile,".R"))
   
   par<-mc[[2]]
@@ -413,7 +525,7 @@ pars$l<-0.5
 
 ###################################################
 #
-out<-hydrus(params = pars,sleep = 3)[[1]]
+out<-hydrus(params = pars,sleep = 10)[[1]]
 
 ggplot(subset(out,tiefe%in%c(-10,-14)))+geom_point(aes(t_min,CO2_raw,col="obs"),na.rm = T)+geom_point(aes(t_min,CO2_mod,col="mod"),na.rm = T)
 

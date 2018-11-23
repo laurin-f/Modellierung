@@ -212,8 +212,10 @@ selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen 
     #CO2-Transport Papramter werden übergeben 
     co2_pos3<-grep("DispA",lines)+1
     lines[co2_pos3:(co2_pos3+2)]<-paste(" ",params$DispA," ",params$DispW," ",params$Disper)
-  
-  
+    
+    co2_pos4<-grep(" Alpha",lines)+1
+    lines[co2_pos4]<-format(params$p_distr,width = 13)
+
   #####################################
   #Solute Parameter
   #####################################
@@ -651,7 +653,7 @@ hydrus<-function(params=data.frame(alpha=0.65,#default Parametersatz
                  free_drain=F,#soll free drainage lower boundary condition sein
                  taskkill = F,
                  inverse=F,#soll Inverse Solution verwendet werden dann =T
-                 dtmin=0.1,
+                 dtmin=0.0001,
                  dtmax=10){
   #wenn treat ="all"
   if(treat=="all"){
@@ -675,7 +677,7 @@ hydrus<-function(params=data.frame(alpha=0.65,#default Parametersatz
   pfad<-ifelse(UNSC==T,"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/undisturbed/","C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/undisturbed2/")
   
   #profile.in funktion ausführen
-  profile.in(projektpfad = pfad,Mat = c(rep(1,10),rep(2,7),3))
+  profile.in(projektpfad = pfad,Mat = c(rep(1,7),rep(2,10),3))
   
   #atmos.in funktion ausführen
   hydruspfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/"
