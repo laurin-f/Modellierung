@@ -18,6 +18,10 @@ hydrus.exe<-function(file="undisturbed",#auf welche datei soll hydrus zugreifen
                      #funktioniert nicht so gut)
                      Inverse=F){
   
+  #pfade definieren
+  hydruspfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/"
+  programmpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/programme/Hydrus-1D 4.xx/"
+  
   #wenn die Hydrus.exe von extern ausgeführt wird verwendet si die datei die in der Datei
   #LEVEL_01.dir steht
   
@@ -49,13 +53,14 @@ hydrus.exe<-function(file="undisturbed",#auf welche datei soll hydrus zugreifen
     script<-sub("CALC","CLCI",script)
   }
   
+  scriptname<-ifelse(UNSC==T,"hydrus_UNSC_exe.ps1","hydrus_CALC_exe.ps1")
   #der Powershell-Code wird in einer scriptdatei .ps1 gespeichert
-  writeLines(script,paste0(scriptpath,"hydrus_exe2.ps1"))
+  writeLines(script,paste0(scriptpath,scriptname))
   
   #über  shell wird der Commandline übergeben, dass powershell das script ausführen soll
   #-executionpoloicy bypass wird verwendet, 
   #da im powershell im default keine scripte ausführen darf
-  shell(paste0("powershell.exe -noprofile -executionpolicy bypass -file ",scriptpath,"hydrus_exe2.ps1"))}#ende function
+  shell(paste0("powershell.exe -noprofile -executionpolicy bypass -file ",scriptpath,scriptname))}#ende function
 
 
 ######################################
@@ -149,6 +154,7 @@ atmos.in<-function(int=0,#Niederschlagsintensität in mm/h
 
 ######################################
 #function to set Soil Parameters
+#######################################
 
 selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen als colname
                       UNSC=T,#soll UNSATCHEM verwendet werden?
@@ -157,11 +163,15 @@ selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen 
                       print_times=100,#anzahl an ausgaben der Calcium conc.
                       #soll als lower Boundary Free Drain oder Seepage Face verwendet werden
                       free_drain=F,
-                      dtmin=0.1,#kleinster Zeitschritt
+                      dtmin=0.0001,#kleinster Zeitschritt
                       dtmax=10){#größter Zeitschritt
   
   #die Selector.IN datei wird eingelesen
   lines<-readLines(paste0(projektpfad,"SELECTOR.IN"))
+  
+  #####################################
+  #Wasser Parameter
+  #####################################
   
   #die Paramter der ersten schicht werden zusammengefügt
   vals<-paste(params$thr,params$ths,params$alpha,params$n,params$ks,params$l)
@@ -184,6 +194,10 @@ selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen 
   lines[soil_param_pos+1]<-vals2[1]
   lines[grep("thr",lines)+3]<-vals_bot[1] 
   
+  ################################
+  #set CO2 parameter
+  ################################
+  
   #wenn UNSATCHEM verwendet wird
   if(UNSC==T){
     #position der CO2 paramter in der Inputdatei werden bestimmt
@@ -197,10 +211,21 @@ selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen 
     
     #CO2-Transport Papramter werden übergeben 
     co2_pos3<-grep("DispA",lines)+1
-    lines[co2_pos3:(co2_pos3+2)]<-paste(" ",params$DispA," ",params$DispW,"     5")
-  }#ende if UNSATCHEM 
+    lines[co2_pos3:(co2_pos3+2)]<-paste(" ",params$DispA," ",params$DispW," ",params$Disper)
   
-
+  
+  #####################################
+  #Solute Parameter
+  #####################################
+    ca_vals<-paste(" ",params$bulk,params$difuz,params$disperl,params$cec,params$calcit," 0  0  0  0  0")
+    ca_vals2<-paste(" ",params$bulk2,params$difuz2,params$disperl2,params$cec2,params$calcit2," 0  0  0  0  0")
+    ca_pos1<-grep("Bulk.d.",lines)+1
+    lines[ca_pos1]<-ca_vals
+    lines[(ca_pos1+1):(ca_pos1+2)]<-ca_vals2}#ende if UNSATCHEM 
+  #####################################
+  #lower boundary
+  #####################################
+  
   #wenn free drain verwendet werden soll
   if(free_drain==T){
     #in der datei ein t an die stelle die für free drain steht
@@ -212,7 +237,11 @@ selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen 
     
   #den Gesamtzeitraum der Simulation in die nötige Stelle schreiben
   lines[grep(" tMax",lines)+1]<-paste("          0       ",tmax)
- 
+  
+  #########################################
+  #print times
+  #########################################
+  
   #print times, dtmin & dtmax an die nötige Stelle
   lines[grep("MPL",lines)+1]<-paste("      0.001         ",dtmin,"          ",dtmax,"     1.3     0.7     3     7    ",print_times)
   
@@ -259,6 +288,7 @@ selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen 
 
 ######################################
 #function to set Profile Parameters
+####################################
 
 profile.in<-function(n_nodes=18,#Anzahl Knoten
                      th=seq(0.11,0.2,len=18),#initial theta werte
@@ -307,6 +337,7 @@ profile.in<-function(n_nodes=18,#Anzahl Knoten
 
 ############################################
 #function to write obs data fit.in
+##########################################
 
 fit.in<-function(obs=all,#Messungen
                  treat=17,#Beregnungsintensität oder "all"
@@ -385,6 +416,7 @@ fit.in<-function(obs=all,#Messungen
 
 ########################################
 #read fit.out
+##########################################
 
 fit.out<-function(projektpfad=projektpfad2){
   #Fit.out einlesen
@@ -609,13 +641,18 @@ hydrus<-function(params=data.frame(alpha=0.65,#default Parametersatz
                                    h_crit=-10^6,
                                    michaelis=0.19,
                                    DispA=9.54,
-                                   DispW=0.0016),
+                                   DispW=0.0016,
+                                   Disper=5),
                  treat="all",#intensität oder "all"
                  UNSC=T,#UNSATCHEM modul an/aus
                  obs=all,#Messwerte
                  sleep=3,#sleeptime für die .exe
                  read=T,#soll der output gelesen werden
-                 inverse=F){#soll Inverse Solution verwendet werden dann =T
+                 free_drain=F,#soll free drainage lower boundary condition sein
+                 taskkill = F,
+                 inverse=F,#soll Inverse Solution verwendet werden dann =T
+                 dtmin=0.1,
+                 dtmax=10){
   #wenn treat ="all"
   if(treat=="all"){
     #wird für tmax  die zeitdifferenz vom ersten zum letzten Messwert in minuten verwendet
@@ -645,14 +682,20 @@ hydrus<-function(params=data.frame(alpha=0.65,#default Parametersatz
   atmos.in(int=treat,event = t_event,total_t = tmax,alle=alle,projektpfad = pfad)
   
   #selector.in funktion ausführen
-  selector.in(params=params,projektpfad = pfad,UNSC=UNSC,tmax = tmax)
+  selector.in(params=params,
+              projektpfad = pfad,
+              UNSC=UNSC,
+              tmax = tmax,
+              free_drain = free_drain,
+              dtmin = dtmin,
+              dtmax=dtmax)
   
   #file enstsprechend zu UNSC == T/F auswählen
   file<-ifelse(UNSC==T,"undisturbed","undisturbed2")
   
   #hydrus.exe ausführen
   programmpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/programme/Hydrus-1D 4.xx/"
-  hydrus.exe(file = file,UNSC=UNSC,sleep = sleep,Inverse = inverse)
+  hydrus.exe(file = file,UNSC=UNSC,sleep = sleep,Inverse = inverse,taskkill = taskkill)
   
   #wenn read  = TRUE den output einlesen ...
   if(read==T){
