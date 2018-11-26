@@ -13,20 +13,22 @@ hydrus.exe<-function(file="undisturbed",#auf welche datei soll hydrus zugreifen
                      #wenn taskkill=T dann wird das fenster von hydrus nicht geöffnet 
                      #und das modell wird nach der gesetzten sleeptime abgebrochen, 
                      #wichtig für Monte Carlo
-                     taskkill=F,
+                     taskkill=F,  
+                     #pfade definieren
+                     #hydruspfad="C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/",
+                     programmpfad="C:/Users/ThinkPad/Documents/Masterarbeit/programme/Hydrus-1D_4/",
                      #wenn Inverse=T wird die inverse Parameterschätzung verwendet 
                      #funktioniert nicht so gut)
-                     Inverse=F){
-  
-  #pfade definieren
-  hydruspfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/"
-  programmpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/programme/Hydrus-1D 4.xx/"
+                     Inverse=F,
+                     wait=T){
+
+
   
   #wenn die Hydrus.exe von extern ausgeführt wird verwendet si die datei die in der Datei
   #LEVEL_01.dir steht
   
   #Level_01.dir einlesen
-  level_01<-readLines(paste0(hydruspfad,"Level_01.dir"))
+  level_01<-readLines(paste0(scriptpath,"Level_01.dir"))
   #filename reinschreiben
   level_01<-sub("file",file,level_01)
   #geänderte Datei schreiben
@@ -43,6 +45,8 @@ hydrus.exe<-function(file="undisturbed",#auf welche datei soll hydrus zugreifen
   
   #im Powershell-Code wird die gewünschte sleeptime eingefügt
   script<-sub("secs",sleep,script)
+  #im Powershell-Code wird die gewünschte Pfad eingefügt
+  script<-sub("programmpfad",gsub("/","\\\\\\\\",programmpfad),script)
   #wenn kein UNSATCHEM verwendet werden soll...
   if(UNSC==F){
     #wird im Code UNSC durch CALC ersetzt 
@@ -55,12 +59,13 @@ hydrus.exe<-function(file="undisturbed",#auf welche datei soll hydrus zugreifen
   
   scriptname<-ifelse(UNSC==T,"hydrus_UNSC_exe.ps1","hydrus_CALC_exe.ps1")
   #der Powershell-Code wird in einer scriptdatei .ps1 gespeichert
-  writeLines(script,paste0(scriptpath,scriptname))
+  #writeLines(script,paste0(scriptpath,scriptname))
+  writeLines(script,paste0(programmpfad,scriptname))
   
   #über  shell wird der Commandline übergeben, dass powershell das script ausführen soll
   #-executionpoloicy bypass wird verwendet, 
   #da im powershell im default keine scripte ausführen darf
-  shell(paste0("powershell.exe -noprofile -executionpolicy bypass -file ",scriptpath,scriptname))}#ende function
+  shell(paste0("powershell.exe -noprofile -executionpolicy bypass -file ",programmpfad,scriptname),wait=wait)}#ende function
 
 
 ######################################
@@ -680,7 +685,7 @@ hydrus<-function(params=data.frame(alpha=0.65,#default Parametersatz
   profile.in(projektpfad = pfad,Mat = c(rep(1,7),rep(2,10),3))
   
   #atmos.in funktion ausführen
-  hydruspfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/"
+  #hydruspfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/"
   atmos.in(int=treat,event = t_event,total_t = tmax,alle=alle,projektpfad = pfad)
   
   #selector.in funktion ausführen

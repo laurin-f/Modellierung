@@ -1,24 +1,46 @@
+#package um .xls einzulesen
 library(readxl)
+#pfad des Datei
 soilpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/bodenparameter/"
 
+#sheet 3 der .xls einlesen
 soil.xls<-read_xls(paste0(soilpfad,"Soil physical data Hartheim.xls"),sheet = 3)
+#sheet 2 der .xls einlesen
 soil.xls2<-read_xls(paste0(soilpfad,"Soil physical data Hartheim.xls"),sheet = 2)
-pf<-aggregate(soil.xls2[,3:7],list(soil.xls2$Horizon,soil.xls2$hPa),function(x) mean(x,na.rm = T))
-pfs<-subset(pf,Group.1 %in% c("Ah1","Ah2")&pf!=7)
-soil<-aggregate(soil.xls[,4:41],list(soil.xls$Horizon),function(x) mean(x,na.rm = T))
 
+#aggregieren der Bodenparameter je Horizont
+pf<-aggregate(soil.xls2[,3:7],list(soil.xls2$Horizon,soil.xls2$hPa),function(x) mean(x,na.rm = T))
+#nur Ah1 und Ah2 werden gebraucht
+pfs<-subset(pf,Group.1 %in% c("Ah1","Ah2")&pf!=7)
+
+#aggregieren der Horizonte
+soil<-aggregate(soil.xls[,4:41],list(soil.xls$Horizon),function(x) mean(x,na.rm = T))
+#bulk density in g/cm3
 soil$Dichte
 
+###########################################
+#funktion um Bodenretentionskurve zu fitten
 muafit<-function(data){
+  #fitten der Parameter alpha und n der Mualem van genuchten gleichung
   mua<-nls(th_norm~(1+(-alpha*psi)^n)^-(1-1/n),data=data,start = list(alpha=0.02,n=1.2))
+  #ausgabe der Parameter
   alpha<-coef(mua)[1]
   n<-coef(mua)[2]
+  #psi sequenz um gefittete Werte zu berechnen
   psi<-seq(min(data$psi),0,by=1)
+  #mit gefitteten Alpha und n theta_werte berechnen
   fit<-(1+(-alpha*psi)^n)^-(1-1/n)
   return(list(data.frame(psi,th_mod=fit),c(alpha,n)))}
 
+###############################
+#Parameter für Ah1 fitten
+#############################
+#alle Proben aus Ah1 auswählen sheet 2
 Ah1<-subset(soil.xls2,Horizon=="Ah1"&pf!=7)
+
+#alle Proben aus Ah1 auswählen sheet 3
 ths_Ah1<-subset(soil.xls,Horizon=="Ah1")
+#ths ist 
 ths_Ah1$ths<-ths_Ah1$PV/100
 
 Ah1$th<-Ah1$swc/100
@@ -57,6 +79,9 @@ ggplot()+geom_line(data=Ah1,aes(th_norm,pf,col=MG_ID))+geom_line(data=fit_Ah1,ae
 
 ggplot()+geom_line(data=Ah1,aes(th,pf,col=MG_ID))
 
+########################################
+#paramter für Ah2 fitten
+#######################################
 Ah2<-subset(soil.xls2,Horizon=="Ah2"&pf!=7)
 ths_Ah2<-subset(soil.xls,Horizon=="Ah2")
 ths_Ah2$ths<-ths_Ah2$PV/100
@@ -95,16 +120,21 @@ library(ggplot2)
 ggplot()+geom_line(data=Ah2,aes(th_norm,pf,col=MG_ID))+geom_line(data=fit_Ah2,aes(th_mod,log10(-psi),col=MG_ID))
 
 
-thr<-cbind(range(Ah1$thr),range(Ah2$thr))
-ths<-cbind(range(Ah1$ths),range(Ah2$ths))
+thr<-range(Ah1$thr)
+thr2<-range(Ah2$thr)
+ths<-range(Ah1$ths)
+ths2<-range(Ah2$ths)
 
-alpha<-cbind(ranges_Ah1[,1],ranges_Ah2[,1])
-n<-cbind(ranges_Ah1[,2],ranges_Ah2[,2])
+alpha<-ranges_Ah1[,1]
+alpha2<-ranges_Ah2[,1]
 
-#alpha<-c(coef(mua_ah1)[1],coef(mua_ah2)[1])
-#n<-c(coef(mua_ah1)[2],coef(mua_ah2)[2])
-#ths<-soil$PV[1:2]/100
-#thr<-soil$swc_15000hPa[1:2]/100
+n<-ranges_Ah1[,2]
+n2<-ranges_Ah2[,2]
+#The free-air diffusivity of CO2 is 0.152 cm2 s−1
+0.152*60
+plot(Ah1$pf,Ah1$Ds)
+plot()
+realistic_ranges<-data.frame(alpha,alpha2,thr,thr2,ths,ths2,n,n2)
 
 params<-data.frame(alpha=colMeans(alpha),n=colMeans(n),ths=colMeans(ths),thr=colMeans(thr),hseep=-100,l=0.5,ks=0.09)
-save(params,file=paste0(soilpfad,"params.R"))
+save(params,realistic_ranges,file=paste0(soilpfad,"params.R"))

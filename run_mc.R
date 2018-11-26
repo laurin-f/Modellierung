@@ -5,14 +5,14 @@ programmpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/programme/Hydrus-1D 4.xx
 mcpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/"
 plotpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/abbildungen/plots/mc/"
 load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
-load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/bodenparameter/params.R")
+#load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/bodenparameter/params.R")
 
 source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/hydrus_input.R")
 source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/montecarlo_function.R")
 
 library(ggplot2)
 
-tmax_all<-as.numeric(difftime(max(all$date),min(all$date),units = "min"))
+#tmax_all<-as.numeric(difftime(max(all$date),min(all$date),units = "min"))
 
 tiefenstufen<-c(-2,-6,-10,-14)
 ####################################
@@ -38,14 +38,6 @@ fixed<-data.frame(thr=0.11,
                   calcit2=0.2)
 
 
-atmos.in(alle=T,total_t = tmax_all, projektpfad = projektpfad2)
-#atmos.in(17,180,4000, projektpfad = projektpfad2)
-
-profile.in(n_nodes = 18,
-           th=seq(0.11,0.2,len=18),
-           Mat = c(rep(1,10),rep(2,7),3),
-           projektpfad = projektpfad2)
-
 #########################################################
 #mc mit wasserparametern
 ########################################################
@@ -66,7 +58,7 @@ mc<-monte_carlo(nr=10000,ranges=data.frame(alpha=c(0.2,0.75),
 
 #save(mc,file = paste0(mcpfad,"mc_wp",Sys.Date(),".R"))
 loadfile<-"mc_wp2018-11-21"
-load(file = paste0(mcpfad,loadfile,".R"))
+#load(file = paste0(mcpfad,loadfile,".R"))
 
 
 par<-mc[[2]]
@@ -91,7 +83,7 @@ pars<-cbind(par[which.min(rmse),],fixed)
 min(rmse,na.rm = T)
 
 out<-hydrus(params = pars,UNSC=F,sleep = 2)[[1]]
-mc_out(fixed=cbind(fixed,co2_params),loadfile = "mc_wp2018-11-21")
+mc_out(fixed=cbind(fixed,co2_params),loadfile = "mc_wp2018-11-21",free_drain = F,sleep = 5)
 
 
 ############################################################
@@ -165,6 +157,7 @@ pargood<-par[rmse<best.100,]
 rmsegood<-rmse[rmse<best.100]
 par(mfrow=c(4,4),mar=c(3,4,2,1))
 for(i in 1:16) plot(pargood[,i],rmsegood,main = colnames(par)[i])
+
 par(mfrow=c(1,1))
 
 best.nse<-sort(nse,decreasing = T)[300]
@@ -193,13 +186,26 @@ co2_params <- data.frame(p_opt=0.001,
                          michaelis=0.19,
                          DispA=9,
                          DispW=0.00106181,
-                         Disper=5)
+                         Disper=5,
+                         p_distr=0.105)
+fixed_soil<-data.frame(hseep=-100,
+                  l=0.5,
+                  bulk=0.7561984,
+                  bulk2=1.1480438,
+                  difuz=0,
+                  difuz2=0,
+                  disperl=1.7,
+                  disperl2=1.7,
+                  cec=0,
+                  cec2=0,
+                  calcit=0.2,
+                  calcit2=0.2)
 
 co2_pars<-cbind(pars,co2_params)
 
-mc_out(co2_pars,loadfile = "mc_alle_wp2018-11-21",treat = "all")
+mc_out(cbind(co2_params,fixed_soil),loadfile = "mc_alle_wp2018-11-21",treat = "all",free_drain = F)
 
-out<-hydrus(params = co2_pars,UNSC=T,sleep = 3,treat = 17)[[1]]
+out<-hydrus(params = cbind(co2_params,fixed_soil,pars),UNSC=T,sleep = 3,treat = 17)[[1]]
 
 
 ggplot(subset(out,tiefe%in%tiefenstufen))+geom_point(aes(t_min,theta,col="obs"),na.rm = T)+geom_line(aes(t_min,theta_mod,col="mod"),na.rm = T)+facet_wrap(~tiefe,ncol=1)+theme_classic()+labs(x="zeit [min]",y=expression(theta*" [Vol %]"))#+ggsave(paste0(plotpfad,"thetas_",loadfile,".pdf"))
@@ -283,24 +289,7 @@ fixed_wp<-data.frame(alpha=0.7,
                      n2=1.5,
                      alpha_bot=0.4,
                      n_bot=1.8)
-fixed<-data.frame(thr=0.11,
-                  ths=0.75,
-                  thr2=0.13,
-                  ths2=0.64,
-                  thr_bot=0.13,
-                  ths_bot=0.64,
-                  hseep=-100,
-                  l=0.5,
-                  bulk=0.7561984,
-                  bulk2=1.1480438,
-                  difuz=0,
-                  difuz2=0,
-                  disperl=1.7,
-                  disperl2=1.7,
-                  cec=0,
-                  cec2=0,
-                  calcit=0.2,
-                  calcit2=0.2)
+
 mc<-monte_carlo(nr=200,sleep=5,ranges=data.frame(ks=c(0.001,2),
                                                  ks2=c(0.001,0.05),
                                                  ks_bot=c(0.0001,0.01),
@@ -308,7 +297,7 @@ mc<-monte_carlo(nr=200,sleep=5,ranges=data.frame(ks=c(0.001,2),
                                                  DispA=c(0.1,6),
                                                  h_opt=c(-80,-10),
                                                  p_distr=c(0.01,0.2)),
-                                                 #hseep=c(-100,-20)),
+                                                 
                 fixed=cbind(fixed,fixed_co2,fixed_wp),
                 treatm = "all",
                 free_drain = T,
@@ -383,7 +372,7 @@ fixed_co2<-data.frame(act_en=6677,
                       Disper=5)
 
 
-mc<-monte_carlo(nr=700,sleep=5,ranges=data.frame(alpha=c(0.1,0.75),
+mc<-monte_carlo(nr=100,sleep=5,ranges=data.frame(alpha=c(0.1,0.75),
                                                   n=c(1.5,4.5),
                                                   ks=c(0.001,1),
                                                   alpha2=c(0.1,0.75),
@@ -398,12 +387,30 @@ mc<-monte_carlo(nr=700,sleep=5,ranges=data.frame(alpha=c(0.1,0.75),
                                                   p_distr=c(0.01,0.2)),
                 fixed=cbind(fixed,fixed_co2),
                 treatm = "all",
-                free_drain = F,
-                fit.tiefe = c(-10,-14))
+                free_drain = T,
+                fit.tiefe = tiefenstufen)
 
-mc2<-mc
+mc2<-mc_parallel(nr=400,sleep=5,ranges=data.frame(alpha=c(0.1,0.75),
+                                               n=c(1.5,4.5),
+                                               ks=c(0.001,1),
+                                               alpha2=c(0.1,0.75),
+                                               n2=c(1.5,4.5),
+                                               ks2=c(0.001,0.05),
+                                               alpha_bot=c(0.1,0.5),
+                                               n_bot=c(1,1.9),
+                                               ks_bot=c(0.0001,0.01),
+                                               p_opt=c(0.00001,0.0005),
+                                               DispA=c(0.1,6),
+                                               h_opt=c(-80,-10),
+                                               p_distr=c(0.01,0.2)),
+                fixed=cbind(fixed,fixed_co2))
+
+
 #save(mc,file = paste0(mcpfad,"mc_wp_co2-",Sys.Date(),".R"))
-loadfile<-"mc_out-nr_700-11-23_14.20"
+loadfile<-"mc_out-nr_20000-11-25_12.02"
+load(file = paste0(mcpfad,loadfile,".R"))
+
+loadfile<-"mc_temp"
 load(file = paste0(mcpfad,loadfile,".R"))
 
 par<-mc[[2]]
@@ -429,13 +436,9 @@ par(mfrow=c(1,1))
 pars<-cbind(par[which.min(rmse),],fixed,fixed_co2)
 parsnse<-cbind(par[which.max(nse),],fixed,fixed_co2)
 
-ggplot()+geom_point(pars[,1:9],aes(1:9,))
-plot(1:9,pars[,1:9],ylim=c(0,4))
-points(1:9,parsnse[,1:9],col=2)
-#pars$Disper<-5
-mc_out(cbind(fixed,fixed_co2),loadfile = "mc_wp_co2-2018-11-23.2",treat = "all")
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_out-nr_20000-11-25_12.02",treat = "all",ndottys = 500)
 
-out<-hydrus(params=pars,sleep = 4,dtmin = 0.0001,dtmax = 10)[[1]]
+out<-hydrus(params=pars,sleep = 5,dtmin = 0.0001,dtmax = 10,free_drain = T)[[1]]
 #out<-hydrus(params=parsnse,sleep = 10,dtmin = 0.0001,dtmax = 10)[[1]]
 
 
@@ -444,7 +447,96 @@ ggplot(subset(out,tiefe%in%tiefenstufen))+geom_point(aes(t_min,theta,col="obs"),
 ggplot(subset(out,tiefe==-17))+geom_point(aes(t_min,q_interpol*5,col="obs"),na.rm = T)+geom_line(aes(t_min,q_mod,col="mod"),na.rm = T)
 
 
-ggplot(subset(out,tiefe%in%tiefenstufen))+geom_point(aes(t_min,CO2_raw,col="obs"),na.rm = T)+geom_point(aes(t_min,CO2_mod,col="mod"),na.rm = T)+facet_wrap(~tiefe)
+ggplot(subset(out,tiefe%in%tiefenstufen))+geom_point(aes(t_min,CO2_raw,col="obs"),na.rm = T)+geom_line(aes(t_min,CO2_mod,col="mod"),na.rm = T)+facet_wrap(~tiefe)
+
+###############################################################
+#co2 with changing water paramters realistic ranges
+###############################################################
+
+fixed_co2<-data.frame(act_en=6677,
+                      h_crit=-10^6,
+                      michaelis=0.19,
+                      DispW=0.00106181,
+                      Disper=5)
+
+load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/bodenparameter/params.R")
+realistic_ranges
+mc<-monte_carlo(nr=2,sleep=5,ranges=data.frame(alpha=c(0.1,0.75),
+                                               n=c(1.5,4.5),
+                                               ks=c(0.001,1),
+                                               alpha2=c(0.1,0.75),
+                                               n2=c(1.5,4.5),
+                                               ks2=c(0.001,0.05),
+                                               alpha_bot=c(0.1,0.5),
+                                               n_bot=c(1,1.9),
+                                               ks_bot=c(0.0001,0.01),
+                                               p_opt=c(0.00001,0.0005),
+                                               DispA=c(0.1,6),
+                                               h_opt=c(-80,-10),
+                                               p_distr=c(0.01,0.2)),
+                fixed=cbind(fixed,fixed_co2),
+                treatm = "all",
+                free_drain = T,
+                fit.tiefe = tiefenstufen)
+
+mc2<-mc_parallel(nr=400,sleep=5,ranges=data.frame(alpha=c(0.1,0.75),
+                                                  n=c(1.5,4.5),
+                                                  ks=c(0.001,1),
+                                                  alpha2=c(0.1,0.75),
+                                                  n2=c(1.5,4.5),
+                                                  ks2=c(0.001,0.05),
+                                                  alpha_bot=c(0.1,0.5),
+                                                  n_bot=c(1,1.9),
+                                                  ks_bot=c(0.0001,0.01),
+                                                  p_opt=c(0.00001,0.0005),
+                                                  DispA=c(0.1,6),
+                                                  h_opt=c(-80,-10),
+                                                  p_distr=c(0.01,0.2)),
+                 fixed=cbind(fixed,fixed_co2))
+
+
+#save(mc,file = paste0(mcpfad,"mc_wp_co2-",Sys.Date(),".R"))
+loadfile<-"mc_out-nr_20000-11-25_12.02"
+load(file = paste0(mcpfad,loadfile,".R"))
+
+loadfile<-"mc_temp"
+load(file = paste0(mcpfad,loadfile,".R"))
+
+par<-mc[[2]]
+rmse<-mc[[1]]
+nse<-mc[[3]]
+
+best.100<-sort(rmse)[200]
+pargood<-par[rmse<best.100,]
+rmsegood<-rmse[rmse<best.100]
+par(mfrow=c(4,4),mar=c(3,4,2,1))
+for(i in 1:ncol(pargood)){ plot(pargood[,i],rmsegood,main = colnames(par)[i])
+  points(par[which.min(rmse),i],rmse[which.min(rmse)],col=2)}
+par(mfrow=c(1,1))
+
+best.nse<-sort(nse,decreasing = T)[100]
+pargood<-par[nse>best.nse,]
+nsegood<-nse[nse>best.nse]
+par(mfrow=c(4,4),mar=c(3,4,2,1))
+for(i in 1:ncol(pargood)){ plot(pargood[,i],nsegood,main = colnames(par)[i])
+  points(par[which.max(nse),i],nse[which.max(nse)],col=2)}
+par(mfrow=c(1,1))
+
+pars<-cbind(par[which.min(rmse),],fixed,fixed_co2)
+parsnse<-cbind(par[which.max(nse),],fixed,fixed_co2)
+
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_out-nr_20000-11-25_12.02",treat = "all",ndottys = 500)
+
+out<-hydrus(params=pars,sleep = 5,dtmin = 0.0001,dtmax = 10,free_drain = T)[[1]]
+#out<-hydrus(params=parsnse,sleep = 10,dtmin = 0.0001,dtmax = 10)[[1]]
+
+
+ggplot(subset(out,tiefe%in%tiefenstufen))+geom_point(aes(t_min,theta,col="obs"),na.rm = T)+geom_line(aes(t_min,theta_mod,col="mod"),na.rm = T)+facet_wrap(~tiefe,ncol=1)
+
+ggplot(subset(out,tiefe==-17))+geom_point(aes(t_min,q_interpol*5,col="obs"),na.rm = T)+geom_line(aes(t_min,q_mod,col="mod"),na.rm = T)
+
+
+ggplot(subset(out,tiefe%in%tiefenstufen))+geom_point(aes(t_min,CO2_raw,col="obs"),na.rm = T)+geom_line(aes(t_min,CO2_mod,col="mod"),na.rm = T)+facet_wrap(~tiefe)
 
 ############################################################
 #everything changes

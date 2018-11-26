@@ -34,7 +34,8 @@ monte_carlo<-function(nr=100,#anzahl Modellläufe
                       lhs=T,
                       #Tiefen die Benutzt werden um objective Function zu ermitteln
                       fit.tiefe=c(-2,-6,-10,-14),
-                      free_drain=F){
+                      free_drain=T){
+  starttime<-Sys.time()
     #Rscript mit Hydrus Functionen ausführen
     source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/hydrus_input.R")
   
@@ -148,17 +149,169 @@ monte_carlo<-function(nr=100,#anzahl Modellläufe
   if(nr>100){
   save(mc,file = paste0(mcpfad,"mc_out-nr_",nr,"-",format(Sys.time(),"%m-%d_%H.%M"),".R"))}
   
+  print("calculation time:")
+  print(Sys.time()-starttime)
+  print(paste(length(which(!is.na(rmse)))/nr*100,"% succesfully calculated"))
   #ausgabe der Parameter & Objective Function
     return(mc)
 }#Ende
 
+#########################################
+#Funktion für Monte carlo Runs mit Hydrus
+#parallelisiert
+#########################################
 
+mc_parallel<-function(nr=100,#anzahl Modellläufe
+                      #Parameter Ranges
+                      ranges,
+                      #Parameter die nicht variiert werden
+                      fixed,
+                      #pfad=projektpfad1,
+                      UNSAT=T,#soll UNSATCHEM verwendet werden
+                      treatm="all",#intensität oder "all"
+                      sleep=1,#sleeptime für die .exe
+                      #wenn T werden Paramtersätze über das Latin Hypercube Sampling gezogen
+                      lhs=T,
+                      #Tiefen die Benutzt werden um objective Function zu ermitteln
+                      fit.tiefe=c(-2,-6,-10,-14),
+                      free_drain=T){
+  starttime<-Sys.time()
+  #Rscript mit Hydrus Functionen ausführen
+  source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/hydrus_input.R")
+  
+  #wenn lhs verwendet werden soll
+  if(lhs==T){
+    #lade nötiges Package
+    library(lhs)
+    #wenn nr kleiner gleich 100 ist kann optimumLHS verwendet werden
+    if(nr<=100){
+      lhs<-optimumLHS(n=nr,k=ncol(ranges))
+      
+      #bei größeren nr dauert optimumLHS zu lange und randomLHS wird verwendet
+    }else{
+      lhs<-randomLHS(n=nr,k=ncol(ranges))
+    }
+    
+    #Datensatz für  die Parametersätze anlegen
+    par<-as.data.frame(matrix(NA,nrow = nr,ncol = ncol(ranges)))
+    #Spaltennamen von den Ranges übernehmen
+    colnames(par)<-colnames(ranges)
+    
+    #Schleife um die lhs Parameterwerte an die Ranges anzupassen
+    for (i in 1:ncol(ranges)){
+      par[,i]<-ranges[1,i]+(ranges[2,i]-ranges[1,i])*lhs[,i]
+    }
+    
+    #wenn kein lhs verwendet wird werden Parameter zufällig gezogen
+  }else{
+    par<-as.data.frame(apply(ranges, 2, function(x) runif(nr,x[1],x[2])))
+  }
+  
+  #Parameter auf 3 signifikante Nachkommastellen Runden
+  par<-signif(par,3)
+  #file enstsprechend zu UNSC == T/F auswählen
+  file<-paste0("UNSC",1:4) 
+  
+  #wenn treat ="all"
+  if(treatm=="all"){
+    #lade datensatz all.R
+    load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
+    #wird für tmax  die zeitdifferenz vom ersten zum letzten Messwert in minuten verwendet
+    tmax<-as.numeric(difftime(max(all$date),min(all$date),units = "min"))
+    #t_event wird dann nicht gebraucht
+    t_event<-NULL
+    #alle auf TRUE gesetzt
+    alle<-T
+  }else{#wenn treat nicht "all" ist
+    #berechnung von t_event
+    t_event<-round(50/treatm*60)
+    #tmax wird gesetzt
+    tmax<-6000
+    #alle auf FALSE gesetzt
+    alle<-F
+  }
+  
+  projektpfad<-paste0("C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/UNSC",1:4,"/")
+  programmpfad<-paste0("C:/Users/ThinkPad/Documents/Masterarbeit/programme/Hydrus-1D_4-",1:4,"/")
+  
+  for (i in 1:4){
+  #atmos.in funktion ausführen
+  atmos.in(int=treatm,
+           event=t_event,
+           alle=alle,
+           total_t = tmax,
+           projektpfad = projektpfad[i])
+  
+  #profile.in funktion ausführen
+  profile.in(projektpfad = projektpfad[i],Mat = c(rep(1,7),rep(2,10),3))
+  }
+  #Vektoren für RMSE & NSE anlegen
+  rmse<-rep(NA,nr)
+  nse<-rep(NA,nr)
+  
+  #MonteCarlo Schleife mit nr durchläufen
+  for (i in seq(1,nr,4)){
+    for (j in 1:4){
+    #Parametersatz i mit den fix-Parametern zusammenfügen
+    pars<-cbind(par[(i+j-1),],fixed)
+    
+    
+    #selector.in funktion mit dem i-ten Parametersatz
+    selector.in(params = pars,
+                projektpfad = projektpfad[j],
+                tmax=tmax,
+                UNSC = UNSAT,
+                free_drain=free_drain)
+    
+    Sys.sleep(0.5)
+    #hydrus ausführen
+    hydrus.exe(sleep=sleep,file = file[j],UNSC=UNSAT,taskkill = T,programmpfad = programmpfad[j],wait = F)
+    }
+    #kurz verschnaufen
+    Sys.sleep(sleep)
+    #Sys.sleep(0.5)
+    
+    for (j in 1:4){
+    #output function anwenden
+    out<-read_hydrus.out(treat=treatm,
+                         projektpfad=projektpfad[j],
+                         UNSC=UNSAT,fit.tiefe = fit.tiefe)
+    
+    #Objective Functions in Vektoren schreiben
+    rmse[(i+j-1)]<-out[[2]]
+    nse[(i+j-1)]<-out[[3]]}
+    
+    #Fortschritt der Schleife ausgeben
+    print(paste(i/nr*100,"%")) 
+    print(rmse[i:(i+3)])
+    #falls später ein Fehler auftritt speichern der Daten
+    save(rmse,par,nse,file="C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/mc_temp.R") 
+  }#ende Monteccarlo Schleife
+  #output in Liste schreiben
+  mc<-list(rmse,par,nse)
+  #falls 
+  if(nr>100){
+    save(mc,file = paste0(mcpfad,"mc_out-nr_",nr,"-",format(Sys.time(),"%m-%d_%H.%M"),".R"))}
+  
+  print("calculation time:")
+  print(Sys.time()-starttime)
+  print(paste(length(which(!is.na(rmse)))/nr*100,"% succesfully calculated"))
+  #ausgabe der Parameter & Objective Function
+  return(mc)
+}#Ende
+
+
+
+
+###############################
+#mc out function
+#################################
 mc_out<-function(fixed,
                  loadfile,
                  treat="all",
                  sleep=3,
                  ndottys=200,
-                 free_drain=F){
+                 free_drain=T){
   mcpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/"
   plotpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/abbildungen/plots/mc/"
   load(file = paste0(mcpfad,loadfile,".R"))
@@ -182,7 +335,7 @@ mc_out<-function(fixed,
   dotty_melt$variable<-as.character(dotty_melt$variable)
   dotty_melt<-dotty_melt[order(dotty_melt$variable),]
   
-  ggplot()+geom_point(data=dotty_melt,aes(value,rmsegood))+geom_point(data=subset(dotty_melt,rmsegood==min(rmsegood)),aes(value,rmsegood),col=2)+facet_wrap(~variable,scales = "free")+ggsave(paste0(plotpfad,"dottyplots/RMSE/dotty_",loadfile,".pdf"))
+  ggplot()+geom_point(data=dotty_melt,aes(value,rmsegood),size=0.5)+geom_point(data=subset(dotty_melt,rmsegood==min(rmsegood)),aes(value,rmsegood),col=2)+facet_wrap(~variable,scales = "free")+ggsave(paste0(plotpfad,"dottyplots/RMSE/dotty_",loadfile,".pdf"),height = 8,width = 8)
   
   
   ##################################
@@ -199,7 +352,7 @@ mc_out<-function(fixed,
   dotty_melt$variable<-as.character(dotty_melt$variable)
   dotty_melt<-dotty_melt[order(dotty_melt$variable),]
   
-  ggplot()+geom_point(data=dotty_melt,aes(value,nsegood))+geom_point(data=subset(dotty_melt,nsegood==max(nsegood)),aes(value,nsegood),col=2)+facet_wrap(~variable,scales = "free")+ggsave(paste0(plotpfad,"dottyplots/NSE/dotty_",loadfile,".pdf"))
+  ggplot()+geom_point(data=dotty_melt,aes(value,nsegood),size=0.5)+geom_point(data=subset(dotty_melt,nsegood==max(nsegood)),aes(value,nsegood),col=2)+facet_wrap(~variable,scales = "free")+ggsave(paste0(plotpfad,"dottyplots/NSE/dotty_",loadfile,".pdf"),height = 8,width = 8)
   
   #######################################
   # export  mod vs. obs data plots
@@ -217,11 +370,45 @@ mc_out<-function(fixed,
   
   out$tiefe<-as.numeric(out$tiefe)
   
-  ggplot(subset(out,tiefe%in%tiefenstufen))+geom_point(aes(t_min,theta,col="obs"),na.rm = T)+geom_line(aes(t_min,theta_mod,col="mod"),na.rm = T)+facet_wrap(~tiefe,ncol=1)+theme_classic()+labs(x="zeit [min]",y=expression(theta*" [Vol %]"))+ggsave(paste0(plotpfad,"theta/thetas_treat-",treat,"-",loadfile,".pdf"))
+  source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
+  events<-event()
   
-  ggplot(subset(out,tiefe==-17))+geom_point(aes(t_min,q_interpol*5,col="obs"),na.rm = T)+geom_line(aes(t_min,q_mod,col="mod"),na.rm = T)+theme_classic()+labs(x="zeit [min]",y=expression("q [ml min"^{-1}*"]"))+ggsave(paste0(plotpfad,"q/q_treat-",treat,"-",loadfile,".pdf"))
+  #lade datensatz all.R
+  load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
+  #zeitspanne in der beregnet wurde
+  event<-subset(events,start>=min(all$date)&stop<=max(all$date))
+  
+  #die Startzeiten der einzelnen Events in Minuten nach dem ersten Event
+  #+1 da kein input bei t=0 reinkann
+  event$time_start<-as.numeric(difftime(event$start,event$start[1],units = "min"))+1
+  #die Endzeiten der einzelnen Events in Minuten nach dem ersten Event
+  event$time_stop<-as.numeric(difftime(event$stop,event$start[1],units = "min"))+1
   
   
-  ggplot(subset(out,tiefe%in%tiefenstufen))+geom_point(aes(t_min,CO2_raw,col="obs"),na.rm = T)+geom_line(aes(t_min,CO2_mod,col="mod"),na.rm = T)+facet_wrap(~tiefe,ncol=2)+theme_classic()+labs(x="zeit [min]",y=expression("CO"[2]*" [ppm]]"))+ggsave(paste0(plotpfad,"co2/CO2_treat-",treat,"-",loadfile,".pdf"))
+  ggplot()+
+    geom_rect(data=event,aes(xmin=time_start,xmax=time_stop,ymin = -Inf, ymax = Inf), alpha = 0.15,fill="blue")+
+    geom_point(data= subset(out,tiefe%in%tiefenstufen),aes(t_min,theta,col="obs"),na.rm = T)+
+    geom_line(data= subset(out,tiefe%in%tiefenstufen),aes(t_min,theta_mod,col="mod"),na.rm = T)+
+    facet_wrap(~tiefe,ncol=1)+
+    theme_classic()+
+    labs(x="Zeit [min]",y=expression(theta*" [Vol %]"))+
+    ggsave(paste0(plotpfad,"theta/thetas_treat-",treat,"-",loadfile,".pdf"),height = 9,width = 9)
+  
+  ggplot()+
+    geom_rect(data=event,aes(xmin=time_start,xmax=time_stop,ymin = -Inf, ymax = Inf), alpha = 0.15,fill="blue")+
+    geom_point(data=subset(out,tiefe==-17),aes(t_min,q_interpol*5,col="obs"),na.rm = T)+
+    geom_line(data=subset(out,tiefe==-17),aes(t_min,q_mod,col="mod"),na.rm = T)+
+    theme_classic()+
+    labs(x="Zeit [min]",y=expression("q [ml min"^{-1}*"]"))+ggsave(paste0(plotpfad,"q/q_treat-",treat,"-",loadfile,".pdf"),height = 5,width = 9)
+  
+  
+  ggplot()+
+    geom_rect(data=event,aes(xmin=time_start,xmax=time_stop,ymin = -Inf, ymax = Inf), alpha = 0.15,fill="blue")+
+    geom_point(data=subset(out,tiefe%in%tiefenstufen),aes(t_min,CO2_raw,col="obs"),na.rm = T)+
+    geom_line(data=subset(out,tiefe%in%tiefenstufen),aes(t_min,CO2_mod,col="mod"),na.rm = T)+
+    facet_wrap(~tiefe,ncol=2)+
+    theme_classic()+
+    labs(x="Zeit [min]",y=expression("CO"[2]*" [ppm]]"))+
+    ggsave(paste0(plotpfad,"co2/CO2_treat-",treat,"-",loadfile,".pdf"),height = 9,width = 9)
   
 }
