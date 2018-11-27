@@ -166,6 +166,8 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
                       ranges,
                       #Parameter die nicht variiert werden
                       fixed,
+                      #wie oft soll das modell parallel gerechnet werden
+                      n_parallel=4,
                       #pfad=projektpfad1,
                       UNSAT=T,#soll UNSATCHEM verwendet werden
                       treatm="all",#intensität oder "all"
@@ -174,7 +176,8 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
                       lhs=T,
                       #Tiefen die Benutzt werden um objective Function zu ermitteln
                       fit.tiefe=c(-2,-6,-10,-14),
-                      free_drain=T){
+                      free_drain=T,
+                      fit.calcium=F){
   starttime<-Sys.time()
   #Rscript mit Hydrus Functionen ausführen
   source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/hydrus_input.R")
@@ -210,7 +213,7 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
   #Parameter auf 3 signifikante Nachkommastellen Runden
   par<-signif(par,3)
   #file enstsprechend zu UNSC == T/F auswählen
-  file<-paste0("UNSC",1:4) 
+  file<-paste0("UNSC",1:n_parallel) 
   
   #wenn treat ="all"
   if(treatm=="all"){
@@ -231,12 +234,13 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
     alle<-F
   }
   
-  projektpfad<-paste0("C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/UNSC",1:4,"/")
-  programmpfad<-paste0("C:/Users/ThinkPad/Documents/Masterarbeit/programme/Hydrus-1D_4-",1:4,"/")
+  projektpfad<-paste0("C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/UNSC",1:n_parallel,"/")
+  programmpfad<-paste0("C:/Users/ThinkPad/Documents/Masterarbeit/programme/Hydrus-1D_4-",1:n_parallel,"/")
   
-  for (i in 1:4){
+  for (i in 1:n_parallel){
   #atmos.in funktion ausführen
-  atmos.in(int=treatm,
+  atmos.in(obs=all,
+           int=treatm,
            event=t_event,
            alle=alle,
            total_t = tmax,
@@ -250,11 +254,12 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
   nse<-rep(NA,nr)
   
   #MonteCarlo Schleife mit nr durchläufen
-  for (i in seq(1,nr,4)){
-    for (j in 1:4){
+  for (i in seq(1,nr,n_parallel)){
+    for (j in 1:n_parallel){
     #Parametersatz i mit den fix-Parametern zusammenfügen
     pars<-cbind(par[(i+j-1),],fixed)
     
+
     
     #selector.in funktion mit dem i-ten Parametersatz
     selector.in(params = pars,
@@ -263,19 +268,27 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
                 UNSC = UNSAT,
                 free_drain=free_drain)
     
-    Sys.sleep(0.5)
+    
     #hydrus ausführen
     hydrus.exe(sleep=sleep,file = file[j],UNSC=UNSAT,taskkill = T,programmpfad = programmpfad[j],wait = F)
     }
     #kurz verschnaufen
     Sys.sleep(sleep)
-    #Sys.sleep(0.5)
+    exe_check<-shell('tasklist /FI "IMAGENAME eq H1D_UNSC.EXE"',intern = T)
     
-    for (j in 1:4){
+    while(length(grep("INFORMATION",exe_check))==0){
+      Sys.sleep(0.01)
+      exe_check<-shell('tasklist /FI "IMAGENAME eq H1D_UNSC.EXE"',intern = T)
+    }
+    
+    for (j in 1:n_parallel){
     #output function anwenden
-    out<-read_hydrus.out(treat=treatm,
+      if(fit.calcium==T){
+        out<-read_conc.out(projektpfad = projektpfad[j])
+      }else{
+        out<-read_hydrus.out(treat=treatm,
                          projektpfad=projektpfad[j],
-                         UNSC=UNSAT,fit.tiefe = fit.tiefe)
+                         UNSC=UNSAT,fit.tiefe = fit.tiefe)}
     
     #Objective Functions in Vektoren schreiben
     rmse[(i+j-1)]<-out[[2]]
@@ -322,6 +335,11 @@ mc_out<-function(fixed,
   
   library(ggplot2)
   
+  load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/bodenparameter/ranges.R")
+  realistic_ranges$id<-1:2
+  ranges_melt<-data.table::melt(realistic_ranges,id="id")
+  realistic_range<-subset(ranges_melt,id==1)
+  realistic_range$max<-ranges_melt$value[ranges_melt$id==2]
   ##################################
   #export dottyplots for RMSE
   ##################################
@@ -335,7 +353,12 @@ mc_out<-function(fixed,
   dotty_melt$variable<-as.character(dotty_melt$variable)
   dotty_melt<-dotty_melt[order(dotty_melt$variable),]
   
-  ggplot()+geom_point(data=dotty_melt,aes(value,rmsegood),size=0.5)+geom_point(data=subset(dotty_melt,rmsegood==min(rmsegood)),aes(value,rmsegood),col=2)+facet_wrap(~variable,scales = "free")+ggsave(paste0(plotpfad,"dottyplots/RMSE/dotty_",loadfile,".pdf"),height = 8,width = 8)
+  ggplot()+
+    geom_point(data=dotty_melt,aes(value,rmsegood),size=0.5)+
+    geom_point(data=subset(dotty_melt,rmsegood==min(rmsegood)),aes(value,rmsegood),col=2)+
+    geom_rect(data=realistic_range,aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
+    facet_wrap(~variable,scales = "free")+
+    ggsave(paste0(plotpfad,"dottyplots/RMSE/dotty_",loadfile,".pdf"),height = 8,width = 8)
   
   
   ##################################
@@ -352,7 +375,11 @@ mc_out<-function(fixed,
   dotty_melt$variable<-as.character(dotty_melt$variable)
   dotty_melt<-dotty_melt[order(dotty_melt$variable),]
   
-  ggplot()+geom_point(data=dotty_melt,aes(value,nsegood),size=0.5)+geom_point(data=subset(dotty_melt,nsegood==max(nsegood)),aes(value,nsegood),col=2)+facet_wrap(~variable,scales = "free")+ggsave(paste0(plotpfad,"dottyplots/NSE/dotty_",loadfile,".pdf"),height = 8,width = 8)
+  ggplot()+geom_point(data=dotty_melt,aes(value,nsegood),size=0.5)+
+    geom_point(data=subset(dotty_melt,nsegood==max(nsegood)),aes(value,nsegood),col=2)+
+    geom_rect(data=realistic_range,aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
+    facet_wrap(~variable,scales = "free")+
+    ggsave(paste0(plotpfad,"dottyplots/NSE/dotty_",loadfile,".pdf"),height = 8,width = 8)
   
   #######################################
   # export  mod vs. obs data plots
@@ -365,7 +392,7 @@ mc_out<-function(fixed,
               sleep = sleep,
               treat = treat,
               taskkill=T,
-              free_drain=free_drain)[[1]]
+              free_drain=free_drain)
   
   
   out$tiefe<-as.numeric(out$tiefe)
@@ -384,6 +411,7 @@ mc_out<-function(fixed,
   #die Endzeiten der einzelnen Events in Minuten nach dem ersten Event
   event$time_stop<-as.numeric(difftime(event$stop,event$start[1],units = "min"))+1
   
+  tiefenstufen<-c(-2,-6,-10,-14)
   
   ggplot()+
     geom_rect(data=event,aes(xmin=time_start,xmax=time_stop,ymin = -Inf, ymax = Inf), alpha = 0.15,fill="blue")+
@@ -411,4 +439,9 @@ mc_out<-function(fixed,
     labs(x="Zeit [min]",y=expression("CO"[2]*" [ppm]]"))+
     ggsave(paste0(plotpfad,"co2/CO2_treat-",treat,"-",loadfile,".pdf"),height = 9,width = 9)
   
+  ggplot(subset(vals,tiefe%in%seq(-14,-17)))+
+    geom_line(aes(t_min,Ca_mod,col=as.factor(tiefe)))+geom_point(aes(t_min,ca_conc,col="obs (-17)"))+
+    theme_classic()+
+    labs(x="Zeit [min]",y=expression("Ca"^{2+""}*" [mg * l"^{-1}*"]"),color="tiefe")+
+    ggsave(paste0(plotpfad,"ca/Ca_treat-",treat,"-",loadfile,".pdf"),height = 7,width = 9)
 }

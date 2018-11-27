@@ -253,7 +253,7 @@ selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen 
   lines[grep("MPL",lines)+1]<-paste("      0.001         ",dtmin,"          ",dtmax,"     1.3     0.7     3     7    ",print_times)
   
   #sequenz mit der Länge der Print times vom anfang bis zum ende des Gesamtzeitraums
-  p_seq<-seq(tmax/print_times,tmax,tmax/print_times)
+  p_seq<-round(seq(tmax/print_times,tmax,tmax/print_times))
   #ans ende noch ein paar Leerzeichen
   p_seq<-c(p_seq,rep(" ",5))
   #Vektor für die Printtimes im nötigen Format für den Input
@@ -443,6 +443,13 @@ fit.out<-function(projektpfad=projektpfad2){
 ######################################
 #function to read Hydrus outputfile
 
+#Nash Sutcliff Efficiency function
+nse<-function(obs,mod){
+  nse<-1-sum((obs-mod)^2,na.rm = T)/sum((obs-mean(obs,na.rm=T))^2,na.rm = T)
+  return(nse)
+}
+
+
 read_hydrus.out<-function(obs=all,#Messungen
                           treat=17,#Regenintensität oder "all"
                           projektpfad=projektpfad1,
@@ -540,11 +547,7 @@ read_hydrus.out<-function(obs=all,#Messungen
     #für die berechnung der Objecitve Funktion verwendet werden
     sub2<-subset(sub,tiefe %in% fit.tiefe)
       
-    #Nash Sutcliff Efficiency function
-    nse<-function(obs,mod){
-        nse<-1-sum((obs-mod)^2,na.rm = T)/sum((obs-mean(obs,na.rm=T))^2,na.rm = T)
-        return(nse)
-    }
+
     
     #RootMeanSquaresError RMSE berechnen
     rmse_theta<-sqrt(mean((sub2$theta-sub2$theta_mod)^2,na.rm = T))
@@ -617,9 +620,29 @@ read_conc.out<-function(projektpfad=projektpfad1,
   #die Werte werden mittels apply spalte für spalte in Zahlen umgewandelt
   #und als data.frame gespeichert
   vals<-as.data.frame(apply(vals, 2, function(x) as.numeric(as.character(x))))
+  vals<-vals[,c(1,3,4)]
+  colnames(vals)<-c("t_min","tiefe","Ca_mod")
+  Ca_g_pro_mol<-40.1
+  Ca_z<-2
+  vals$Ca_mod<-vals$Ca_mod*Ca_g_pro_mol/Ca_z#mg/l
   
+  load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
+  source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
+  
+  events<-event()
+  
+  #t_min als Zeit nach Event 1 in Minuten
+  all$t_min<-as.numeric(difftime(all$date,events$start[2],units = "min"))
+  sub<-subset(all,t_min%in%vals$t_min)
+  sub<-sub[,c(1:2,13:14,16:17)]
+
+  
+  merged<-merge(sub,vals,all.y=T)
+  out<-merged[order(merged$t_min),]
+  RMSE<-sqrt(mean((out$ca_conc-out$Ca_mod)^2,na.rm = T))
+  NSE<-nse(obs=out$ca_conc,out$Ca_mod)
   #ausgabe der Werte
-  return(vals)}
+  return(list(out,RMSE,NSE))}
 
 #####################################################
 #function to run all above functions
@@ -706,7 +729,9 @@ hydrus<-function(params=data.frame(alpha=0.65,#default Parametersatz
   
   #wenn read  = TRUE den output einlesen ...
   if(read==T){
-  out<-read_hydrus.out(treat = treat,projektpfad = pfad,UNSC=UNSC)
+  out<-read_hydrus.out(treat = treat,projektpfad = pfad,UNSC=UNSC)[[1]]
+  out_ca<-read_conc.out(projektpfad = pfad)[[1]]
+  out2<-merge(out,out_ca,all=T)
   #und ausgeben
-  return(out)}
+  return(out2)}
 }

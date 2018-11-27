@@ -66,7 +66,7 @@ ggplot(subset(sub,tiefe%in%c(-10,-14)))+geom_point(aes(t_min,CO2_raw,col="obs"),
 
 
 
-vals<-read_conc.out(projektpfad = projektpfad1)
+vals<-read_conc.out(projektpfad = projektpfad1)[[1]]
 
 ggplot(sub)+geom_point(aes(t_min,theta,col="obs"),na.rm = T)+geom_line(aes(t_min,theta_mod,col="mod"),na.rm = T)+facet_wrap(~tiefe,ncol=1)
 
@@ -78,12 +78,15 @@ sum(sub$q_interpol,na.rm = T)/2
 
 #+facet_wrap(~tiefe,ncol=1)
 
-ggplot(vals)+geom_line(aes(time,Ca,col=as.factor(Depth)))
-ggplot(vals)+geom_path(aes(Ca,Depth,col=as.factor(time)))
-ggplot(vals)+geom_tile(aes(time,Depth,fill=Ca))
+ggplot(subset(vals,tiefe%in%c(tiefenstufen,-17)))+geom_line(aes(t_min,Ca_mod,col=as.factor(tiefe)))
+ggplot(subset(vals,tiefe%in%seq(-14,-17)))+geom_line(aes(t_min,Ca_mod,col=as.factor(tiefe)))+geom_point(aes(t_min,ca_conc,col="obs (-17)"))
+
+ggplot(vals)+geom_path(aes(Ca_mod,tiefe,col=as.factor(t_min)))
+ggplot(vals)+geom_tile(aes(t_min,tiefe,fill=Ca_mod))
 
 
-
+which(is.na(vals$t_min))
+summary(vals$Ca_mod[vals$tiefe==-17])
 #####################################################
 #modell all
 

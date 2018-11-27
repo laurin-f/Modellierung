@@ -390,27 +390,24 @@ mc<-monte_carlo(nr=100,sleep=5,ranges=data.frame(alpha=c(0.1,0.75),
                 free_drain = T,
                 fit.tiefe = tiefenstufen)
 
-mc2<-mc_parallel(nr=400,sleep=5,ranges=data.frame(alpha=c(0.1,0.75),
-                                               n=c(1.5,4.5),
+mc2<-mc_parallel(nr=40,sleep=5,ranges=data.frame(alpha=c(0.1,1),
+                                               n=c(1.2,4.5),
                                                ks=c(0.001,1),
-                                               alpha2=c(0.1,0.75),
-                                               n2=c(1.5,4.5),
-                                               ks2=c(0.001,0.05),
-                                               alpha_bot=c(0.1,0.5),
+                                               alpha2=c(0.1,1),
+                                               n2=c(0.5,3),
+                                               ks2=c(0.0001,0.05),
+                                               alpha_bot=c(0.1,1),
                                                n_bot=c(1,1.9),
                                                ks_bot=c(0.0001,0.01),
-                                               p_opt=c(0.00001,0.0005),
-                                               DispA=c(0.1,6),
+                                               p_opt=c(0.000001,0.0005),
+                                               DispA=c(0.01,5),
                                                h_opt=c(-80,-10),
-                                               p_distr=c(0.01,0.2)),
-                fixed=cbind(fixed,fixed_co2))
+                                               p_distr=c(0.001,0.2)),
+                fixed=cbind(fixed,fixed_co2),fit.calcium = T)
 
 
 #save(mc,file = paste0(mcpfad,"mc_wp_co2-",Sys.Date(),".R"))
 loadfile<-"mc_out-nr_20000-11-25_12.02"
-load(file = paste0(mcpfad,loadfile,".R"))
-
-loadfile<-"mc_temp"
 load(file = paste0(mcpfad,loadfile,".R"))
 
 par<-mc[[2]]
@@ -436,9 +433,10 @@ par(mfrow=c(1,1))
 pars<-cbind(par[which.min(rmse),],fixed,fixed_co2)
 parsnse<-cbind(par[which.max(nse),],fixed,fixed_co2)
 
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_out-nr_20000-11-25_12.02",treat = "all",ndottys = 500)
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_out-nr_20000-11-25_12.02",treat = "all",ndottys = 500,sleep = 5)
 
-out<-hydrus(params=pars,sleep = 5,dtmin = 0.0001,dtmax = 10,free_drain = T)[[1]]
+pars$calcit<-0.2
+out<-hydrus(params=pars,sleep = 5,dtmin = 0.0001,dtmax = 10,free_drain = T,taskkill = T)
 #out<-hydrus(params=parsnse,sleep = 10,dtmin = 0.0001,dtmax = 10)[[1]]
 
 
@@ -448,6 +446,8 @@ ggplot(subset(out,tiefe==-17))+geom_point(aes(t_min,q_interpol*5,col="obs"),na.r
 
 
 ggplot(subset(out,tiefe%in%tiefenstufen))+geom_point(aes(t_min,CO2_raw,col="obs"),na.rm = T)+geom_line(aes(t_min,CO2_mod,col="mod"),na.rm = T)+facet_wrap(~tiefe)
+
+ggplot(subset(out,tiefe==-17))+geom_point(aes(t_min,ca_conc,col="obs"),na.rm = T)+geom_point(aes(t_min,Ca_mod,col="mod"),na.rm = T)
 
 ###############################################################
 #co2 with changing water paramters realistic ranges
@@ -460,38 +460,18 @@ fixed_co2<-data.frame(act_en=6677,
                       Disper=5)
 
 load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/bodenparameter/params.R")
-realistic_ranges
-mc<-monte_carlo(nr=2,sleep=5,ranges=data.frame(alpha=c(0.1,0.75),
-                                               n=c(1.5,4.5),
-                                               ks=c(0.001,1),
-                                               alpha2=c(0.1,0.75),
-                                               n2=c(1.5,4.5),
-                                               ks2=c(0.001,0.05),
-                                               alpha_bot=c(0.1,0.5),
-                                               n_bot=c(1,1.9),
-                                               ks_bot=c(0.0001,0.01),
-                                               p_opt=c(0.00001,0.0005),
-                                               DispA=c(0.1,6),
-                                               h_opt=c(-80,-10),
-                                               p_distr=c(0.01,0.2)),
-                fixed=cbind(fixed,fixed_co2),
-                treatm = "all",
-                free_drain = T,
-                fit.tiefe = tiefenstufen)
+ranges<-cbind(realistic_ranges,data.frame(ks=c(0.001,1),
+                                          ks2=c(0.001,0.05),
+                                          ks_bot=c(0.0001,0.01),
+                                          h_opt=c(-80,-10),
+                                          p_distr=c(0.001,0.2)))
+ranges$alpha_bot<-ranges$alpha2
+ranges$n_bot<-ranges$n2
+ranges$n<-c(1.8,2)
 
-mc2<-mc_parallel(nr=400,sleep=5,ranges=data.frame(alpha=c(0.1,0.75),
-                                                  n=c(1.5,4.5),
-                                                  ks=c(0.001,1),
-                                                  alpha2=c(0.1,0.75),
-                                                  n2=c(1.5,4.5),
-                                                  ks2=c(0.001,0.05),
-                                                  alpha_bot=c(0.1,0.5),
-                                                  n_bot=c(1,1.9),
-                                                  ks_bot=c(0.0001,0.01),
-                                                  p_opt=c(0.00001,0.0005),
-                                                  DispA=c(0.1,6),
-                                                  h_opt=c(-80,-10),
-                                                  p_distr=c(0.01,0.2)),
+mc2<-monte_carlo(nr=2,sleep=5,ranges=ranges,
+                 fixed=cbind(fixed,fixed_co2))
+mc2<-mc_parallel(nr=40,sleep=5,ranges=ranges,
                  fixed=cbind(fixed,fixed_co2))
 
 
@@ -526,8 +506,9 @@ pars<-cbind(par[which.min(rmse),],fixed,fixed_co2)
 parsnse<-cbind(par[which.max(nse),],fixed,fixed_co2)
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_out-nr_20000-11-25_12.02",treat = "all",ndottys = 500)
+y<-colMeans(ranges)
 
-out<-hydrus(params=pars,sleep = 5,dtmin = 0.0001,dtmax = 10,free_drain = T)[[1]]
+out<-hydrus(params=pars,sleep = 5,dtmin = 0.0001,dtmax = 1,free_drain = T)[[1]]
 #out<-hydrus(params=parsnse,sleep = 10,dtmin = 0.0001,dtmax = 10)[[1]]
 
 

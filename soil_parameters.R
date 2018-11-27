@@ -8,10 +8,6 @@ soil.xls<-read_xls(paste0(soilpfad,"Soil physical data Hartheim.xls"),sheet = 3)
 #sheet 2 der .xls einlesen
 soil.xls2<-read_xls(paste0(soilpfad,"Soil physical data Hartheim.xls"),sheet = 2)
 
-#aggregieren der Bodenparameter je Horizont
-pf<-aggregate(soil.xls2[,3:7],list(soil.xls2$Horizon,soil.xls2$hPa),function(x) mean(x,na.rm = T))
-#nur Ah1 und Ah2 werden gebraucht
-pfs<-subset(pf,Group.1 %in% c("Ah1","Ah2")&pf!=7)
 
 #aggregieren der Horizonte
 soil<-aggregate(soil.xls[,4:41],list(soil.xls$Horizon),function(x) mean(x,na.rm = T))
@@ -77,8 +73,6 @@ alpha<-mean(ranges_Ah1[,1])*10
 library(ggplot2)
 ggplot()+geom_line(data=Ah1,aes(th_norm,pf,col=MG_ID))+geom_line(data=fit_Ah1,aes(th_mod,log10(-psi),col=MG_ID))
 
-ggplot()+geom_line(data=Ah1,aes(th,pf,col=MG_ID))
-
 ########################################
 #paramter für Ah2 fitten
 #######################################
@@ -131,10 +125,12 @@ alpha2<-ranges_Ah2[,1]
 n<-ranges_Ah1[,2]
 n2<-ranges_Ah2[,2]
 #The free-air diffusivity of CO2 is 0.152 cm2 s−1
-0.152*60
-plot(Ah1$pf,Ah1$Ds)
-plot()
-realistic_ranges<-data.frame(alpha,alpha2,thr,thr2,ths,ths2,n,n2)
+D0<-0.152*60
 
-params<-data.frame(alpha=colMeans(alpha),n=colMeans(n),ths=colMeans(ths),thr=colMeans(thr),hseep=-100,l=0.5,ks=0.09)
-save(params,realistic_ranges,file=paste0(soilpfad,"params.R"))
+eps<-range(soil.xls$air_15000hPa[soil.xls$Horizon%in%c("Ah1","Ah2")],na.rm = T)/100
+DispA<-1.5*eps^2.74*D0
+
+realistic_ranges<-data.frame(alpha,alpha2,n,n2,p_opt=c(0.0001,0.0002),DispA)
+
+#params<-data.frame(alpha=colMeans(alpha),n=colMeans(n),ths=colMeans(ths),thr=colMeans(thr),hseep=-100,l=0.5,ks=0.09)
+save(realistic_ranges,file=paste0(soilpfad,"ranges.R"))
