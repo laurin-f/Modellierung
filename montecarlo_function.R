@@ -177,7 +177,9 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
                       #Tiefen die Benutzt werden um objective Function zu ermitteln
                       fit.tiefe=c(-2,-6,-10,-14),
                       free_drain=T,
-                      fit.calcium=F){
+                      fit.calcium=F,
+                      n_nodes=9,
+                      Mat=c(rep(1,3),rep(2,5),3)){
   starttime<-Sys.time()
   #Rscript mit Hydrus Functionen ausführen
   source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/hydrus_input.R")
@@ -247,7 +249,7 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
            projektpfad = projektpfad[i])
   
   #profile.in funktion ausführen
-  profile.in(projektpfad = projektpfad[i],Mat = c(rep(1,7),rep(2,10),3))
+  profile.in(projektpfad = projektpfad[i],Mat = Mat,n_nodes = n_nodes,th=seq(0.2,0.2,len=n_nodes))
   }
   #Vektoren für RMSE & NSE anlegen
   rmse<-rep(NA,nr)
@@ -284,11 +286,18 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
     for (j in 1:n_parallel){
     #output function anwenden
       if(fit.calcium==T){
-        out<-read_conc.out(projektpfad = projektpfad[j])
+        out<-read_conc.out(projektpfad = projektpfad[j],n_nodes = n_nodes)
       }else{
         out<-read_hydrus.out(treat=treatm,
                          projektpfad=projektpfad[j],
                          UNSC=UNSAT,fit.tiefe = fit.tiefe)}
+      
+      exe_check<-shell('tasklist /FI "IMAGENAME eq H1D_UNSC.EXE"',intern = T)
+      
+      while(length(grep("INFORMATION",exe_check))==0){
+        Sys.sleep(0.01)
+        exe_check<-shell('tasklist /FI "IMAGENAME eq H1D_UNSC.EXE"',intern = T)
+      }
     
     #Objective Functions in Vektoren schreiben
     rmse[(i+j-1)]<-out[[2]]
@@ -304,11 +313,14 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
   mc<-list(rmse,par,nse)
   #falls 
   if(nr>100){
-    save(mc,file = paste0(mcpfad,"mc_out-nr_",nr,"-",format(Sys.time(),"%m-%d_%H.%M"),".R"))}
+    filename<-paste0("mc_out-nr_",nr,"-",format(Sys.time(),"%m-%d_%H.%M"))
+    save(mc,file = paste0(mcpfad,filename,".R"))
+    print(paste("saved file",filename))}
   
   print("calculation time:")
   print(Sys.time()-starttime)
   print(paste(length(which(!is.na(rmse)))/nr*100,"% succesfully calculated"))
+  
   #ausgabe der Parameter & Objective Function
   return(mc)
 }#Ende
@@ -353,11 +365,14 @@ mc_out<-function(fixed,
   dotty_melt$variable<-as.character(dotty_melt$variable)
   dotty_melt<-dotty_melt[order(dotty_melt$variable),]
   
-  ggplot()+
+  rmse_dotty<-ggplot()+
     geom_point(data=dotty_melt,aes(value,rmsegood),size=0.5)+
-    geom_point(data=subset(dotty_melt,rmsegood==min(rmsegood)),aes(value,rmsegood),col=2)+
-    geom_rect(data=realistic_range,aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
-    facet_wrap(~variable,scales = "free")+
+    geom_point(data=subset(dotty_melt,rmsegood==min(rmsegood)),aes(value,rmsegood),col=2)
+  
+  if (colnames(realistic_ranges)[1]%in%colnames(par)){
+    rmse_dotty<-rmse_dotty+geom_rect(data=realistic_range,aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")}
+  
+    rmse_dotty+facet_wrap(~variable,scales = "free")+
     ggsave(paste0(plotpfad,"dottyplots/RMSE/dotty_",loadfile,".pdf"),height = 8,width = 8)
   
   
@@ -375,12 +390,15 @@ mc_out<-function(fixed,
   dotty_melt$variable<-as.character(dotty_melt$variable)
   dotty_melt<-dotty_melt[order(dotty_melt$variable),]
   
-  ggplot()+geom_point(data=dotty_melt,aes(value,nsegood),size=0.5)+
-    geom_point(data=subset(dotty_melt,nsegood==max(nsegood)),aes(value,nsegood),col=2)+
-    geom_rect(data=realistic_range,aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
-    facet_wrap(~variable,scales = "free")+
-    ggsave(paste0(plotpfad,"dottyplots/NSE/dotty_",loadfile,".pdf"),height = 8,width = 8)
+  nse_dotty<-ggplot()+
+    geom_point(data=dotty_melt,aes(value,nsegood),size=0.5)+
+    geom_point(data=subset(dotty_melt,nsegood==max(nsegood)),aes(value,nsegood),col=2)
   
+  if (colnames(realistic_ranges)[1]%in%colnames(par)){
+    nse_dotty<-nse_dotty+geom_rect(data=realistic_range,aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")}
+  
+  nse_dotty+facet_wrap(~variable,scales = "free")+
+    ggsave(paste0(plotpfad,"dottyplots/NSE/dotty_",loadfile,".pdf"),height = 8,width = 8)
   #######################################
   # export  mod vs. obs data plots
   #######################################
@@ -439,8 +457,8 @@ mc_out<-function(fixed,
     labs(x="Zeit [min]",y=expression("CO"[2]*" [ppm]]"))+
     ggsave(paste0(plotpfad,"co2/CO2_treat-",treat,"-",loadfile,".pdf"),height = 9,width = 9)
   
-  ggplot(subset(vals,tiefe%in%seq(-14,-17)))+
-    geom_line(aes(t_min,Ca_mod,col=as.factor(tiefe)))+geom_point(aes(t_min,ca_conc,col="obs (-17)"))+
+  ggplot(subset(vals,tiefe==-17))+
+    geom_line(aes(t_min,Ca_mod,col="mod"))+geom_point(aes(t_min,ca_conc,col="obs"))+
     theme_classic()+
     labs(x="Zeit [min]",y=expression("Ca"^{2+""}*" [mg * l"^{-1}*"]"),color="tiefe")+
     ggsave(paste0(plotpfad,"ca/Ca_treat-",treat,"-",loadfile,".pdf"),height = 7,width = 9)

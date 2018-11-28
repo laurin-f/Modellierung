@@ -308,12 +308,18 @@ profile.in<-function(n_nodes=18,#Anzahl Knoten
   #einlesen der PROFILE.DAT inputdatei
   lines<-readLines(paste0(projektpfad,"PROFILE.DAT"))
   
+  if (n_nodes==9){
+    vals<-paste0(format(1:n_nodes,width = 5)," ",sprintf("-%.6e",c(seq(0,14,by=2),17)),"  ",sprintf("%.6e",th)," "," "," "," ",Mat,"    1  0.000000e+00    1    1    1  ",sprintf("%.6e",Temp),"  ",sprintf("%.6e",Conc))
+  }else{
   #Werte in für hydrus geeignetem Format in einen Vektor
-  vals<-paste0(format(1:n_nodes,width = 5)," ",sprintf("-%.6e",seq(0,17,len=n_nodes)),"  ",sprintf("%.6e",th)," "," "," "," ",Mat,"    1  0.000000e+00    1    1    1  ",sprintf("%.6e",Temp),"  ",sprintf("%.6e",Conc))
+  vals<-paste0(format(1:n_nodes,width = 5)," ",sprintf("-%.6e",seq(0,17,len=n_nodes)),"  ",sprintf("%.6e",th)," "," "," "," ",Mat,"    1  0.000000e+00    1    1    1  ",sprintf("%.6e",Temp),"  ",sprintf("%.6e",Conc))}
   
   #observation nodes in den untersuchten Tiefenstufen einfügen
-  obs_nodes<-substr(vals[substr(vals,7,19)%in%sprintf("%.6e",tiefenstufen)],3,6)
-  
+  #obs_nodes<-substr(vals[substr(vals,7,19)%in%sprintf("%.6e",tiefenstufen)],3,6)
+  obs_nodes<-rep(NA,length(tiefenstufen))
+  for (i in 1:length(tiefenstufen)){
+  obs_nodes[i]<-format(which.min(abs(seq(0,17,len=n_nodes)+tiefenstufen[i])),width=5)
+  }
   #Format an hydrus anpassen
   vals<-gsub("e\\+","e+0",vals)
   vals<-gsub("e-","e-0",vals)
@@ -444,7 +450,7 @@ fit.out<-function(projektpfad=projektpfad2){
 #function to read Hydrus outputfile
 
 #Nash Sutcliff Efficiency function
-nse<-function(obs,mod){
+NSE<-function(obs,mod){
   nse<-1-sum((obs-mod)^2,na.rm = T)/sum((obs-mean(obs,na.rm=T))^2,na.rm = T)
   return(nse)
 }
@@ -554,15 +560,15 @@ read_hydrus.out<-function(obs=all,#Messungen
     rmse_q<-sqrt(mean((sub$q_interpol*5-sub$q_mod)^2,na.rm = T))
       
     #NSE berchnen
-    nse_theta<-nse(sub2$theta,sub2$theta_mod)
-    nse_q<-nse(sub2$q_interpol,sub2$q_mod)
+    nse_theta<-NSE(sub2$theta,sub2$theta_mod)
+    nse_q<-NSE(sub2$q_interpol,sub2$q_mod)
       
     if(UNSC==T){
       #wenn UNSC==T wird der RMSE und NSE für CO2 verwendet
       rmse_CO2<-sqrt(mean((sub2$CO2_raw-sub2$CO2_mod)^2,na.rm = T))
       rmse<-rmse_CO2
       
-      nse<-nse(sub2$CO2_raw,sub2$CO2_mod)
+      nse<-NSE(sub2$CO2_raw,sub2$CO2_mod)
     }else{
       #ohne UNSC wird theta verwendet
       rmse<-rmse_theta#+rmse_q
@@ -640,9 +646,9 @@ read_conc.out<-function(projektpfad=projektpfad1,
   merged<-merge(sub,vals,all.y=T)
   out<-merged[order(merged$t_min),]
   RMSE<-sqrt(mean((out$ca_conc-out$Ca_mod)^2,na.rm = T))
-  NSE<-nse(obs=out$ca_conc,out$Ca_mod)
+  nse<-NSE(obs=out$ca_conc,out$Ca_mod)
   #ausgabe der Werte
-  return(list(out,RMSE,NSE))}
+  return(list(out,RMSE,nse))}
 
 #####################################################
 #function to run all above functions
@@ -678,11 +684,13 @@ hydrus<-function(params=data.frame(alpha=0.65,#default Parametersatz
                  obs=all,#Messwerte
                  sleep=3,#sleeptime für die .exe
                  read=T,#soll der output gelesen werden
-                 free_drain=F,#soll free drainage lower boundary condition sein
+                 free_drain=T,#soll free drainage lower boundary condition sein
                  taskkill = F,
                  inverse=F,#soll Inverse Solution verwendet werden dann =T
                  dtmin=0.0001,
-                 dtmax=10){
+                 dtmax=10,
+                 n_nodes=9,
+                 Mat=c(rep(1,3),rep(2,5),3)){
   #wenn treat ="all"
   if(treat=="all"){
     #wird für tmax  die zeitdifferenz vom ersten zum letzten Messwert in minuten verwendet
@@ -705,7 +713,7 @@ hydrus<-function(params=data.frame(alpha=0.65,#default Parametersatz
   pfad<-ifelse(UNSC==T,"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/undisturbed/","C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/undisturbed2/")
   
   #profile.in funktion ausführen
-  profile.in(projektpfad = pfad,Mat = c(rep(1,7),rep(2,10),3))
+  profile.in(projektpfad = pfad,Mat = Mat,n_nodes = n_nodes,th=seq(0.2,0.2,len=n_nodes))
   
   #atmos.in funktion ausführen
   #hydruspfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/"
@@ -730,7 +738,7 @@ hydrus<-function(params=data.frame(alpha=0.65,#default Parametersatz
   #wenn read  = TRUE den output einlesen ...
   if(read==T){
   out<-read_hydrus.out(treat = treat,projektpfad = pfad,UNSC=UNSC)[[1]]
-  out_ca<-read_conc.out(projektpfad = pfad)[[1]]
+  out_ca<-read_conc.out(projektpfad = pfad,n_nodes = n_nodes)[[1]]
   out2<-merge(out,out_ca,all=T)
   #und ausgeben
   return(out2)}
