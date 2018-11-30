@@ -191,7 +191,12 @@ D0<-0.152*60
 eps<-range(soil.xls$air_15000hPa[soil.xls$Horizon%in%c("Ah1","Ah2")],na.rm = T)/100
 DispA<-1.5*eps^2.74*D0
 
-realistic_ranges<-data.frame(alpha=alpha_range_Ah1,alpha2=alpha_range_Ah2,n=n_range_Ah1,n2=n_range_Ah2,p_opt=c(0.00016,0.0002),DispA)
+bulks<-t(aggregate(soil.xls$Dichte,list(soil.xls$Horizon),function(x) range(x,na.rm = T))[1:2,][2])
+
+
+realistic_bulk<-as.data.frame(bulks)
+colnames(realistic_bulk)<-c("bulk","bulk2")
+realistic_ranges<-data.frame(alpha=alpha_range_Ah1,alpha2=alpha_range_Ah2,alpha_bot=alpha_range_Ah2,n=n_range_Ah1,n2=n_range_Ah2,n_bot=n_range_Ah2,p_opt=c(0.00016,0.00022),DispA)
 
 #params<-data.frame(alpha=colMeans(alpha),n=colMeans(n),ths=colMeans(ths),thr=colMeans(thr),hseep=-100,l=0.5,ks=0.09)
-save(realistic_ranges,file=paste0(soilpfad,"ranges.R"))
+save(realistic_ranges,realistic_bulk,file=paste0(soilpfad,"ranges.R"))

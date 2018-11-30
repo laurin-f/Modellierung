@@ -173,19 +173,20 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
                       treatm="all",#intensität oder "all"
                       sleep=1,#sleeptime für die .exe
                       #wenn T werden Paramtersätze über das Latin Hypercube Sampling gezogen
-                      lhs=T,
+                      OAT=T,
                       #Tiefen die Benutzt werden um objective Function zu ermitteln
                       fit.tiefe=c(-2,-6,-10,-14),
                       free_drain=T,
                       fit.calcium=F,
                       n_nodes=9,
-                      Mat=c(rep(1,3),rep(2,5),3)){
+                      Mat=c(rep(1,3),rep(2,5),3),
+                      print_times=100){
   starttime<-Sys.time()
   #Rscript mit Hydrus Functionen ausführen
   source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/hydrus_input.R")
   
   #wenn lhs verwendet werden soll
-  if(lhs==T){
+  if(OAT==F){
     #lade nötiges Package
     library(lhs)
     #wenn nr kleiner gleich 100 ist kann optimumLHS verwendet werden
@@ -209,7 +210,15 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
     
     #wenn kein lhs verwendet wird werden Parameter zufällig gezogen
   }else{
-    par<-as.data.frame(apply(ranges, 2, function(x) runif(nr,x[1],x[2])))
+    M<-ncol(ranges)
+    r<-round(nr/(M+1))
+    nr<-r*(M+1)
+    distr_par<-as.list(ranges)
+    par<-SAFER::OAT_sampling(r=r,M=M,distr_fun = "unif",distr_par = distr_par,samp_strat = "lhs",des_type = "radial")
+    
+    par<-as.data.frame(par)
+    colnames(par)<-colnames(ranges)
+    
   }
   
   #Parameter auf 3 signifikante Nachkommastellen Runden
@@ -258,6 +267,7 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
   #MonteCarlo Schleife mit nr durchläufen
   for (i in seq(1,nr,n_parallel)){
     for (j in 1:n_parallel){
+      if(nrow(par)>=(i+j-1)){
     #Parametersatz i mit den fix-Parametern zusammenfügen
     pars<-cbind(par[(i+j-1),],fixed)
     
@@ -268,11 +278,13 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
                 projektpfad = projektpfad[j],
                 tmax=tmax,
                 UNSC = UNSAT,
-                free_drain=free_drain)
+                free_drain=free_drain,
+                print_times = print_times)
     
     
     #hydrus ausführen
     hydrus.exe(sleep=sleep,file = file[j],UNSC=UNSAT,taskkill = T,programmpfad = programmpfad[j],wait = F)
+      }
     }
     #kurz verschnaufen
     Sys.sleep(sleep)
@@ -284,6 +296,7 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
     }
     
     for (j in 1:n_parallel){
+      if(length(rmse)>=(i+j-1)){
     #output function anwenden
       if(fit.calcium==T){
         out<-read_conc.out(projektpfad = projektpfad[j],n_nodes = n_nodes)
@@ -292,16 +305,18 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
                          projektpfad=projektpfad[j],
                          UNSC=UNSAT,fit.tiefe = fit.tiefe)}
       
-      exe_check<-shell('tasklist /FI "IMAGENAME eq H1D_UNSC.EXE"',intern = T)
-      
-      while(length(grep("INFORMATION",exe_check))==0){
-        Sys.sleep(0.01)
-        exe_check<-shell('tasklist /FI "IMAGENAME eq H1D_UNSC.EXE"',intern = T)
-      }
+
     
     #Objective Functions in Vektoren schreiben
     rmse[(i+j-1)]<-out[[2]]
-    nse[(i+j-1)]<-out[[3]]}
+    nse[(i+j-1)]<-out[[3]]}}
+    
+    exe_check<-shell('tasklist /FI "IMAGENAME eq H1D_UNSC.EXE"',intern = T)
+    
+    while(length(grep("INFORMATION",exe_check))==0){
+      Sys.sleep(0.01)
+      exe_check<-shell('tasklist /FI "IMAGENAME eq H1D_UNSC.EXE"',intern = T)
+    }
     
     #Fortschritt der Schleife ausgeben
     print(paste(i/nr*100,"%")) 
@@ -326,7 +341,7 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
 }#Ende
 
 
-
+loadfile="mc_out-nr_400-11-30_17.41"
 
 ###############################
 #mc out function
@@ -336,7 +351,8 @@ mc_out<-function(fixed,
                  treat="all",
                  sleep=3,
                  ndottys=200,
-                 free_drain=T){
+                 free_drain=T,
+                 fit.ca=F){
   mcpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/"
   plotpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/abbildungen/plots/mc/"
   load(file = paste0(mcpfad,loadfile,".R"))
@@ -346,8 +362,12 @@ mc_out<-function(fixed,
   nse<-mc[[3]]
   
   library(ggplot2)
+     
+   load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/bodenparameter/ranges.R")
+  if(fit.ca==T){
+   realistic_ranges<-realistic_bulk 
+  }
   
-  load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/bodenparameter/ranges.R")
   realistic_ranges$id<-1:2
   ranges_melt<-data.table::melt(realistic_ranges,id="id")
   realistic_range<-subset(ranges_melt,id==1)
@@ -399,6 +419,57 @@ mc_out<-function(fixed,
   
   nse_dotty+facet_wrap(~variable,scales = "free")+
     ggsave(paste0(plotpfad,"dottyplots/NSE/dotty_",loadfile,".pdf"),height = 8,width = 8)
+  
+  
+  #######################################
+  #SAFER
+  #######################################
+  
+  X<-as.matrix(par[!is.na(rmse),])
+  Y<-rmse[!is.na(rmse)]
+  r<-round(length(Y)/(ncol(par)+1))
+  nr<-r*(ncol(par)+1)
+  X<-X[1:nr,]
+  Y<-Y[1:nr]
+  range<-apply(X,2,range)
+  
+  DistrPar<-vector("list",ncol(par))
+  for(i in 1:ncol(par)){
+    DistrPar[[i]]<-range[,i]
+  }
+  
+  # Compute Elementary Effects:
+  EETind <- SAFER::EET_indices(r, DistrPar, X, Y, design_type="radial")
+  
+  EE <- EETind$EE
+  mi <- EETind$mi
+  sigma <- EETind$sigma 
+  
+  # Plot results in the plane (mean(EE),std(EE)):
+  
+  par(mfrow=c(1,1))
+  SAFER::EET_plot(mi, sigma,  xlab = "Mean of EEs", ylab = "Sd of EEs",  labels = colnames(par))
+  
+  # Use bootstrapping to derive confidence bounds:
+  
+  Nboot <-100
+  
+  EETind100 <- SAFER::EET_indices(r, DistrPar, X, Y, design_type="radial", Nboot)
+  
+  EE <- EETind100$EE
+  mi <- EETind100$mi
+  sigma <- EETind100$sigma
+  mi_lb <- EETind100$mi_lb
+  mi_ub <- EETind100$mi_ub
+  sigma_lb <- EETind100$sigma_lb
+  sigma_ub <- EETind100$sigma_ub
+  
+  # Plot bootstrapping results in the plane (mean(EE),std(EE)):
+  #EET_plot
+  
+  
+  EET_plot(mi, sigma, mi_lb, mi_ub, sigma_lb, sigma_ub, labels = X_labels)
+  
   #######################################
   # export  mod vs. obs data plots
   #######################################
@@ -457,7 +528,7 @@ mc_out<-function(fixed,
     labs(x="Zeit [min]",y=expression("CO"[2]*" [ppm]]"))+
     ggsave(paste0(plotpfad,"co2/CO2_treat-",treat,"-",loadfile,".pdf"),height = 9,width = 9)
   
-  ggplot(subset(vals,tiefe==-17))+
+  ggplot(subset(out,tiefe==-17&!is.na(Ca_mod)))+
     geom_line(aes(t_min,Ca_mod,col="mod"))+geom_point(aes(t_min,ca_conc,col="obs"))+
     theme_classic()+
     labs(x="Zeit [min]",y=expression("Ca"^{2+""}*" [mg * l"^{-1}*"]"),color="tiefe")+

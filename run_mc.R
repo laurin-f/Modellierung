@@ -35,7 +35,9 @@ fixed<-data.frame(thr=0.11,
                   cec=0,
                   cec2=0,
                   calcit=0.2,
-                  calcit2=0.2)
+                  calcit2=0.2,
+                  CaAds=500,
+                  CaPrec=500)
 
 
 #########################################################
@@ -371,26 +373,8 @@ fixed_co2<-data.frame(act_en=6677,
                       DispW=0.00106181,
                       Disper=5)
 
-##### Monte Carlo Function old ####
-mc<-monte_carlo(nr=100,sleep=5,ranges=data.frame(alpha=c(0.1,0.75),
-                                                  n=c(1.5,4.5),
-                                                  ks=c(0.001,1),
-                                                  alpha2=c(0.1,0.75),
-                                                  n2=c(1.5,4.5),
-                                                  ks2=c(0.001,0.05),
-                                                  alpha_bot=c(0.1,0.5),
-                                                  n_bot=c(1,1.9),
-                                                  ks_bot=c(0.0001,0.01),
-                                                  p_opt=c(0.00001,0.0005),
-                                                  DispA=c(0.1,6),
-                                                  h_opt=c(-80,-10),
-                                                  p_distr=c(0.01,0.2)),
-                fixed=cbind(fixed,fixed_co2),
-                treatm = "all",
-                free_drain = T,
-                fit.tiefe = tiefenstufen)
-#####
-mc<-mc_parallel(nr=1000,sleep=5,ranges=data.frame(alpha=c(0.1,1),
+
+mc<-mc_parallel(nr=400,sleep=5,ranges=data.frame(alpha=c(0.1,1),
                                                n=c(1.1,4.5),
                                                ks=c(0.001,1),
                                                alpha2=c(0.1,1),
@@ -405,9 +389,24 @@ mc<-mc_parallel(nr=1000,sleep=5,ranges=data.frame(alpha=c(0.1,1),
                                                p_distr=c(0.001,0.2)),
                 fixed=cbind(fixed,fixed_co2),fit.calcium = F)
 
+test<-data.frame(alpha=c(0.1,1),
+n=c(1.1,4.5),
+ks=c(0.001,1),
+alpha2=c(0.1,1),
+n2=c(1.1,1.9),
+ks2=c(0.0001,0.1),
+alpha_bot=c(0.1,1),
+n_bot=c(1.2,1.9),
+ks_bot=c(0.0001,0.01))
+test<-as.data.frame(t(colMeans(test)))
+mc<-mc_parallel(nr=400,sleep=5,ranges=data.frame(p_opt=c(0.0000001,0.0005),
+                                                 DispA=c(0.01,5),
+                                                 h_opt=c(-80,-10),
+                                                 p_distr=c(0.001,0.2)),
+                fixed=cbind(fixed,fixed_co2,test),fit.calcium = F)
 
 #save(mc,file = paste0(mcpfad,"mc_wp_co2-",Sys.Date(),".R"))
-loadfile<-"mc_out-nr_20000-11-25_12.02"
+loadfile<-"mc_out-nr_406-11-30_17.00"
 #load(file = paste0(mcpfad,loadfile,".R"))
 
 par<-mc[[2]]
@@ -433,11 +432,9 @@ par(mfrow=c(1,1))
 pars<-cbind(par[which.min(rmse),],fixed,fixed_co2)
 parsnse<-cbind(par[which.max(nse),],fixed,fixed_co2)
 
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_out-nr_400-11-28_17.27",treat = "all",ndottys = 400,sleep = 5)
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_out-nr_4000-11-29_15.50",treat = "all",ndottys = 400,sleep = 5)
 
-pars$calcit<-0.2
 out<-hydrus(params=pars,sleep = 5,dtmin = 0.0001,dtmax = 10,free_drain = T,taskkill = T)
-#out<-hydrus(params=parsnse,sleep = 10,dtmin = 0.0001,dtmax = 10)[[1]]
 
 
 ggplot(subset(out,tiefe%in%tiefenstufen))+geom_point(aes(t_min,theta,col="obs"),na.rm = T)+geom_line(aes(t_min,theta_mod,col="mod"),na.rm = T)+facet_wrap(~tiefe,ncol=1)
@@ -465,14 +462,8 @@ ranges<-cbind(realistic_ranges,data.frame(ks=c(0.001,1),
                                           ks_bot=c(0.0001,0.01),
                                           h_opt=c(-80,-10),
                                           p_distr=c(0.001,0.2)))
-ranges$alpha_bot<-ranges$alpha2
-ranges$n_bot<-ranges$n2
-#ranges$n<-c(1.7,1.8)
 
-#mc2<-monte_carlo(nr=2,sleep=5,ranges=ranges,
-#                 fixed=cbind(fixed,fixed_co2))
-#20000/4*7/3600
-mc<-mc_parallel(nr=400,sleep=5,ranges=ranges,
+mc<-mc_parallel(nr=20000,sleep=5,ranges=ranges,
                  fixed=cbind(fixed,fixed_co2),
                 n_nodes = 9,Mat = c(rep(1,3),rep(2,5),3))
 
@@ -487,7 +478,7 @@ loadfile<-"mc_temp"
 par<-mc[[2]]
 rmse<-mc[[1]]
 nse<-mc[[3]]
-par$n[!is.na(rmse)]
+
 
 best.100<-sort(rmse)[200]
 pargood<-par[rmse<best.100,]
@@ -508,17 +499,16 @@ par(mfrow=c(1,1))
 pars<-cbind(par[which.min(rmse),],fixed,fixed_co2)
 parsnse<-cbind(par[which.max(nse),],fixed,fixed_co2)
 
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_out-nr_400-11-28_17.27",treat = "all",ndottys = 300)
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_out-nr_20000-11-29_07.47",treat = "all",ndottys = 300)
 y<-colMeans(ranges)
 
 
 realistic_pars<-cbind(as.data.frame(t(colMeans(ranges))),fixed,fixed_co2)
-realistic_pars<-cbind(as.data.frame(t(apply(ranges, 2,max))),fixed,fixed_co2)
-seq(0,17,len=17*3+1)
-out<-hydrus(params=realistic_pars,sleep = 5,dtmin = 0.000001,dtmax = 1,n_nodes = 18,Mat = c(rep(1,7),rep(2,10),3))[[1]]
+
+out<-hydrus(params=pars,sleep = 5,dtmin = 0.0001,dtmax = 1,n_nodes = 9,Mat = c(rep(1,3),rep(2,5),3))
 
 out<-hydrus(params=realistic_pars,sleep = 5,dtmin = 0.0001,dtmax = 10,n_nodes = 9,Mat = c(rep(1,2),rep(2,6),3))
-out
+
 #out<-hydrus(params=parsnse,sleep = 10,dtmin = 0.0001,dtmax = 10)[[1]]
 
 
@@ -548,7 +538,7 @@ fixed_co2<-data.frame(act_en=6677,
                       michaelis=0.19,
                       DispW=0.00106181,
                       Disper=5)
-loadfile<-"mc_out-nr_1000-11-28_11.33"
+loadfile<-"mc_out-nr_4000-11-29_15.50"
 load(file = paste0(mcpfad,loadfile,".R"))
 
 par<-mc[[2]]
@@ -556,22 +546,29 @@ rmse<-mc[[1]]
 nse<-mc[[3]]
 fix_pars<-cbind(par[which.min(rmse),],fixed,fixed_co2)
 
-mcca<-mc_parallel(nr=400,ranges = data.frame(calcit=c(0.1,2),
+mcca<-mc_parallel(nr=10000,ranges = data.frame(calcit=c(0.1,2),
                                            calcit2=c(0.1,2),
                                            difuz=c(0,0.001),
                                            difuz2=c(0,0.001),
                                            disperl=c(1.5,2),
                                            disperl2=c(1.5,2),
                                            bulk=c(0.7,1),
-                                           bulk2=c(0.9,1.2)),
+                                           bulk2=c(0.9,1.2),
+                                           CaAds=c(50,3000),
+                                           CaPrec=c(50,3000),
+                                           cec=c(0,3000),
+                                           cec2=c(0,3000)),
                 fixed=fix_pars,
-                sleep=5,
-                fit.calcium = T)
-mcca<-mc
+                sleep=9,
+                fit.calcium = F,
+                print_times = 1000)
 parca<-mcca[[2]]
 rmseca<-mcca[[1]]
 nseca<-mcca[[3]]
+plot(rmseca)
 
-parsca<-cbind(parca[which.min(rmse),],fix_pars)
+parsca<-cbind(parca[which.min(rmseca),],fix_pars)
 
-mc_out(fixed=fix_pars,loadfile = "mc_out-nr_400-11-28_12.32",treat = "all",ndottys = 300)
+outca<-hydrus(params=parsca,)
+
+mc_out(fixed=fix_pars,loadfile = "mc_out-nr_10000-11-30_02.26",treat = "all",ndottys = 300,fit.ca=T)

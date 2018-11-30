@@ -224,11 +224,17 @@ selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen 
   #####################################
   #Solute Parameter
   #####################################
-    ca_vals<-paste(" ",params$bulk,params$difuz,params$disperl,params$cec,params$calcit," 0  0  0  0  0")
-    ca_vals2<-paste(" ",params$bulk2,params$difuz2,params$disperl2,params$cec2,params$calcit2," 0  0  0  0  0")
+    ca_vals<-paste(" ",params$bulk,params$difuz,params$disperl,params$cec,params$calcit," 0  0  0.3  0.5  -2")
+    ca_vals2<-paste(" ",params$bulk2,params$difuz2,params$disperl2,params$cec2,params$calcit2," 0  0  0.3  0.5  -2")
     ca_pos1<-grep("Bulk.d.",lines)+1
     lines[ca_pos1]<-ca_vals
-    lines[(ca_pos1+1):(ca_pos1+2)]<-ca_vals2}#ende if UNSATCHEM 
+    lines[(ca_pos1+1):(ca_pos1+2)]<-ca_vals2
+    
+    ca_pos2<-grep("Calcite      Gypsum",lines)
+    lines[(ca_pos2-1)]<-paste(" ",params$CaAds," 0 0 0")
+    lines[(ca_pos2+1)]<-paste(" ",params$CaPrec," 0 0 0 0 0")
+    
+    }#ende if UNSATCHEM 
   #####################################
   #lower boundary
   #####################################
@@ -592,7 +598,7 @@ read_hydrus.out<-function(obs=all,#Messungen
 #function to set read Hydrus concentration outputfile
 
 read_conc.out<-function(projektpfad=projektpfad1,
-                        n_nodes=18){#anzahl Knoten
+                        n_nodes=9){#anzahl Knoten
   #Conc.out datei einlesen
   lines<-readLines(paste0(projektpfad,"Conc.out"))
   #Zeitpunkte der Messungen aus der Datei entnehmen
@@ -639,9 +645,8 @@ read_conc.out<-function(projektpfad=projektpfad1,
   
   #t_min als Zeit nach Event 1 in Minuten
   all$t_min<-as.numeric(difftime(all$date,events$start[2],units = "min"))
-  sub<-subset(all,t_min%in%vals$t_min)
+  sub<-subset(all,t_min%in%vals$t_min&ca_conc>=30)
   sub<-sub[,c(1:2,13:14,16:17)]
-
   
   merged<-merge(sub,vals,all.y=T)
   out<-merged[order(merged$t_min),]
