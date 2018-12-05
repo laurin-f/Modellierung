@@ -168,6 +168,7 @@ selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen 
                       print_times=100,#anzahl an ausgaben der Calcium conc.
                       #soll als lower Boundary Free Drain oder Seepage Face verwendet werden
                       free_drain=F,
+                      kin_sol=F,
                       dtmin=0.0001,#kleinster Zeitschritt
                       dtmax=10){#größter Zeitschritt
   
@@ -189,7 +190,7 @@ selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen 
   vals2<-paste(params$thr2,params$ths2,params$alpha2,params$n2,params$ks2,params$l)
   }
   #die Paramter von Schicht 3 werden zusammgefügt
-  vals_bot<-paste(params$thr_bot,params$ths_bot,params$alpha_bot,params$n_bot,params$ks_bot,params$l)
+  vals3<-paste(params$thr3,params$ths3,params$alpha3,params$n3,params$ks3,params$l)
   
   #Position der Bodenphydikalischen Paramter im Input suchen
   soil_param_pos<-(grep("thr",lines)+1)
@@ -197,7 +198,7 @@ selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen 
   #Parameter der 3 Materialien einfügen
   lines[soil_param_pos]<-vals[1]
   lines[soil_param_pos+1]<-vals2[1]
-  lines[grep("thr",lines)+3]<-vals_bot[1] 
+  lines[grep("thr",lines)+3]<-vals3[1] 
   
   ################################
   #set CO2 parameter
@@ -224,8 +225,10 @@ selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen 
   #####################################
   #Solute Parameter
   #####################################
-    ca_vals<-paste(" ",params$bulk,params$difuz,params$disperl,params$cec,params$calcit," 0  0  0.3  0.5  -2")
-    ca_vals2<-paste(" ",params$bulk2,params$difuz2,params$disperl2,params$cec2,params$calcit2," 0  0  0.3  0.5  -2")
+    #Gapon exchange constants aus Alterra 2003 für Löss: 
+    #K[Ca/Mg]=0.27; K[Ca/Na]=-0.6; K[ca/K]=-1.6
+    ca_vals<-paste(" ",params$bulk,params$difuz,params$disperl,params$cec,params$calcit," 0  0  0.27  -0.6  -1.6")
+    ca_vals2<-paste(" ",params$bulk2,params$difuz2,params$disperl2,params$cec2,params$calcit2," 0  0  0.27  -0.6  -1.6")
     ca_pos1<-grep("Bulk.d.",lines)+1
     lines[ca_pos1]<-ca_vals
     lines[(ca_pos1+1):(ca_pos1+2)]<-ca_vals2
@@ -252,6 +255,11 @@ selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen 
   lines[grep(" tMax",lines)+1]<-paste("          0       ",tmax)
   
   #########################################
+  #kinetic Solution
+  #########################################
+  lines[grep("lRate",lines)+1]<-ifelse(kin_sol==T," t      f         0         1"," f      f         0         1")
+  
+  #########################################
   #print times
   #########################################
   
@@ -260,6 +268,8 @@ selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen 
   
   #sequenz mit der Länge der Print times vom anfang bis zum ende des Gesamtzeitraums
   p_seq<-round(seq(tmax/print_times,tmax,tmax/print_times))
+  #auf zehner runden damit am ende alles in zehnerschritten zusammenpasst
+  p_seq[1:(length(p_seq)-1)]<-round(p_seq[1:(length(p_seq)-1)]/10)*10
   #ans ende noch ein paar Leerzeichen
   p_seq<-c(p_seq,rep(" ",5))
   #Vektor für die Printtimes im nötigen Format für den Input
@@ -377,12 +387,12 @@ fit.in<-function(obs=all,#Messungen
   }else{
     vals2<-paste(params$thr2,params$ths2,params$alpha2,params$n2,params$ks2,params$l)
   }
-  vals_bot<-paste(params$thr_bot,params$ths_bot,params$alpha_bot,params$n_bot,params$ks_bot,params$l)
+  vals3<-paste(params$thr3,params$ths3,params$alpha3,params$n3,params$ks3,params$l)
   
   #und in der Datei anpassen
   head[grep("thr",head)+1][1]<-vals
   head[grep("thr",head)+1][2]<-vals2
-  head[grep("thr",head)+1][3]<-vals_bot
+  head[grep("thr",head)+1][3]<-vals3
   
   #endzeile in Vektor
   tail<-lines[grep("END",lines)]
@@ -447,7 +457,7 @@ fit.out<-function(projektpfad=projektpfad2){
   #die Listenelemente aneinanderfügen und die 3te Reihe ausschneiden
   pars<-as.data.frame(do.call("cbind",res_list))[3,]
   #die Namen der fittet Parameter anpassen
-  colnames(pars)<-paste0(rep(c("alpha","n","ks"),3),rep(c("","2","_bot"),each=3))
+  colnames(pars)<-paste0(rep(c("alpha","n","ks"),3),rep(c("","2","3"),each=3))
   #paramter ausgeben
   return(pars)
 }
@@ -479,7 +489,7 @@ read_hydrus.out<-function(obs=all,#Messungen
     #sonst entspricht nrow der Reihenzahl der .out datei 
     nrows<-ifelse(length(which(fields!=ncols))!=0,which(fields!=ncols)[1]-2,length(fields))
     #wenn nrows größer ist als 300...
-  if(nrows>300){
+  if(nrows>3000){
     #wird die .out datei eingelesen
     obs_node<-read.table(paste0(projektpfad,"Obs_Node.out"),skip=10,nrows = nrows,header = T)
     
@@ -503,20 +513,20 @@ read_hydrus.out<-function(obs=all,#Messungen
     theta_mod<-data.table::melt(theta_node,id=1)
     
     #Position der Spalte mit Q wert
-    q_col<-ifelse(UNSC==T,20,16)
+    q_pos<-th_pos[2:length(th_pos)]+1
     #Q-Werte und zeitspalte ausschneiden
-    q_mod<-obs_node[,c(1,q_col)]
-    #Q wurde nur in tiefe -17 bestimmt
-    q_mod$tiefe<-as.factor(-17)
+    q_node<-obs_node[,c(1,q_pos)]
+    #mit melt q-werte ins long-format bringen
+    q_mod<-data.table::melt(q_node,id=1)
     #Spaltennamen anpassen
-    colnames(q_mod)<-c("t_min","q_mod","tiefe")
+    colnames(q_mod)<-c("t_min","tiefe","q_mod")
     #einheit von cm3/cm2/min in cm3/min umrechnen
     q_mod$q_mod<--q_mod$q_mod*A#cm3/min
     
     #wenn UNSATCHEM verwendet wird
     if(UNSC==T){
       #Spalten in denen die CO2 werte stehen auschneiden
-      CO2_node<-obs_node[,c(1,5,9,13,17)]
+      CO2_node<-obs_node[,c(1,5,9,13,17,21)]
       
       #ins long-format bringen
       CO2_mod<-data.table::melt(CO2_node,id=1)
@@ -634,6 +644,7 @@ read_conc.out<-function(projektpfad=projektpfad1,
   vals<-as.data.frame(apply(vals, 2, function(x) as.numeric(as.character(x))))
   vals<-vals[,c(1,3,4)]
   colnames(vals)<-c("t_min","tiefe","Ca_mod")
+
   Ca_g_pro_mol<-40.1
   Ca_z<-2
   vals$Ca_mod<-vals$Ca_mod*Ca_g_pro_mol/Ca_z#mg/l
@@ -645,10 +656,13 @@ read_conc.out<-function(projektpfad=projektpfad1,
   
   #t_min als Zeit nach Event 1 in Minuten
   all$t_min<-as.numeric(difftime(all$date,events$start[2],units = "min"))
-  sub<-subset(all,t_min%in%vals$t_min&ca_conc>=30)
+  sub<-subset(all,t_min%in%vals$t_min)
   sub<-sub[,c(1:2,13:14,16:17)]
+  sub$ca_conc[sub$ca_conc<=30]<-NA
   
-  merged<-merge(sub,vals,all.y=T)
+  vals<-subset(vals,tiefe%in%sub$tiefe)
+  
+  merged<-merge(sub,vals,all=T)
   out<-merged[order(merged$t_min),]
   RMSE<-sqrt(mean((out$ca_conc-out$Ca_mod)^2,na.rm = T))
   nse<-NSE(obs=out$ca_conc,out$Ca_mod)
@@ -665,15 +679,15 @@ hydrus<-function(params=data.frame(alpha=0.65,#default Parametersatz
                                    n2=1.8,
                                    ks2=0.1,
                                    ks=0.1,
-                                   alpha_bot=0.6,
-                                   n_bot=1.8,
-                                   ks_bot=0.002,
+                                   alpha3=0.6,
+                                   n3=1.8,
+                                   ks3=0.002,
                                    thr=0.11,
                                    ths=0.75,
                                    thr2=0.13,
                                    ths2=0.64,
-                                   thr_bot=0.13,
-                                   ths_bot=0.64,
+                                   thr3=0.13,
+                                   ths3=0.64,
                                    hseep=-100,
                                    l=0.5,
                                    p_opt=0.001,
@@ -695,7 +709,8 @@ hydrus<-function(params=data.frame(alpha=0.65,#default Parametersatz
                  dtmin=0.0001,
                  dtmax=10,
                  n_nodes=9,
-                 Mat=c(rep(1,3),rep(2,5),3)){
+                 Mat=c(rep(1,3),rep(2,5),3),
+                 print_times = 100){
   #wenn treat ="all"
   if(treat=="all"){
     #wird für tmax  die zeitdifferenz vom ersten zum letzten Messwert in minuten verwendet
@@ -731,7 +746,8 @@ hydrus<-function(params=data.frame(alpha=0.65,#default Parametersatz
               tmax = tmax,
               free_drain = free_drain,
               dtmin = dtmin,
-              dtmax=dtmax)
+              dtmax=dtmax,
+              print_times = print_times)
   
   #file enstsprechend zu UNSC == T/F auswählen
   file<-ifelse(UNSC==T,"undisturbed","undisturbed2")
@@ -739,7 +755,26 @@ hydrus<-function(params=data.frame(alpha=0.65,#default Parametersatz
   #hydrus.exe ausführen
   programmpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/programme/Hydrus-1D 4.xx/"
   hydrus.exe(file = file,UNSC=UNSC,sleep = sleep,Inverse = inverse,taskkill = taskkill)
+  if(taskkill==F){
+    Sys.sleep(1)
+  check_CPU<-function(){
+    tasklist<-system("wmic path Win32_PerfFormattedData_PerfProc_Process get Name,PercentProcessorTime",intern=T)
+    tasksplit<-strsplit(tasklist[2:(length(tasklist)-1)]," \\s+")
+    tasks<-do.call("rbind",tasksplit)
+    
+    if(length(grep("H1D_UNSC",tasks))>0){
+      while(length(which(tasks[grep("H1D_UNSC",tasks),2]>0))>0){
+        Sys.sleep(0.1)
+        tasklist<-system("wmic path Win32_PerfFormattedData_PerfProc_Process get Name,PercentProcessorTime",intern=T)
+        tasksplit<-strsplit(tasklist[2:(length(tasklist)-1)]," \\s+")
+        tasks<-do.call("rbind",tasksplit)
+      }
+      }
+  }
   
+  check_CPU()
+  system("taskkill /IM H1D_UNSC.EXE",show.output.on.console=F)
+}
   #wenn read  = TRUE den output einlesen ...
   if(read==T){
   out<-read_hydrus.out(treat = treat,projektpfad = pfad,UNSC=UNSC)[[1]]

@@ -171,16 +171,23 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
                       #pfad=projektpfad1,
                       UNSAT=T,#soll UNSATCHEM verwendet werden
                       treatm="all",#intensität oder "all"
-                      sleep=1,#sleeptime für die .exe
+                      sleep=5,#sleeptime für die .exe
                       #wenn T werden Paramtersätze über das Latin Hypercube Sampling gezogen
                       OAT=T,
                       #Tiefen die Benutzt werden um objective Function zu ermitteln
                       fit.tiefe=c(-2,-6,-10,-14),
+                      #soll die lower Boundary free drain verwendet werden oder seepage face
                       free_drain=T,
+                      #soll  die objective Function auf CO2 oder Ca gefittet werden
                       fit.calcium=F,
+                      #anzahl Knoten
                       n_nodes=9,
+                      #Verteilung des Bodenmaterials
                       Mat=c(rep(1,3),rep(2,5),3),
-                      print_times=100){
+                      #anzahl Print times
+                      print_times=100,
+                      #maximaler zeitschritt
+                      dtmax=0.1){
   starttime<-Sys.time()
   #Rscript mit Hydrus Functionen ausführen
   source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/hydrus_input.R")
@@ -279,7 +286,8 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
                 tmax=tmax,
                 UNSC = UNSAT,
                 free_drain=free_drain,
-                print_times = print_times)
+                print_times = print_times,
+                dtmax = dtmax)
     
     
     #hydrus ausführen
@@ -341,18 +349,18 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
 }#Ende
 
 
-loadfile="mc_out-nr_400-11-30_17.41"
-
+loadfile<-"mc_out-nr_994-12-03_10.10"
 ###############################
 #mc out function
 #################################
 mc_out<-function(fixed,
                  loadfile,
                  treat="all",
-                 sleep=3,
+                 sleep=8,
                  ndottys=200,
                  free_drain=T,
-                 fit.ca=F){
+                 fit.ca=F,
+                 dtmax=10){
   mcpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/"
   plotpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/abbildungen/plots/mc/"
   load(file = paste0(mcpfad,loadfile,".R"))
@@ -360,6 +368,8 @@ mc_out<-function(fixed,
   par<-mc[[2]]
   rmse<-mc[[1]]
   nse<-mc[[3]]
+  
+  colnames(par)<-gsub("_bot","3",colnames(par))
   
   library(ggplot2)
      
@@ -427,7 +437,7 @@ mc_out<-function(fixed,
   
   X<-as.matrix(par[!is.na(rmse),])
   Y<-rmse[!is.na(rmse)]
-  r<-round(length(Y)/(ncol(par)+1))
+  r<-floor(length(Y)/(ncol(par)+1))
   nr<-r*(ncol(par)+1)
   X<-X[1:nr,]
   Y<-Y[1:nr]
@@ -450,40 +460,42 @@ mc_out<-function(fixed,
   par(mfrow=c(1,1))
   SAFER::EET_plot(mi, sigma,  xlab = "Mean of EEs", ylab = "Sd of EEs",  labels = colnames(par))
   
-  # Use bootstrapping to derive confidence bounds:
-  
-  Nboot <-100
-  
-  EETind100 <- SAFER::EET_indices(r, DistrPar, X, Y, design_type="radial", Nboot)
-  
-  EE <- EETind100$EE
-  mi <- EETind100$mi
-  sigma <- EETind100$sigma
-  mi_lb <- EETind100$mi_lb
-  mi_ub <- EETind100$mi_ub
-  sigma_lb <- EETind100$sigma_lb
-  sigma_ub <- EETind100$sigma_ub
-  
-  # Plot bootstrapping results in the plane (mean(EE),std(EE)):
-  #EET_plot
-  
-  
-  EET_plot(mi, sigma, mi_lb, mi_ub, sigma_lb, sigma_ub, labels = X_labels)
-  
+  # # Use bootstrapping to derive confidence bounds:
+  # 
+  # Nboot <-100
+  # 
+  # EETind100 <- SAFER::EET_indices(r, DistrPar, X, Y, design_type="radial", Nboot)
+  # 
+  # EE <- EETind100$EE
+  # mi <- EETind100$mi
+  # sigma <- EETind100$sigma
+  # mi_lb <- EETind100$mi_lb
+  # mi_ub <- EETind100$mi_ub
+  # sigma_lb <- EETind100$sigma_lb
+  # sigma_ub <- EETind100$sigma_ub
+  # 
+  # # Plot bootstrapping results in the plane (mean(EE),std(EE)):
+  # #EET_plot
+  # 
+  # 
+  # EET_plot(mi, sigma, mi_lb, mi_ub, sigma_lb, sigma_ub, labels = X_labels)
+  # 
   #######################################
   # export  mod vs. obs data plots
   #######################################
   
   pars<-cbind(par[which.min(rmse),],fixed)
+  colnames(pars)<-gsub("_bot","3",colnames(pars))
   
   out<-hydrus(params = pars,
               UNSC=T,
               sleep = sleep,
               treat = treat,
-              taskkill=T,
-              free_drain=free_drain)
-  
-  
+              taskkill=F,
+              free_drain=free_drain,
+              print_times = 3000,
+              dtmax = dtmax)
+
   out$tiefe<-as.numeric(out$tiefe)
   
   source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
@@ -533,4 +545,31 @@ mc_out<-function(fixed,
     theme_classic()+
     labs(x="Zeit [min]",y=expression("Ca"^{2+""}*" [mg * l"^{-1}*"]"),color="tiefe")+
     ggsave(paste0(plotpfad,"ca/Ca_treat-",treat,"-",loadfile,".pdf"),height = 7,width = 9)
+  
+
+  #######################
+  #caplot
+  #berechnung der Masse gelöstem Calciums pro zeitschritt
+  zeitschritt_ca<-mean(diff(out$t_min[out$tiefe==-17&!is.na(out$Ca_mod)]))
+  out$ca_mg_mod<-out$Ca_mod*abs(out$q_mod)/1000*zeitschritt_ca#mg/l *l/min *min=mg
+  
+  ca_mg_sums<-aggregate(out[out$t_min>0,c(14)],list(out$treatment[out$t_min>0],out$tiefe[out$t_min>0]),function(x) sum(x,na.rm=T))
+  q_sums<-aggregate(abs(out[!is.na(out$Ca_mod),c(10)]),list(out$treatment[!is.na(out$Ca_mod)],out$tiefe[!is.na(out$Ca_mod)]),function(x) sum(x,na.rm=T))
+ca_mg_sums$Ca_ml_mod<-ca_mg_sums$x/q_sums$x*1000/zeitschritt_ca#mg/l*min/min
+colnames(ca_mg_sums)<-c("treatment","tiefe","Ca_mg_mod","Ca_ml_mod")
+  
+    ca_means<-aggregate(out[out$t_min>0,c(2,4,13)],list(out$treatment[out$t_min>0],out$tiefe[out$t_min>0]),function(x) mean(x,na.rm=T))
+  
+  capath<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/ca/"
+  load(file=paste0(capath,"cafm.R"))
+  
+  legendtitle<-expression("Intensität [mm*h"^{-1}*"]")
+  ggplot()+
+    geom_point(data=subset(ic,!is.na(rain_mm_h)),aes(ca,tiefe,col=as.factor(round(rain_mm_h)),shape=as.factor(round(rain_mm_h))))+
+    geom_path(data=ca_means,aes(Ca_mod,tiefe,col=as.factor(treatment)),linetype="dotted")+
+    geom_path(data=ca_mg_sums,aes(Ca_ml_mod,tiefe,col=as.factor(treatment)))+
+    labs(x=expression("Ca"^{"2+"}*"  [mg * l"^{-1}*"]"),y="tiefe [cm]",col=legendtitle,shape=legendtitle)+theme_classic()+
+    ggsave(paste0(plotpfad,"ca/Ca_tiefenprofil-",treat,"-",loadfile,".pdf"),height = 9,width = 9)
 }
+
+
