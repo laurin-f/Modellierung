@@ -365,13 +365,18 @@ ggplot(subset(out,tiefe%in%tiefenstufen))+geom_point(aes(t_min,CO2_raw,col="obs"
 ###############################################################
 #co2 with changing water paramters
 ###############################################################
-
 fixed_co2<-data.frame(act_en=6677,
                       h_crit=-10^6,
                       michaelis=0.19,
                       DispW=0.00106181,
                       Disper=5)
 
+
+number<-200000/20
+
+time<-number*10+number/2*20+number/4*30+number/8*40
+number*10/3600/24
+time/3600/24
 
 mc<-mc_parallel(nr=20000,sleep=6,ranges=data.frame(alpha=c(0.1,1),
                                                n=c(1.1,4.5),
