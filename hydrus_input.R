@@ -88,34 +88,51 @@ atmos.in<-function(int=0,#Niederschlagsintensität in mm/h
     #das Ende der Datei ausschneiden
     tail<-lines[grep("END OF INPUT",lines)]
     
-    #das R-Script für die Events Funktion  ausführen 
-    source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
-    #die function anwenden
-    events<-event()
-    #das erste Event war Mist und kommt weg
-    events<-events[-1,]
-    #nur Events verwenden die nicht später enden als die letzte Messung
-    events<-subset(events,stop<=max(obs$date))
+    ########################
+    #events aus datensatz extrahieren
+    #t_min als Zeit nach Event 1 in Minuten
+    event1<-min(which(obs$rain_mm_h>0))
+    obs$t_min<-as.numeric(difftime(obs$date,obs$date[event1],units = "min"))
     
-    #die Startzeiten der einzelnen Events in Minuten nach dem ersten Event
-    #+1 da kein input bei t=0 reinkann
-    time_start<-as.numeric(difftime(events$start,events$start[1],units = "min"))+1
-    #die Endzeiten der einzelnen Events in Minuten nach dem ersten Event
-    time_stop<-as.numeric(difftime(events$stop,events$start[1],units = "min"))+1
-    #Vektor mit start- & endzeiten  der Events & Gesamtzeitraum der Simulation
-    #sowie startzeit -1 und endzeit +1 um zwischen die Events niederschlag =0 einzusetzen
-    #Sortieren der Zeitpunkte um sie Chronologisch zu haben
-    time<-sort(c(time_start,time_start-1,time_stop,time_stop+1,total_t))[-1]
+    starts<-which(diff(obs$rain_mm_h[!is.na(obs$rain_mm_h)])!=0)
+
+    time<-obs$t_min[!is.na(obs$rain_mm_h)][sort(c(starts,starts+1))]+2
+    int<-obs$rain_mm_h[!is.na(obs$rain_mm_h)][sort(c(starts,starts+1))]
+    # #Intensitäten der Events /600 um von mm/h in cm/min umzurechnen
+    int<-int/600
     
-    #time[1]<-1
-    
-    #Intensitäten der Events /600 um von mm/h in cm/min umzurechnen
-    #jede intensität zweimal dann zweimal Null für: 
-    #start-event, stop-event, start-pause, stop-pause 
-    int_paste<-paste(events$rain_mm_h/10/60,events$rain_mm_h/10/60,0,0)
-    #die zusammengefügten character vektoren an den leerzeichen auseinanderschneiden 
-    #und in einen Vektor stecken
-    int<-do.call("c",strsplit(int_paste,split=" "))
+    #endzeitpunkt mit niederschlag=0 anhängen
+    time<-c(time,total_t)
+    int<-c(int,0)
+
+    # #das R-Script für die Events Funktion  ausführen 
+    # source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
+    # #die function anwenden
+    # events<-event()
+    # #das erste Event war Mist und kommt weg
+    # events<-events[-1,]
+    # #nur Events verwenden die nicht später enden als die letzte Messung
+    # events<-subset(events,stop<=max(obs$date))
+    # 
+    # #die Startzeiten der einzelnen Events in Minuten nach dem ersten Event
+    # #+1 da kein input bei t=0 reinkann
+    # time_start<-as.numeric(difftime(events$start,events$start[1],units = "min"))+1
+    # #die Endzeiten der einzelnen Events in Minuten nach dem ersten Event
+    # time_stop<-as.numeric(difftime(events$stop,events$start[1],units = "min"))+1
+    # #Vektor mit start- & endzeiten  der Events & Gesamtzeitraum der Simulation
+    # #sowie startzeit -1 und endzeit +1 um zwischen die Events niederschlag =0 einzusetzen
+    # #Sortieren der Zeitpunkte um sie Chronologisch zu haben
+    # time<-sort(c(time_start,time_start-1,time_stop,time_stop+1,total_t))[-1]
+    # 
+    # #time[1]<-1
+    # 
+    # #Intensitäten der Events /600 um von mm/h in cm/min umzurechnen
+    # #jede intensität zweimal dann zweimal Null für: 
+    # #start-event, stop-event, start-pause, stop-pause 
+    # int_paste<-paste(events$rain_mm_h/10/60,events$rain_mm_h/10/60,0,0)
+    # #die zusammengefügten character vektoren an den leerzeichen auseinanderschneiden 
+    # #und in einen Vektor stecken
+    # int<-do.call("c",strsplit(int_paste,split=" "))
     
     #Verdunstung wird aus der .csv mit den Messungen ermittelt und als konstant angenommen
     evaps<-read.csv("C:/Users/ThinkPad/Documents/Masterarbeit/daten/events/verdunstung.csv",sep=";")

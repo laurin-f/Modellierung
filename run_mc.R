@@ -13,9 +13,6 @@ source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/montecarlo_f
 library(ggplot2)
 
 
-
-#tmax_all<-as.numeric(difftime(max(all$date),min(all$date),units = "min"))
-
 tiefenstufen<-c(-2,-6,-10,-14)
 ####################################
 #Monte Carlo
@@ -435,7 +432,7 @@ par(mfrow=c(1,1))
 pars<-cbind(par[which.min(rmse),],fixed,fixed_co2)
 parsnse<-cbind(par[which.max(nse),],fixed,fixed_co2)
 
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_out-nr_994-12-03_10.10",treat = "all",ndottys = 400,sleep = 5,dtmax = 0.01)
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_06.12",treat = "all",ndottys = 400,sleep = 5,dtmax = 10)
 
 out<-hydrus(params=pars,sleep = 5,dtmin = 0.0001,dtmax = 10,free_drain = T,taskkill = T)
 

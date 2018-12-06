@@ -349,7 +349,7 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
 }#Ende
 
 
-loadfile<-"mc_out-nr_994-12-03_10.10"
+loadfile<-"mc_06.12"
 ###############################
 #mc out function
 #################################
@@ -363,11 +363,15 @@ mc_out<-function(fixed,
                  dtmax=10){
   mcpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/"
   plotpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/abbildungen/plots/mc/"
+  if(exists("rmse")){
+  rm(rmse)}
   load(file = paste0(mcpfad,loadfile,".R"))
-  
+  if(!exists("rmse")){
   par<-mc[[2]]
   rmse<-mc[[1]]
   nse<-mc[[3]]
+  }
+
   
   colnames(par)<-gsub("_bot","3",colnames(par))
   
@@ -456,9 +460,10 @@ mc_out<-function(fixed,
   sigma <- EETind$sigma 
   
   # Plot results in the plane (mean(EE),std(EE)):
-  
+  if(length(which(!is.na(sigma)))>0){
   par(mfrow=c(1,1))
   SAFER::EET_plot(mi, sigma,  xlab = "Mean of EEs", ylab = "Sd of EEs",  labels = colnames(par))
+  }
   
   # # Use bootstrapping to derive confidence bounds:
   # 
