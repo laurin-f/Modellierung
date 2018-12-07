@@ -105,34 +105,6 @@ atmos.in<-function(int=0,#Niederschlagsintensität in mm/h
     time<-c(time,total_t)
     int<-c(int,0)
 
-    # #das R-Script für die Events Funktion  ausführen 
-    # source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
-    # #die function anwenden
-    # events<-event()
-    # #das erste Event war Mist und kommt weg
-    # events<-events[-1,]
-    # #nur Events verwenden die nicht später enden als die letzte Messung
-    # events<-subset(events,stop<=max(obs$date))
-    # 
-    # #die Startzeiten der einzelnen Events in Minuten nach dem ersten Event
-    # #+1 da kein input bei t=0 reinkann
-    # time_start<-as.numeric(difftime(events$start,events$start[1],units = "min"))+1
-    # #die Endzeiten der einzelnen Events in Minuten nach dem ersten Event
-    # time_stop<-as.numeric(difftime(events$stop,events$start[1],units = "min"))+1
-    # #Vektor mit start- & endzeiten  der Events & Gesamtzeitraum der Simulation
-    # #sowie startzeit -1 und endzeit +1 um zwischen die Events niederschlag =0 einzusetzen
-    # #Sortieren der Zeitpunkte um sie Chronologisch zu haben
-    # time<-sort(c(time_start,time_start-1,time_stop,time_stop+1,total_t))[-1]
-    # 
-    # #time[1]<-1
-    # 
-    # #Intensitäten der Events /600 um von mm/h in cm/min umzurechnen
-    # #jede intensität zweimal dann zweimal Null für: 
-    # #start-event, stop-event, start-pause, stop-pause 
-    # int_paste<-paste(events$rain_mm_h/10/60,events$rain_mm_h/10/60,0,0)
-    # #die zusammengefügten character vektoren an den leerzeichen auseinanderschneiden 
-    # #und in einen Vektor stecken
-    # int<-do.call("c",strsplit(int_paste,split=" "))
     
     #Verdunstung wird aus der .csv mit den Messungen ermittelt und als konstant angenommen
     evaps<-read.csv("C:/Users/ThinkPad/Documents/Masterarbeit/daten/events/verdunstung.csv",sep=";")
@@ -418,12 +390,17 @@ fit.in<-function(obs=all,#Messungen
   if(treat=="all"){
     #obs umbenennen
     sub<-obs
-    #events mittels function einladen
-    source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
-    events<-event()
     
-    #t_min spalte als Zeit nach dem ersten Event in minuten
-    sub$t_min<-as.numeric(difftime(obs$date,events$start[2],units = "min"))
+    #t_min als Zeit nach Event 1 in Minuten
+    event1<-min(which(sub$rain_mm_h>0))
+    sub$t_min<-as.numeric(difftime(sub$date,sub$date[event1],units = "min"))
+    
+    # #events mittels function einladen
+    # source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
+    # events<-event()
+    # 
+    # #t_min spalte als Zeit nach dem ersten Event in minuten
+    # sub$t_min<-as.numeric(difftime(obs$date,events$start[2],units = "min"))
     #damit der Datensatz nicht zu groß wird nur jede 100ste Messung
     sub<-sub[sub$t_min%%100==0&sub$t_min>0,]
   }else{#wenn treat nicht "all"
@@ -564,14 +541,20 @@ read_hydrus.out<-function(obs=all,#Messungen
     #wenn alle Events verwendet werden
     if(treat=="all"){
       #relevante spalten des Datensatzes der Messungen werden ausgeschnitten
-      sub<-obs[,c(1:3,6,11,17)]
+      sub<-obs[,c(1:3,6,11,15,17)]
       
-      #Events mittels Funktion laden
-      source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
-      events<-event()
       
       #t_min als Zeit nach Event 1 in Minuten
-      sub$t_min<-as.numeric(difftime(all$date,events$start[2],units = "min"))
+      event1<-min(which(sub$rain_mm_h>0))
+      sub$t_min<-as.numeric(difftime(sub$date,sub$date[event1],units = "min"))
+      
+      
+      # #Events mittels Funktion laden
+      # source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
+      # events<-event()
+      # 
+      # #t_min als Zeit nach Event 1 in Minuten
+      # sub$t_min<-as.numeric(difftime(all$date,events$start[2],units = "min"))
       
     }else{#wenn treat nicht "all" ist
       #wird die Messungen mit der gewünschten Niederschlagsintensität verwendet
@@ -667,12 +650,17 @@ read_conc.out<-function(projektpfad=projektpfad1,
   vals$Ca_mod<-vals$Ca_mod*Ca_g_pro_mol/Ca_z#mg/l
   
   load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
-  source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
-  
-  events<-event()
   
   #t_min als Zeit nach Event 1 in Minuten
-  all$t_min<-as.numeric(difftime(all$date,events$start[2],units = "min"))
+  event1<-min(which(all$rain_mm_h>0))
+  all$t_min<-as.numeric(difftime(all$date,all$date[event1],units = "min"))
+  
+  # source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
+  # 
+  # events<-event()
+  # 
+  # #t_min als Zeit nach Event 1 in Minuten
+  # all$t_min<-as.numeric(difftime(all$date,events$start[2],units = "min"))
   sub<-subset(all,t_min%in%vals$t_min)
   sub<-sub[,c(1:2,13:14,16:17)]
   sub$ca_conc[sub$ca_conc<=30]<-NA

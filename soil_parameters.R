@@ -5,6 +5,7 @@ library(ggplot2)
 
 #pfad des Datei
 soilpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/bodenparameter/"
+plotpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/abbildungen/plots/"
 
 #sheet 3 der .xls einlesen
 soil.xls<-read_xls(paste0(soilpfad,"Soil physical data Hartheim.xls"),sheet = 3)
@@ -19,12 +20,13 @@ soil$Dichte
 
 ###########################################
 #funktion um Bodenretentionskurve zu fitten
-muafit<-function(data){
+muafit<-function(data,alpha=NULL,n=NULL){
+  if(is.null(alpha)&is.null(n)){
   #fitten der Parameter alpha und n der Mualem van genuchten gleichung
   mua<-nls(th_norm~(1+(-alpha*psi)^n)^-(1-1/n),data=data,start = list(alpha=0.02,n=1.2))
   #ausgabe der Parameter
   alpha<-coef(mua)[1]
-  n<-coef(mua)[2]
+  n<-coef(mua)[2]}
   #psi sequenz um gefittete Werte zu berechnen
   psi<-seq(min(data$psi),0,by=1)
   #mit gefitteten Alpha und n theta_werte berechnen
@@ -98,17 +100,17 @@ fit[,i]<-(1+(-alpha*psi[i])^n)^-(1-1/n)
 rmse<-apply(fit,1,function(x) RMSE(obs=th_norm,mod=x))
 
 rmsegood<-which(rmse<=0.1)
+bestrmse<-which.min(rmse)
 
-alpha_range_Ah1<-range(alpha[rmsegood])
-n_range_Ah1<-range(n[rmsegood])
 
-fit_min<-t(fit[which(alpha==min(alpha_range_Ah1)&n==min(n_range_Ah1)),])
-fit_max<-t(fit[which(alpha==max(alpha_range_Ah1)&n==max(n_range_Ah1)),])
+fit_min<-muafit(Ah1,alpha = min(alpha[rmsegood]),n=min(n[rmsegood]))[[1]]
+fit_max<-muafit(Ah1,alpha = max(alpha[rmsegood]),n=max(n[rmsegood]))[[1]]
+fit_best<-muafit(Ah1,alpha = max(alpha[bestrmse]),n=max(n[bestrmse]))[[1]]
+?order
+fit_range<-rbind(fit_min,fit_max[order(fit_max$psi,decreasing = T),])
 
-fit_range<-data.frame(fit=c(fit_min,NA,fit_max),pf=c(log10(-psi),NA,log10(-psi)))
-
-ggplot()+geom_line(data=Ah1,aes(th_norm,pf,col=MG_ID))+geom_line(data=fit_Ah1,aes(th_mod,log10(-psi),col=MG_ID))+geom_path(data=fit_range,aes(fit,pf),col="red",linetype="dashed")
-
+Ah1plot<-ggplot()+geom_polygon(data=fit_range,aes(th_mod,log10(-psi)),fill="grey",alpha=0.5)+geom_line(data=Ah1,aes(th_norm,pf,col=MG_ID),show.legend = F)+geom_line(data=fit_best,aes(th_mod,log10(-psi)))+labs(x=expression(theta[norm]),y="pF")+theme_classic()
+Ah1plot+ggsave(paste0(plotpfad,"muafit.pdf"),width=7,height=5)
 
 ########################################
 #paramter für Ah2 fitten
@@ -161,19 +163,19 @@ for (i in 1:length(psi)){
 rmse<-apply(fit,1,function(x) RMSE(obs=th_norm,mod=x))
 
 rmsegood<-which(rmse<=0.1)
-
-alpha_range_Ah2<-range(alpha[rmsegood])
-n_range_Ah2<-range(n[rmsegood])
-
-fit_min<-t(fit[which(alpha==min(alpha_range_Ah2)&n==min(n_range_Ah2)),])
-fit_max<-t(fit[which(alpha==max(alpha_range_Ah2)&n==max(n_range_Ah2)),])
-
-fit_range<-data.frame(fit=c(fit_min,NA,fit_max),pf=c(log10(-psi),NA,log10(-psi)))
+bestrmse<-which.min(rmse)
 
 
-library(ggplot2)
-ggplot()+geom_line(data=Ah2,aes(th_norm,pf,col=MG_ID))+geom_line(data=fit_Ah2,aes(th_mod,log10(-psi),col=MG_ID))+geom_path(data=fit_range,aes(fit,pf),col="red",linetype="dashed")
+fit_min<-muafit(Ah2,alpha = min(alpha[rmsegood]),n=min(n[rmsegood]))[[1]]
+fit_max<-muafit(Ah2,alpha = max(alpha[rmsegood]),n=max(n[rmsegood]))[[1]]
+fit_best<-muafit(Ah2,alpha = max(alpha[bestrmse]),n=max(n[bestrmse]))[[1]]
 
+fit_range<-rbind(fit_min,fit_max[order(fit_max$psi,decreasing = T),])
+
+Ah2plot<-ggplot()+geom_polygon(data=fit_range,aes(th_mod,log10(-psi)),fill="grey",alpha=0.5)+geom_line(data=Ah2,aes(th_norm,pf,col=MG_ID),show.legend = F)+geom_line(data=fit_best,aes(th_mod,log10(-psi)))+labs(x=expression(theta[norm]),y="pF")+theme_classic()
+
+
+gridExtra::grid.arrange(Ah1plot,Ah2plot,ncol=2)
 
 thr<-range(Ah1$thr)
 thr2<-range(Ah2$thr)
@@ -196,6 +198,20 @@ bulks<-t(aggregate(soil.xls$Dichte,list(soil.xls$Horizon),function(x) range(x,na
 #tabellenwerte für ks matrix cm/min von silt loam bis sandy loam
 #carsel parrish 1988
 ks_range<-c(0.45/60,4.42/60)
+
+#daten einladen
+load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
+r<-7.5#cm Radius
+A<-pi*r^2#cm2 area
+lapply(all_list,function(x) max(x$q,na.rm=T)/A)#cm3/min
+
+#zeitdifferenz zwischen der negativsten steigung von theta in tiefe -14 und -10 
+#zur abschätzung der gesättigten wasserleitfähigkeit
+ks_peak_diff<-lapply(all_list,function(x) 4/as.numeric(difftime(x$date[x$tiefe==-14][which.min(diff(x$theta[x$tiefe==-14]))],x$date[x$tiefe==-10][which.min(diff(x$theta[x$tiefe==-10]))],units="min")))[1:4]
+
+#die ranges sind ungefähr im selben Werte beirech
+range(ks_peak_diff)#cm/min
+ks_range#cm/min
 
 realistic_bulk<-as.data.frame(bulks)
 colnames(realistic_bulk)<-c("bulk","bulk2")

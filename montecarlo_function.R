@@ -37,7 +37,7 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
                       dtmax=0.1){
   starttime<-Sys.time()
   #Rscript mit Hydrus Functionen ausführen
-  source("//FUHYS013/Freiberg/rcode/modellierung/hydrus_input.R")
+  source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/hydrus_input.R")
   
   #wenn lhs verwendet werden soll
   if(OAT==F){
@@ -83,7 +83,7 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
   #wenn treat ="all"
   if(treatm=="all"){
     #lade datensatz all.R
-    load("//FUHYS013/Freiberg/daten/all.R")
+    load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
     #wird für tmax  die zeitdifferenz vom ersten zum letzten Messwert in minuten verwendet
     tmax<-as.numeric(difftime(max(all$date),min(all$date),units = "min"))
     #t_event wird dann nicht gebraucht
@@ -99,8 +99,8 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
     alle<-F
   }
   
-  projektpfad<-paste0("//FUHYS013/Freiberg/Hydrus/UNSC",1:n_parallel,"/")
-  programmpfad<-paste0("//FUHYS013/Freiberg/programme/Hydrus-1D_4-",1:n_parallel,"/")
+  projektpfad<-paste0("C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/UNSC",1:n_parallel,"/")
+  programmpfad<-paste0("C:/Users/ThinkPad/Documents/Masterarbeit/programme/Hydrus-1D_4-",1:n_parallel,"/")
   
   system("taskkill /IM H1D_UNSC.EXE",show.output.on.console=F)
   
@@ -277,7 +277,7 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
     print(paste(i/nr*100,"%"))
     print(rmse[i:(i+n_parallel-1)])
     #falls später ein Fehler auftritt speichern der Daten
-    save(rmse,par,nse,file="//FUHYS013/Freiberg/Hydrus/montecarlo/mc_temp.R") 
+    save(rmse,par,nse,file="C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/mc_temp.R") 
   }#ende Monteccarlo Schleife
   #output in Liste schreiben
   mc<-list(rmse,par,nse)
@@ -324,7 +324,7 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
                       dtmax=0.1){
   starttime<-Sys.time()
   #Rscript mit Hydrus Functionen ausführen
-  source("//FUHYS013/Freiberg/rcode/modellierung/hydrus_input.R")
+  source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/hydrus_input.R")
   
   #wenn lhs verwendet werden soll
   if(OAT==F){
@@ -370,7 +370,7 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
   #wenn treat ="all"
   if(treatm=="all"){
     #lade datensatz all.R
-    load("//FUHYS013/Freiberg/daten/all.R")
+    load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
     #wird für tmax  die zeitdifferenz vom ersten zum letzten Messwert in minuten verwendet
     tmax<-as.numeric(difftime(max(all$date),min(all$date),units = "min"))
     #t_event wird dann nicht gebraucht
@@ -386,8 +386,8 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
     alle<-F
   }
   
-  projektpfad<-paste0("//FUHYS013/Freiberg/Hydrus/UNSC",1:n_parallel,"/")
-  programmpfad<-paste0("//FUHYS013/Freiberg/programme/Hydrus-1D_4-",1:n_parallel,"/")
+  projektpfad<-paste0("C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/UNSC",1:n_parallel,"/")
+  programmpfad<-paste0("C:/Users/ThinkPad/Documents/Masterarbeit/programme/Hydrus-1D_4-",1:n_parallel,"/")
   
   system("taskkill /IM H1D_UNSC.EXE",show.output.on.console=F)
 
@@ -495,7 +495,7 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
     print(paste(i/nr*100,"%"))
     print(rmse[i:(i+n_parallel-1)])
     #falls später ein Fehler auftritt speichern der Daten
-    save(rmse,par,nse,file="//FUHYS013/Freiberg/Hydrus/montecarlo/mc_temp.R") 
+    save(rmse,par,nse,file="C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/mc_temp.R") 
     gc()
   }#ende Monteccarlo Schleife
   
@@ -573,7 +573,7 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
     print(paste(i/length(rmse_na)*100,"%"))
     print(rmse_na[i:(i+n_parallel-1)])
     #falls später ein Fehler auftritt speichern der Daten
-    save(rmse,par,nse,file="//FUHYS013/Freiberg/Hydrus/montecarlo/mc_temp.R") 
+    save(rmse,par,nse,file="C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/mc_temp.R") 
     }#ende monte carlo NA
     dtmax_fac<-dtmax_fac+1
     rmse[is.na(rmse)]<-rmse_na
@@ -599,38 +599,67 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
   return(mc)
 }#Ende
 
+loadfile<-"mc_06.12"
 ###############################
 #mc out function
 #################################
 mc_out<-function(fixed,
                  loadfile,
                  treat="all",
-                 sleep=3,
+                 sleep=8,
                  ndottys=200,
                  free_drain=T,
-                 fit.ca=F){
-  mcpfad<-"//FUHYS013/Freiberg/Hydrus/montecarlo/"
-  plotpfad<-"//FUHYS013/Freiberg/abbildungen/plots/mc/"
+                 fit.ca=F,
+                 dtmax=10){
+  mcpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/"
+  plotpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/abbildungen/plots/mc/"
+  if(exists("rmse")){
+    rm(rmse)}
   load(file = paste0(mcpfad,loadfile,".R"))
+  if(!exists("rmse")){
+    par<-mc[[2]]
+    rmse<-mc[[1]]
+    nse<-mc[[3]]
+  }
   
-  par<-mc[[2]]
-  rmse<-mc[[1]]
-  nse<-mc[[3]]
+  
+  colnames(par)<-gsub("_bot","3",colnames(par))
   
   library(ggplot2)
-     
-   load("//FUHYS013/Freiberg/daten/bodenparameter/ranges.R")
+  
+  load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/bodenparameter/ranges.R")
   if(fit.ca==T){
-   realistic_ranges<-realistic_bulk 
+    realistic_ranges<-realistic_bulk 
   }
   
   realistic_ranges$id<-1:2
   ranges_melt<-data.table::melt(realistic_ranges,id="id")
   realistic_range<-subset(ranges_melt,id==1)
   realistic_range$max<-ranges_melt$value[ranges_melt$id==2]
+  
+  #####################################
+  #run the model
+  #####################################
+  
+  pars<-cbind(par[which.min(rmse),],fixed)
+  colnames(pars)<-gsub("_bot","3",colnames(pars))
+  
+  out<-hydrus(params = pars,
+              UNSC=T,
+              sleep = sleep,
+              treat = treat,
+              taskkill=F,
+              free_drain=free_drain,
+              print_times = 3000,
+              dtmax = dtmax)
+  
+  out$tiefe<-as.numeric(out$tiefe)
+  
   ##################################
   #export dottyplots for RMSE
   ##################################
+  lbls<-sort(paste(colnames(par),"best =",signif(par[which.min(rmse),],2)))
+
   
   best.100<-sort(rmse)[ndottys]
   pargood<-par[rmse<best.100&!is.na(rmse),]
@@ -640,7 +669,8 @@ mc_out<-function(fixed,
   dotty_melt<-data.table::melt(dotty_rmse,id=1)
   dotty_melt$variable<-as.character(dotty_melt$variable)
   dotty_melt<-dotty_melt[order(dotty_melt$variable),]
-  
+
+    
   rmse_dotty<-ggplot()+
     geom_point(data=dotty_melt,aes(value,rmsegood),size=0.5)+
     geom_point(data=subset(dotty_melt,rmsegood==min(rmsegood)),aes(value,rmsegood),col=2)
@@ -648,9 +678,15 @@ mc_out<-function(fixed,
   if (colnames(realistic_ranges)[1]%in%colnames(par)){
     rmse_dotty<-rmse_dotty+geom_rect(data=realistic_range,aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")}
   
-    rmse_dotty+facet_wrap(~variable,scales = "free")+
-    ggsave(paste0(plotpfad,"dottyplots/RMSE/dotty_",loadfile,".pdf"),height = 8,width = 8)
+  print("saving dotty plots")
   
+
+  named<-setNames(lbls,sort(unique(dotty_melt$variable)))
+  rmse_dotty+facet_wrap(~variable,scales = "free",labeller = as_labeller(named))+
+    ggsave(paste0(plotpfad,"dottyplots/RMSE/dotty_",loadfile,".pdf"),height = 8,width = 10)
+  
+
+
   
   ##################################
   #export dottyplots for NSE
@@ -673,8 +709,10 @@ mc_out<-function(fixed,
   if (colnames(realistic_ranges)[1]%in%colnames(par)){
     nse_dotty<-nse_dotty+geom_rect(data=realistic_range,aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")}
   
-  nse_dotty+facet_wrap(~variable,scales = "free")+
-    ggsave(paste0(plotpfad,"dottyplots/NSE/dotty_",loadfile,".pdf"),height = 8,width = 8)
+
+  
+  nse_dotty+facet_wrap(~variable,scales = "free",labeller = as_labeller(named))+
+    ggsave(paste0(plotpfad,"dottyplots/NSE/dotty_",loadfile,".pdf"),height = 8,width = 10)
   
   
   #######################################
@@ -689,22 +727,36 @@ mc_out<-function(fixed,
   Y<-Y[1:nr]
   range<-apply(X,2,range)
   
-  DistrPar<-vector("list",ncol(par))
-  for(i in 1:ncol(par)){
+  # X<-as.matrix(par)
+  # Y<-rmse
+  # Y[is.na(Y)]<-max(rmse,na.rm = T)
+  # r<-floor(length(Y)/(ncol(X)+1))
+  # nr<-r*(ncol(X)+1)
+  # X<-X[1:nr,]
+  # Y<-Y[1:nr]
+  # range<-apply(X,2,range)
+  
+  DistrPar<-vector("list",ncol(X))
+  for(i in 1:ncol(X)){
     DistrPar[[i]]<-range[,i]
   }
   
   # Compute Elementary Effects:
-  EETind <- SAFER::EET_indices(r, DistrPar, X, Y, design_type="radial")
+  EETind <- SAFER::EET_indices(r=r,xrange= DistrPar, X=X, Y=Y, design_type="radial")
+  
   
   EE <- EETind$EE
   mi <- EETind$mi
   sigma <- EETind$sigma 
+  i<-1
+  j<-1
   
   # Plot results in the plane (mean(EE),std(EE)):
-  
-  par(mfrow=c(1,1))
-  SAFER::EET_plot(mi, sigma,  xlab = "Mean of EEs", ylab = "Sd of EEs",  labels = colnames(par))
+  if(length(which(!is.na(sigma)))>0){
+    par(mfrow=c(1,1))
+    ptint("saving GSA plot")
+    SAFER::EET_plot(mi, sigma,  xlab = "Mean of EEs", ylab = "Sd of EEs",  labels = colnames(par))
+  }
   
   # # Use bootstrapping to derive confidence bounds:
   # 
@@ -729,25 +781,13 @@ mc_out<-function(fixed,
   #######################################
   # export  mod vs. obs data plots
   #######################################
+
   
-  pars<-cbind(par[which.min(rmse),],fixed)
-  
-  out<-hydrus(params = pars,
-              UNSC=T,
-              sleep = sleep,
-              treat = treat,
-              taskkill=T,
-              free_drain=free_drain,
-              print_times = 1000)
-  
-  
-  out$tiefe<-as.numeric(out$tiefe)
-  
-  source("//FUHYS013/Freiberg/rcode/durchf-hrung/event.R")
+  source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
   events<-event()
   
   #lade datensatz all.R
-  load("//FUHYS013/Freiberg/daten/all.R")
+  load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
   #zeitspanne in der beregnet wurde
   event<-subset(events,start>=min(all$date)&stop<=max(all$date))
   
@@ -759,6 +799,7 @@ mc_out<-function(fixed,
   
   tiefenstufen<-c(-2,-6,-10,-14)
   
+  print("saving timeline plots")
   ggplot()+
     geom_rect(data=event,aes(xmin=time_start,xmax=time_stop,ymin = -Inf, ymax = Inf), alpha = 0.15,fill="blue")+
     geom_point(data= subset(out,tiefe%in%tiefenstufen),aes(t_min,theta,col="obs"),na.rm = T)+
@@ -791,17 +832,28 @@ mc_out<-function(fixed,
     labs(x="Zeit [min]",y=expression("Ca"^{2+""}*" [mg * l"^{-1}*"]"),color="tiefe")+
     ggsave(paste0(plotpfad,"ca/Ca_treat-",treat,"-",loadfile,".pdf"),height = 7,width = 9)
   
-  ca_means<-aggregate(out[out$t_min>0,c(1:4,13)],list(out$treatment[out$t_min>0],out$tiefe[out$t_min>0]),function(x) mean(x,na.rm=T))
+  
   #######################
   #caplot
+  #berechnung der Masse gelöstem Calciums pro zeitschritt
+  zeitschritt_ca<-mean(diff(out$t_min[out$tiefe==-17&!is.na(out$Ca_mod)]))
+  out$ca_mg_mod<-out$Ca_mod*abs(out$q_mod)/1000*zeitschritt_ca#mg/l *l/min *min=mg
   
-  capath<-"//FUHYS013/Freiberg/daten/ca/"
+  ca_mg_sums<-aggregate(out$ca_mg_mod,list(out$treatment,out$tiefe),function(x) sum(x,na.rm=T))
+  q_sums<-aggregate(abs(out$q_mod[!is.na(out$Ca_mod)]),list(out$treatment[!is.na(out$Ca_mod)],out$tiefe[!is.na(out$Ca_mod)]),function(x) sum(x,na.rm=T))
+  ca_mg_sums$Ca_ml_mod<-ca_mg_sums$x/q_sums$x*1000/zeitschritt_ca#mg/l*min/min
+  colnames(ca_mg_sums)<-c("treatment","tiefe","Ca_mg_mod","Ca_ml_mod")
+  
+  ca_means<-aggregate(out[out$t_min>0,c(2,4,14)],list(out$treatment[out$t_min>0],out$tiefe[out$t_min>0]),function(x) mean(x,na.rm=T))
+
+  capath<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/ca/"
   load(file=paste0(capath,"cafm.R"))
   
   legendtitle<-expression("Intensität [mm*h"^{-1}*"]")
   ggplot()+
     geom_point(data=subset(ic,!is.na(rain_mm_h)),aes(ca,tiefe,col=as.factor(round(rain_mm_h)),shape=as.factor(round(rain_mm_h))))+
-    geom_path(data=ca_means,aes(Ca_mod,tiefe,col=as.factor(treatment)))+
+    geom_path(data=ca_means,aes(Ca_mod,tiefe,col=as.factor(treatment)),linetype="dotted")+
+    geom_path(data=ca_mg_sums,aes(Ca_ml_mod,tiefe,col=as.factor(treatment)))+
     labs(x=expression("Ca"^{"2+"}*"  [mg * l"^{-1}*"]"),y="tiefe [cm]",col=legendtitle,shape=legendtitle)+theme_classic()+
     ggsave(paste0(plotpfad,"ca/Ca_tiefenprofil-",treat,"-",loadfile,".pdf"),height = 9,width = 9)
 }
