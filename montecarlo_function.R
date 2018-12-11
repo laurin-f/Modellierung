@@ -719,31 +719,51 @@ mc_out<-function(fixed,
   #SAFER
   #######################################
   
-  X<-as.matrix(par[!is.na(rmse),])
-  Y<-rmse[!is.na(rmse)]
-  r<-floor(length(Y)/(ncol(par)+1))
-  nr<-r*(ncol(par)+1)
-  X<-X[1:nr,]
-  Y<-Y[1:nr]
-  range<-apply(X,2,range)
-  
-  # X<-as.matrix(par)
-  # Y<-rmse
-  # Y[is.na(Y)]<-max(rmse,na.rm = T)
-  # r<-floor(length(Y)/(ncol(X)+1))
-  # nr<-r*(ncol(X)+1)
+  # X<-as.matrix(par[!is.na(rmse),])
+  # Y<-rmse[!is.na(rmse)]
+  # r<-floor(length(Y)/(ncol(par)+1))
+  # nr<-r*(ncol(par)+1)
   # X<-X[1:nr,]
   # Y<-Y[1:nr]
   # range<-apply(X,2,range)
   
+  X<-as.matrix(par)
+  Y<-rmse
+  r<-floor(length(Y)/(ncol(par)+1))
+  nr<-r*(ncol(par)+1)
+  X<-X
+  Y<-Y
+  range<-apply(X,2,range)
+  
+  # X<-as.matrix(par)
+  # Y<-rmse
+  # Y[is.na(Y)]<-max(rmse,na.rm = T)+runif(1,-10,10)
+  # r<-floor(length(Y)/(ncol(X)+1))
+  # nr<-r*(ncol(X)+1)
+  # X<-X[1:nr,]
+  # Y<-Y[1:nr]
+  
+  range<-apply(X,2,range)
+  
   DistrPar<-vector("list",ncol(X))
   for(i in 1:ncol(X)){
-    DistrPar[[i]]<-range[,i]
+    DistrPar[[i]]<-signif(range[,i],2)
   }
-  
+
   # Compute Elementary Effects:
-  EETind <- SAFER::EET_indices(r=r,xrange= DistrPar, X=X, Y=Y, design_type="radial")
-  
+  #EETind <- SAFER::EET_indices(r=r,xrange= DistrPar, X=X, Y=Y, design_type="radial")
+  EETind <- EET_na(r=r,xrange= DistrPar, X=X, Y=Y, design_type="radial")
+  EET<-as.data.frame(EETind[1:2])
+  EET$id<-colnames(par)
+  EET$par<-str_replace(colnames(par),"2|3","")
+  mat<-str_extract(colnames(par),"2|3")
+  EET$Mat<-ifelse(is.na(mat),"1",mat)
+  colors<-factor(EET$par,labels = setNames(c(2:6,"orange","purple"),unique(EET$par)))
+    colors<-as.character(colors)
+    library(dplyr)
+    shapes<-factor(EET$Mat,labels = setNames(c(16,17,15),unique(EET$Mat)))
+    shapes<-as.numeric(as.character(shapes))
+  library(stringr)
   
   EE <- EETind$EE
   mi <- EETind$mi
@@ -754,15 +774,19 @@ mc_out<-function(fixed,
   # Plot results in the plane (mean(EE),std(EE)):
   if(length(which(!is.na(sigma)))>0){
     par(mfrow=c(1,1))
-    ptint("saving GSA plot")
+    print("saving GSA plot")
     SAFER::EET_plot(mi, sigma,  xlab = "Mean of EEs", ylab = "Sd of EEs",  labels = colnames(par))
+    +scale_color_manual(name="parameter",labels=colnames(par),values = c(2:6,"orange","purple"))
+    ggplot(EET)+geom_point(aes(mi,sigma,col=id,shape=id),size=2)+theme_classic()+scale_shape_manual(name="parameter",labels=sort(colnames(par)),values = shapes[order(colnames(par))])+scale_color_manual(name="parameter",labels=sort(colnames(par)),values = colors[order(colnames(par))])
+    
+    ggplot(EET)+geom_point(aes(mi,sigma,col=par,shape=Mat),size=2)+theme_classic()+scale_color_manual(name="parameter",values = c(2:6,"orange","purple"))+scale_shape_manual(name="parameter",values = c(16:17,15))
   }
   
   # # Use bootstrapping to derive confidence bounds:
   # 
-  # Nboot <-100
+  #Nboot <-100
   # 
-  # EETind100 <- SAFER::EET_indices(r, DistrPar, X, Y, design_type="radial", Nboot)
+  #EETind100 <- SAFER::EET_indices(r, DistrPar, X, Y, design_type="radial", Nboot)
   # 
   # EE <- EETind100$EE
   # mi <- EETind100$mi

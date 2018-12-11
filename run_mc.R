@@ -437,7 +437,7 @@ par(mfrow=c(1,1))
 pars<-cbind(par[which.min(rmse),],fixed,fixed_co2)
 parsnse<-cbind(par[which.max(nse),],fixed,fixed_co2)
 
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_06.12",treat = "all",ndottys = 400,sleep = 5,dtmax = 10)
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_11.12",treat = "all",ndottys = 1000,sleep = 5,dtmax = 10)
 
 out<-hydrus(params=pars,sleep = 5,dtmin = 0.0001,dtmax = 10,free_drain = T,taskkill = T)
 

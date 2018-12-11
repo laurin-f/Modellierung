@@ -90,7 +90,7 @@ psi<-sort(unique(Ah1$psi))
 
 th_norm<-tapply(Ah1$th_norm,Ah1$psi,mean)
 n_parseq<-100
-alpha<-rep(seq(0.05,1,len=n_parseq),n_parseq)
+alpha<-rep(seq(0.05,4,len=n_parseq),n_parseq)
 n<-rep(seq(1.1,2,len=n_parseq),each=n_parseq)
 fit<-matrix(NA,length(n),length(psi))
 for (i in 1:length(psi)){
@@ -103,13 +103,22 @@ rmsegood<-which(rmse<=0.1)
 bestrmse<-which.min(rmse)
 
 
+alpha_range_Ah1<-range(alpha[rmsegood])
+n_range_Ah1<-range(n[rmsegood])
+
 fit_min<-muafit(Ah1,alpha = min(alpha[rmsegood]),n=min(n[rmsegood]))[[1]]
 fit_max<-muafit(Ah1,alpha = max(alpha[rmsegood]),n=max(n[rmsegood]))[[1]]
 fit_best<-muafit(Ah1,alpha = max(alpha[bestrmse]),n=max(n[bestrmse]))[[1]]
-?order
+
 fit_range<-rbind(fit_min,fit_max[order(fit_max$psi,decreasing = T),])
 
-Ah1plot<-ggplot()+geom_polygon(data=fit_range,aes(th_mod,log10(-psi)),fill="grey",alpha=0.5)+geom_line(data=Ah1,aes(th_norm,pf,col=MG_ID),show.legend = F)+geom_line(data=fit_best,aes(th_mod,log10(-psi)))+labs(x=expression(theta[norm]),y="pF")+theme_classic()
+Ah1_agr<-aggregate(Ah1$th_norm,list(Ah1$pf),mean)
+colnames(Ah1_agr)<-c("pf","th_norm")
+
+Ah1plot<-ggplot()+geom_polygon(data=fit_range,aes(th_mod,log10(-psi),fill="RMSE<0.1"),alpha=0.5)+geom_path(data=Ah1,aes(th_norm,pf,col="obs",linetype=MG_ID),show.legend = F)+geom_line(data=fit_best,aes(th_mod,log10(-psi),col="best fit"),size=1.4)+labs(x=expression(theta[norm]),y="pF")+theme_classic()+scale_colour_manual(name="",values = c("red",rep(grey(0.3),11)),labels=c("best fit",rep("obs",11)))+scale_fill_manual(name="",values = "grey")+scale_linetype_manual(values=rep(1,11))
+Ah1plot
+
+
 Ah1plot+ggsave(paste0(plotpfad,"muafit.pdf"),width=7,height=5)
 
 ########################################
@@ -153,7 +162,7 @@ psi<-sort(unique(Ah2$psi))
 
 th_norm<-tapply(Ah2$th_norm,Ah2$psi,mean)
 n_parseq<-100
-alpha<-rep(seq(0.05,1,len=n_parseq),n_parseq)
+alpha<-rep(seq(0.05,4,len=n_parseq),n_parseq)
 n<-rep(seq(1.1,2,len=n_parseq),each=n_parseq)
 fit<-matrix(NA,length(n),length(psi))
 for (i in 1:length(psi)){
@@ -165,6 +174,9 @@ rmse<-apply(fit,1,function(x) RMSE(obs=th_norm,mod=x))
 rmsegood<-which(rmse<=0.1)
 bestrmse<-which.min(rmse)
 
+alpha_range_Ah2<-range(alpha[rmsegood])
+
+n_range_Ah2<-range(n[rmsegood])
 
 fit_min<-muafit(Ah2,alpha = min(alpha[rmsegood]),n=min(n[rmsegood]))[[1]]
 fit_max<-muafit(Ah2,alpha = max(alpha[rmsegood]),n=max(n[rmsegood]))[[1]]
@@ -172,9 +184,9 @@ fit_best<-muafit(Ah2,alpha = max(alpha[bestrmse]),n=max(n[bestrmse]))[[1]]
 
 fit_range<-rbind(fit_min,fit_max[order(fit_max$psi,decreasing = T),])
 
-Ah2plot<-ggplot()+geom_polygon(data=fit_range,aes(th_mod,log10(-psi)),fill="grey",alpha=0.5)+geom_line(data=Ah2,aes(th_norm,pf,col=MG_ID),show.legend = F)+geom_line(data=fit_best,aes(th_mod,log10(-psi)))+labs(x=expression(theta[norm]),y="pF")+theme_classic()
+Ah2plot<-ggplot()+geom_polygon(data=fit_range,aes(th_mod,log10(-psi)),fill="grey",alpha=0.5)+geom_line(data=Ah2,aes(th_norm,pf,col=MG_ID))+geom_line(data=fit_best,aes(th_mod,log10(-psi)))+labs(x=expression(theta[norm]),y="pF")+theme_classic()
 
-
+Ah2plot
 gridExtra::grid.arrange(Ah1plot,Ah2plot,ncol=2)
 
 thr<-range(Ah1$thr)
@@ -191,6 +203,7 @@ n2<-ranges_Ah2[,2]
 D0<-0.152*60
 
 eps<-range(soil.xls$air_15000hPa[soil.xls$Horizon%in%c("Ah1","Ah2")],na.rm = T)/100
+
 DispA<-1.5*eps^2.74*D0
 
 bulks<-t(aggregate(soil.xls$Dichte,list(soil.xls$Horizon),function(x) range(x,na.rm = T))[1:2,][2])
@@ -215,7 +228,17 @@ ks_range#cm/min
 
 realistic_bulk<-as.data.frame(bulks)
 colnames(realistic_bulk)<-c("bulk","bulk2")
+
+
+
 realistic_ranges<-data.frame(alpha=alpha_range_Ah1,alpha2=alpha_range_Ah2,alpha3=alpha_range_Ah2,n=n_range_Ah1,n2=n_range_Ah2,n3=n_range_Ah2,p_opt=c(0.00016,0.00022),DispA,ks=ks_range,ks2=ks_range)
 
 #params<-data.frame(alpha=colMeans(alpha),n=colMeans(n),ths=colMeans(ths),thr=colMeans(thr),hseep=-100,l=0.5,ks=0.09)
 save(realistic_ranges,realistic_bulk,file=paste0(soilpfad,"ranges.R"))
+
+library(xtable)
+tabelle1<-cbind(0.75,0.11,realistic_ranges[c(1,4,7,8,9)],realistic_bulk$bulk)
+tabelle2<-cbind(0.64,0.13,realistic_ranges[c(2,5,7,8,9)],realistic_bulk$bulk2)
+print(xtable((tabelle1)),include.rownames = F)
+print(xtable((tabelle2)),include.rownames = F)
+xtable(realistic_bulk)
