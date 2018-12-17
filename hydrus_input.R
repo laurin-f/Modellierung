@@ -179,7 +179,7 @@ selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen 
   vals2<-paste(params$thr2,params$ths2,params$alpha2,params$n2,params$ks2,params$l)
   }
   #die Paramter von Schicht 3 werden zusammgefügt
-  vals3<-paste(params$thr3,params$ths3,params$alpha3,params$n3,params$ks3,params$l)
+  vals3<-paste(params$thr3,params$ths3,params$alpha2,params$n2,params$ks3,params$l)
   
   #Position der Bodenphydikalischen Paramter im Input suchen
   soil_param_pos<-(grep("thr",lines)+1)
@@ -678,31 +678,7 @@ read_conc.out<-function(projektpfad=projektpfad1,
 #function to run all above functions
 
 
-hydrus<-function(params=data.frame(alpha=0.65,#default Parametersatz
-                                   n=1.8,
-                                   alpha2=0.6,
-                                   n2=1.8,
-                                   ks2=0.1,
-                                   ks=0.1,
-                                   alpha3=0.6,
-                                   n3=1.8,
-                                   ks3=0.002,
-                                   thr=0.11,
-                                   ths=0.75,
-                                   thr2=0.13,
-                                   ths2=0.64,
-                                   thr3=0.13,
-                                   ths3=0.64,
-                                   hseep=-100,
-                                   l=0.5,
-                                   p_opt=0.001,
-                                   act_en=6677,
-                                   h_opt=-50,
-                                   h_crit=-10^6,
-                                   michaelis=0.19,
-                                   DispA=9.54,
-                                   DispW=0.0016,
-                                   Disper=5),
+hydrus<-function(params,
                  treat="all",#intensität oder "all"
                  UNSC=T,#UNSATCHEM modul an/aus
                  obs=all,#Messwerte

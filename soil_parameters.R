@@ -89,7 +89,7 @@ RMSE<-function(obs,mod){
 psi<-sort(unique(Ah1$psi))
 
 th_norm<-tapply(Ah1$th_norm,Ah1$psi,mean)
-n_parseq<-100
+n_parseq<-300
 alpha<-rep(seq(0.05,4,len=n_parseq),n_parseq)
 n<-rep(seq(1.1,2,len=n_parseq),each=n_parseq)
 fit<-matrix(NA,length(n),length(psi))
@@ -99,7 +99,8 @@ fit[,i]<-(1+(-alpha*psi[i])^n)^-(1-1/n)
 
 rmse<-apply(fit,1,function(x) RMSE(obs=th_norm,mod=x))
 
-rmsegood<-which(rmse<=0.1)
+crit<-0.085
+rmsegood<-which(rmse<=crit)
 bestrmse<-which.min(rmse)
 
 
@@ -115,7 +116,7 @@ fit_range<-rbind(fit_min,fit_max[order(fit_max$psi,decreasing = T),])
 Ah1_agr<-aggregate(Ah1$th_norm,list(Ah1$pf),mean)
 colnames(Ah1_agr)<-c("pf","th_norm")
 
-Ah1plot<-ggplot()+geom_polygon(data=fit_range,aes(th_mod,log10(-psi),fill="RMSE<0.1"),alpha=0.5)+geom_path(data=Ah1,aes(th_norm,pf,col="obs",linetype=MG_ID),show.legend = F)+geom_line(data=fit_best,aes(th_mod,log10(-psi),col="best fit"),size=1.4)+labs(x=expression(theta[norm]),y="pF")+theme_classic()+scale_colour_manual(name="",values = c("red",rep(grey(0.3),11)),labels=c("best fit",rep("obs",11)))+scale_fill_manual(name="",values = "grey")+scale_linetype_manual(values=rep(1,11))
+Ah1plot<-ggplot()+geom_polygon(data=fit_range,aes(th_mod,log10(-psi),fill=paste0("RMSE<",crit)),alpha=0.5)+geom_path(data=Ah1,aes(th_norm,pf,col="obs",linetype=MG_ID),show.legend = F)+geom_line(data=fit_best,aes(th_mod,log10(-psi),col="best fit"),size=1.4)+labs(x=expression(S[e]),y="pF")+theme_classic()+scale_colour_manual(name="",values = c("red",rep(grey(0.3),11)),labels=c("best fit",rep("obs",11)))+scale_fill_manual(name="",values = "grey")+scale_linetype_manual(values=rep(1,11))+annotate("text",x=0.8,y=c(3.15,3,2.85),label=c("best fit",paste(c("alpha","n")," = ",signif(c(alpha[bestrmse],n[bestrmse]),2))))
 Ah1plot
 
 
@@ -161,7 +162,7 @@ ranges_Ah2<-apply(coef_Ah2,2,range)
 psi<-sort(unique(Ah2$psi))
 
 th_norm<-tapply(Ah2$th_norm,Ah2$psi,mean)
-n_parseq<-100
+
 alpha<-rep(seq(0.05,4,len=n_parseq),n_parseq)
 n<-rep(seq(1.1,2,len=n_parseq),each=n_parseq)
 fit<-matrix(NA,length(n),length(psi))
@@ -171,7 +172,7 @@ for (i in 1:length(psi)){
 
 rmse<-apply(fit,1,function(x) RMSE(obs=th_norm,mod=x))
 
-rmsegood<-which(rmse<=0.1)
+rmsegood<-which(rmse<=crit)
 bestrmse<-which.min(rmse)
 
 alpha_range_Ah2<-range(alpha[rmsegood])
@@ -231,7 +232,7 @@ colnames(realistic_bulk)<-c("bulk","bulk2")
 
 
 
-realistic_ranges<-data.frame(alpha=alpha_range_Ah1,alpha2=alpha_range_Ah2,alpha3=alpha_range_Ah2,n=n_range_Ah1,n2=n_range_Ah2,n3=n_range_Ah2,p_opt=c(0.00016,0.00022),DispA,ks=ks_range,ks2=ks_range)
+realistic_ranges<-data.frame(alpha=alpha_range_Ah1,alpha2=alpha_range_Ah2,n=n_range_Ah1,n2=n_range_Ah2,p_opt=c(0.00016,0.00022),DispA,ks=ks_range,ks2=ks_range)
 
 #params<-data.frame(alpha=colMeans(alpha),n=colMeans(n),ths=colMeans(ths),thr=colMeans(thr),hseep=-100,l=0.5,ks=0.09)
 save(realistic_ranges,realistic_bulk,file=paste0(soilpfad,"ranges.R"))

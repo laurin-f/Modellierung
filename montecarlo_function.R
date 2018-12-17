@@ -69,6 +69,7 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
     nr<-r*(M+1)
     distr_par<-as.list(ranges)
     par<-SAFER::OAT_sampling(r=r,M=M,distr_fun = "unif",distr_par = distr_par,samp_strat = "lhs",des_type = "radial")
+
     
     par<-as.data.frame(par)
     colnames(par)<-colnames(ranges)
@@ -76,7 +77,7 @@ mc_parallel<-function(nr=100,#anzahl Modellläufe
   }
   
   #Parameter auf 3 signifikante Nachkommastellen Runden
-  par<-signif(par,3)
+  #par<-signif(par,3)
   #file enstsprechend zu UNSC == T/F auswählen
   file<-paste0("UNSC",1:n_parallel) 
   
@@ -599,7 +600,15 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
   return(mc)
 }#Ende
 
-loadfile<-"mc_06.12"
+loadfile<-"mc_17.12"
+fixed=cbind(fixed,fixed_co2)
+treat="all"
+sleep=8
+ndottys=1000
+free_drain=T
+fit.ca=F
+dtmax=10
+
 ###############################
 #mc out function
 #################################
@@ -643,6 +652,12 @@ mc_out<-function(fixed,
   
   pars<-cbind(par[which.min(rmse),],fixed)
   colnames(pars)<-gsub("_bot","3",colnames(pars))
+  # 
+  # pars2<-par
+  # for (i in 1:3){
+  # pari<-pars2[,colnames(pars2)==colnames(realistic_ranges)[i]]
+  # pars2<-pars2[pari>=realistic_ranges[1,i]&pari<=realistic_ranges[2,i],]
+  # }
   
   out<-hydrus(params = pars,
               UNSC=T,
@@ -652,6 +667,7 @@ mc_out<-function(fixed,
               free_drain=free_drain,
               print_times = 3000,
               dtmax = dtmax)
+  
   
   out$tiefe<-as.numeric(out$tiefe)
   
@@ -730,10 +746,13 @@ mc_out<-function(fixed,
   X<-as.matrix(par)
   Y<-rmse
   r<-floor(length(Y)/(ncol(par)+1))
-  nr<-r*(ncol(par)+1)
-  X<-X
-  Y<-Y
   range<-apply(X,2,range)
+  
+
+  # M<-ncol(X)
+  # nr<-r*(M+1)
+  # distr_par<-as.list(ranges)
+  # X<-SAFER::OAT_sampling(r=r,M=M,distr_fun = "unif",distr_par = distr_par,samp_strat = "lhs",des_type = "radial")
   
   # X<-as.matrix(par)
   # Y<-rmse
@@ -742,14 +761,19 @@ mc_out<-function(fixed,
   # nr<-r*(ncol(X)+1)
   # X<-X[1:nr,]
   # Y<-Y[1:nr]
-  
-  range<-apply(X,2,range)
+  #range<-apply(X,2,range)
   
   DistrPar<-vector("list",ncol(X))
   for(i in 1:ncol(X)){
     DistrPar[[i]]<-signif(range[,i],2)
   }
+  
+  write.table(X,paste0(mcpfad,"X.csv"),row.names = F,col.names = F,sep=",")
+  write.table(Y,paste0(mcpfad,"Y.csv"),row.names = F,col.names = F,sep=",")
+  write.table(range,paste0(mcpfad,"range.csv"),row.names = F,col.names = F,sep=",")
 
+  
+  library(stringr)
   # Compute Elementary Effects:
   #EETind <- SAFER::EET_indices(r=r,xrange= DistrPar, X=X, Y=Y, design_type="radial")
   EETind <- EET_na(r=r,xrange= DistrPar, X=X, Y=Y, design_type="radial")
@@ -763,23 +787,17 @@ mc_out<-function(fixed,
     library(dplyr)
     shapes<-factor(EET$Mat,labels = setNames(c(16,17,15),unique(EET$Mat)))
     shapes<-as.numeric(as.character(shapes))
-  library(stringr)
-  
-  EE <- EETind$EE
-  mi <- EETind$mi
-  sigma <- EETind$sigma 
-  i<-1
-  j<-1
+  names<-c(expression(alpha[1],alpha[2],alpha[3],D[a],h[opt],K[S1],K[S2],K[S3],n[1],n[2],n[3],P[distr],P[opt]))
   
   # Plot results in the plane (mean(EE),std(EE)):
-  if(length(which(!is.na(sigma)))>0){
+  if(length(which(!is.na(EET$sigma)))>0){
     par(mfrow=c(1,1))
     print("saving GSA plot")
-    SAFER::EET_plot(mi, sigma,  xlab = "Mean of EEs", ylab = "Sd of EEs",  labels = colnames(par))
-    +scale_color_manual(name="parameter",labels=colnames(par),values = c(2:6,"orange","purple"))
-    ggplot(EET)+geom_point(aes(mi,sigma,col=id,shape=id),size=2)+theme_classic()+scale_shape_manual(name="parameter",labels=sort(colnames(par)),values = shapes[order(colnames(par))])+scale_color_manual(name="parameter",labels=sort(colnames(par)),values = colors[order(colnames(par))])
+    #SAFER::EET_plot(mi, sigma,  xlab = "Mean of EEs", ylab = "Sd of EEs",  labels = colnames(par))
     
-    ggplot(EET)+geom_point(aes(mi,sigma,col=par,shape=Mat),size=2)+theme_classic()+scale_color_manual(name="parameter",values = c(2:6,"orange","purple"))+scale_shape_manual(name="parameter",values = c(16:17,15))
+    ggplot(EET)+geom_point(aes(mi,sigma,col=id,shape=id),size=2)+theme_classic()+scale_shape_manual(name="Parameter",labels=names,values = shapes[order(colnames(par))])+scale_color_manual(name="Parameter",labels=names,values = colors[order(colnames(par))])
+    
+    #ggplot(EET)+geom_point(aes(mi,sigma,col=par,shape=Mat),size=2)+theme_classic()+scale_color_manual(name="parameter",values = c(2:6,"orange","purple"))+scale_shape_manual(name="parameter",values = c(16:17,15))
   }
   
   # # Use bootstrapping to derive confidence bounds:
