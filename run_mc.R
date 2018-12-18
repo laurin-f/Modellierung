@@ -6,6 +6,7 @@ mcpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/"
 plotpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/abbildungen/plots/mc/"
 
 load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
+
 #load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/bodenparameter/params.R")
 
 source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/hydrus_input.R")
@@ -52,12 +53,6 @@ fixed_co2<-data.frame(act_en=6677,
                       Disper=5)
 
 
-number<-200000/20
-
-time<-number*10+number/2*20+number/4*30+number/8*40
-number*10/3600/24
-time/3600/24
-
 mc<-mc_parallel(nr=20000,sleep=6,ranges=data.frame(alpha=c(0.1,1),
                                                n=c(1.1,4.5),
                                                ks=c(0.001,1),
@@ -92,7 +87,7 @@ mc<-mc_parallel(nr=400,sleep=5,ranges=data.frame(p_opt=c(0.0000001,0.0005),
 
 #save(mc,file = paste0(mcpfad,"mc_wp_co2-",Sys.Date(),".R"))
 
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_17.12",treat = "all",ndottys = 1000,sleep = 5,dtmax = 10)
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_out-nr_99996-12-18_11.07",treat = "all",ndottys = 1000,sleep = 5,dtmax = 0.1)
 
 
 ###############################################################

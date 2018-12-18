@@ -353,108 +353,6 @@ profile.in<-function(n_nodes=18,#Anzahl Knoten
 }
 
 
-############################################
-#function to write obs data fit.in
-##########################################
-
-fit.in<-function(obs=all,#Messungen
-                 treat=17,#Beregnungsintensität oder "all"
-                 projektpfad=projektpfad2,
-                 params,#Bodenparameter
-                 q_fit=T){#soll auch an den Abfluss gefittet werden dann =T
-  
-  #datei einlesen
-  lines<-readLines(paste0(projektpfad,"FIT.IN"))
-  #Anfang ausschneiden
-  head<-lines[1:grep("ITYPE",lines)]
-  
-  
-  #Bodenparamter wie in Selector.in einfügen 
-  vals<-paste(params$thr,params$ths,params$alpha,params$n,params$ks,params$l)
-  if(length(params$ths2)==0){
-    vals2<-vals
-  }else{
-    vals2<-paste(params$thr2,params$ths2,params$alpha2,params$n2,params$ks2,params$l)
-  }
-  vals3<-paste(params$thr3,params$ths3,params$alpha3,params$n3,params$ks3,params$l)
-  
-  #und in der Datei anpassen
-  head[grep("thr",head)+1][1]<-vals
-  head[grep("thr",head)+1][2]<-vals2
-  head[grep("thr",head)+1][3]<-vals3
-  
-  #endzeile in Vektor
-  tail<-lines[grep("END",lines)]
-  
-  #wenn treat="all"
-  if(treat=="all"){
-    #obs umbenennen
-    sub<-obs
-    
-    #t_min als Zeit nach Event 1 in Minuten
-    event1<-min(which(sub$rain_mm_h>0))
-    sub$t_min<-as.numeric(difftime(sub$date,sub$date[event1],units = "min"))
-    
-    # #events mittels function einladen
-    # source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
-    # events<-event()
-    # 
-    # #t_min spalte als Zeit nach dem ersten Event in minuten
-    # sub$t_min<-as.numeric(difftime(obs$date,events$start[2],units = "min"))
-    #damit der Datensatz nicht zu groß wird nur jede 100ste Messung
-    sub<-sub[sub$t_min%%100==0&sub$t_min>0,]
-  }else{#wenn treat nicht "all"
-  #messungen mit gewünschter Intensität wählen
-  sub<-subset(obs,treatment%in%treat)
-  #nur jede 10te Messung
-  sub<-sub[sub$t_min%%10==0&sub$t_min>0,]}#ende if else treat
-  
-  #subset ohne NA's für theta
-  sub_th<-subset(sub,!is.na(theta))
-  #subset ohne NA's und 0 für q
-  sub_q<-subset(sub,!is.na(q_interpol)&q_interpol>0)
-  
-  #Werte in passendes Format für Hydrus
-  vals_th<-paste(sub_th$t_min,sub_th$theta,2,(-sub_th$tiefe+2)/4,1)
-  
-  #wenn auch q verwendet werden soll...
-  if(q_fit==T){
-    #auch diese Werte in passendes Format für Hydrus
-    vals_q<-paste(sub_q$t_min,sub_q$q_interpol*5,3,2,1)
-    
-    #Anzahl der Messungen im Kopf anpassen
-    head[grep("NOBB",head)+1]<-paste(" ",length(c(vals_q,vals_th)) ,"     30       2")
-    
-    #Kopf Werte und Ende zusammenfügen
-    lines<-c(head,vals_th,vals_q,tail)
-  }else{
-    #wenn q nicht verwendet werden soll dasselbe ohne vals_q
-    head[grep("NOBB",head)+1]<-paste(" ",length(vals_th) ,"     30       2")
-    lines<-c(head,vals_th,tail)
-  }#ende if else q_fit
-
-  #FIT.IN schreiben
-  writeLines(lines,paste0(projektpfad,"FIT.IN"))
-}#ende
-
-########################################
-#read fit.out
-##########################################
-
-fit.out<-function(projektpfad=projektpfad2){
-  #Fit.out einlesen
-  lines<-readLines(paste0(projektpfad,"Fit.out"))
-  #position von "final results" in der Datei bestimmen
-  results<-grep("final results",lines)
-  #die results bei leerzeichen zerschneiden und in eine Liste
-  res_list<-strsplit(lines[(results+4):(results+12)],"\\s+")
-  #die Listenelemente aneinanderfügen und die 3te Reihe ausschneiden
-  pars<-as.data.frame(do.call("cbind",res_list))[3,]
-  #die Namen der fittet Parameter anpassen
-  colnames(pars)<-paste0(rep(c("alpha","n","ks"),3),rep(c("","2","3"),each=3))
-  #paramter ausgeben
-  return(pars)
-}
 
 ######################################
 #function to read Hydrus outputfile
@@ -483,7 +381,7 @@ read_hydrus.out<-function(obs=all,#Messungen
     #sonst entspricht nrow der Reihenzahl der .out datei 
     nrows<-ifelse(length(which(fields!=ncols))!=0,which(fields!=ncols)[1]-2,length(fields))
     #wenn nrows größer ist als 300...
-  if(nrows>3000){
+  if(nrows>2500){
     #wird die .out datei eingelesen
     obs_node<-read.table(paste0(projektpfad,"Obs_Node.out"),skip=10,nrows = nrows,header = T)
     
@@ -554,7 +452,7 @@ read_hydrus.out<-function(obs=all,#Messungen
       # events<-event()
       # 
       # #t_min als Zeit nach Event 1 in Minuten
-      # sub$t_min<-as.numeric(difftime(all$date,events$start[2],units = "min"))
+      # sub$t_min<-as.numeric(difftime(obs$date,events$start[2],units = "min"))
       
     }else{#wenn treat nicht "all" ist
       #wird die Messungen mit der gewünschten Niederschlagsintensität verwendet
@@ -608,7 +506,8 @@ read_hydrus.out<-function(obs=all,#Messungen
 #function to set read Hydrus concentration outputfile
 
 read_conc.out<-function(projektpfad=projektpfad1,
-                        n_nodes=9){#anzahl Knoten
+                        n_nodes=9,
+                        obs=all){#anzahl Knoten
   #Conc.out datei einlesen
   lines<-readLines(paste0(projektpfad,"Conc.out"))
   #Zeitpunkte der Messungen aus der Datei entnehmen
@@ -652,16 +551,16 @@ read_conc.out<-function(projektpfad=projektpfad1,
   load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
   
   #t_min als Zeit nach Event 1 in Minuten
-  event1<-min(which(all$rain_mm_h>0))
-  all$t_min<-as.numeric(difftime(all$date,all$date[event1],units = "min"))
+  event1<-min(which(obs$rain_mm_h>0))
+  obs$t_min<-as.numeric(difftime(obs$date,obs$date[event1],units = "min"))
   
   # source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
   # 
   # events<-event()
   # 
   # #t_min als Zeit nach Event 1 in Minuten
-  # all$t_min<-as.numeric(difftime(all$date,events$start[2],units = "min"))
-  sub<-subset(all,t_min%in%vals$t_min)
+  # obs$t_min<-as.numeric(difftime(obs$date,events$start[2],units = "min"))
+  sub<-subset(obs,t_min%in%vals$t_min)
   sub<-sub[,c(1:2,13:14,16:17)]
   sub$ca_conc[sub$ca_conc<=30]<-NA
   
@@ -718,7 +617,7 @@ hydrus<-function(params,
   
   #atmos.in funktion ausführen
   #hydruspfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/"
-  atmos.in(int=treat,event = t_event,total_t = tmax,alle=alle,projektpfad = pfad)
+  atmos.in(int=treat,event = t_event,total_t = tmax,alle=alle,projektpfad = pfad,obs=obs)
   
   #selector.in funktion ausführen
   selector.in(params=params,
@@ -758,8 +657,8 @@ hydrus<-function(params,
 }
   #wenn read  = TRUE den output einlesen ...
   if(read==T){
-  out<-read_hydrus.out(treat = treat,projektpfad = pfad,UNSC=UNSC)[[1]]
-  out_ca<-read_conc.out(projektpfad = pfad,n_nodes = n_nodes)[[1]]
+  out<-read_hydrus.out(treat = treat,projektpfad = pfad,UNSC=UNSC,obs=obs)[[1]]
+  out_ca<-read_conc.out(projektpfad = pfad,n_nodes = n_nodes,obs=obs)[[1]]
   out2<-merge(out,out_ca,all=T)
   #und ausgeben
   return(out2)}

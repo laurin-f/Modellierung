@@ -13,8 +13,10 @@ caroll<-function(t){
 }
 
 caroll(20)*0.04*2*1000
-
+plot(0:100,caroll(0:100))
 # Respiration ####
+t<-0:100
+lnH_Mpa<--6.8346+1.2817*10^4/tk-3.7668*10^6/tk^2+2.997*10^8/tk^3
 
 #create function to calculate soil respiration for different depths
 novak <- function(l_s=30, #constant describing decrease of S_c with depth [cm]

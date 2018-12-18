@@ -607,7 +607,7 @@ sleep=8
 ndottys=1000
 free_drain=T
 fit.ca=F
-dtmax=10
+dtmax=0.1
 
 ###############################
 #mc out function
@@ -665,8 +665,9 @@ mc_out<-function(fixed,
               treat = treat,
               taskkill=F,
               free_drain=free_drain,
-              print_times = 3000,
-              dtmax = dtmax)
+              print_times = 1000,
+              dtmax = dtmax,
+              obs=all_s)
   
   
   out$tiefe<-as.numeric(out$tiefe)
@@ -698,7 +699,7 @@ mc_out<-function(fixed,
   
 
   named<-setNames(lbls,sort(unique(dotty_melt$variable)))
-  rmse_dotty+facet_wrap(~variable,scales = "free",labeller = as_labeller(named))+
+  rmse_dotty+facet_wrap(~variable,scales = "free",labeller = as_labeller(named))+theme_classic()+
     ggsave(paste0(plotpfad,"dottyplots/RMSE/dotty_",loadfile,".pdf"),height = 8,width = 10)
   
 
@@ -831,7 +832,7 @@ mc_out<-function(fixed,
   #lade datensatz all.R
   load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
   #zeitspanne in der beregnet wurde
-  event<-subset(events,start>=min(all$date)&stop<=max(all$date))
+  event<-subset(events,start>=min(all_s$date)&stop<=max(all_s$date))
   
   #die Startzeiten der einzelnen Events in Minuten nach dem ersten Event
   #+1 da kein input bei t=0 reinkann
@@ -842,41 +843,44 @@ mc_out<-function(fixed,
   tiefenstufen<-c(-2,-6,-10,-14)
   
   print("saving timeline plots")
+  #thetaplot
   ggplot()+
     geom_rect(data=event,aes(xmin=time_start,xmax=time_stop,ymin = -Inf, ymax = Inf), alpha = 0.15,fill="blue")+
-    geom_point(data= subset(out,tiefe%in%tiefenstufen),aes(t_min,theta,col="obs"),na.rm = T)+
+    geom_line(data= subset(out,tiefe%in%tiefenstufen),aes(t_min,theta,col="obs"),na.rm = T)+
     geom_line(data= subset(out,tiefe%in%tiefenstufen),aes(t_min,theta_mod,col="mod"),na.rm = T)+
-    facet_wrap(~tiefe,ncol=1)+
+    facet_wrap(~tiefe,ncol=1,scales = "free")+
     theme_classic()+
     labs(x="Zeit [min]",y=expression(theta*" [Vol %]"))+
     ggsave(paste0(plotpfad,"theta/thetas_treat-",treat,"-",loadfile,".pdf"),height = 9,width = 9)
   
+  #q plot
   ggplot()+
     geom_rect(data=event,aes(xmin=time_start,xmax=time_stop,ymin = -Inf, ymax = Inf), alpha = 0.15,fill="blue")+
-    geom_point(data=subset(out,tiefe==-17),aes(t_min,q_interpol*5,col="obs"),na.rm = T)+
+    geom_line(data=subset(out,tiefe==-17),aes(t_min,q_interpol*5,col="obs"),na.rm = T)+
     geom_line(data=subset(out,tiefe==-17),aes(t_min,q_mod,col="mod"),na.rm = T)+
     theme_classic()+
     labs(x="Zeit [min]",y=expression("q [ml min"^{-1}*"]"))+ggsave(paste0(plotpfad,"q/q_treat-",treat,"-",loadfile,".pdf"),height = 5,width = 9)
   
-  
+  #Co2 plot
   ggplot()+
     geom_rect(data=event,aes(xmin=time_start,xmax=time_stop,ymin = -Inf, ymax = Inf), alpha = 0.15,fill="blue")+
-    geom_point(data=subset(out,tiefe%in%tiefenstufen),aes(t_min,CO2_raw,col="obs"),na.rm = T)+
+    geom_line(data=subset(out,tiefe%in%tiefenstufen),aes(t_min,CO2_raw,col="obs"),na.rm = T)+
     geom_line(data=subset(out,tiefe%in%tiefenstufen),aes(t_min,CO2_mod,col="mod"),na.rm = T)+
-    facet_wrap(~tiefe,ncol=2)+
+    facet_wrap(~tiefe,ncol=2,scales = "free")+
     theme_classic()+
     labs(x="Zeit [min]",y=expression("CO"[2]*" [ppm]]"))+
     ggsave(paste0(plotpfad,"co2/CO2_treat-",treat,"-",loadfile,".pdf"),height = 9,width = 9)
   
+  #ca zeitreihen plot 
   ggplot(subset(out,tiefe==-17&!is.na(Ca_mod)))+
-    geom_line(aes(t_min,Ca_mod,col="mod"))+geom_point(aes(t_min,ca_conc,col="obs"))+
+    geom_line(aes(t_min,Ca_mod,col="mod"))+geom_line(aes(t_min,ca_conc,col="obs"))+
     theme_classic()+
     labs(x="Zeit [min]",y=expression("Ca"^{2+""}*" [mg * l"^{-1}*"]"),color="tiefe")+
     ggsave(paste0(plotpfad,"ca/Ca_treat-",treat,"-",loadfile,".pdf"),height = 7,width = 9)
   
   
   #######################
-  #caplot
+  #caplot tiefenprofil
   #berechnung der Masse gelöstem Calciums pro zeitschritt
   zeitschritt_ca<-mean(diff(out$t_min[out$tiefe==-17&!is.na(out$Ca_mod)]))
   out$ca_mg_mod<-out$Ca_mod*abs(out$q_mod)/1000*zeitschritt_ca#mg/l *l/min *min=mg
