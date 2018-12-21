@@ -17,7 +17,7 @@ library(ggplot2)
 
 
 tiefenstufen<-c(-2,-6,-10,-14)
-####################################
+####################################Z
 #Monte Carlo
 ###################################
 fixed<-data.frame(thr=0.11,
@@ -69,25 +69,8 @@ mc<-mc_parallel(nr=20000,sleep=6,ranges=data.frame(alpha=c(0.1,1),
                 fixed=cbind(fixed,fixed_co2),fit.calcium = F,
                 dtmax = 10)
 
-test<-data.frame(alpha=c(0.1,1),
-n=c(1.1,4.5),
-ks=c(0.001,1),
-alpha2=c(0.1,1),
-n2=c(1.1,1.9),
-ks2=c(0.0001,0.1),
-alpha3=c(0.1,1),
-n3=c(1.2,1.9),
-ks3=c(0.0001,0.01))
-test<-as.data.frame(t(colMeans(test)))
-mc<-mc_parallel(nr=400,sleep=5,ranges=data.frame(p_opt=c(0.0000001,0.0005),
-                                                 DispA=c(0.01,5),
-                                                 h_opt=c(-80,-10),
-                                                 p_distr=c(0.001,0.2)),
-                fixed=cbind(fixed,fixed_co2,test),fit.calcium = F)
 
-#save(mc,file = paste0(mcpfad,"mc_wp_co2-",Sys.Date(),".R"))
-
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_out-nr_99996-12-18_11.07",treat = "all",ndottys = 1000,sleep = 5,dtmax = 0.1)
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_out-nr_24000-12-19_14.25",treat = "all",ndottys = 1000,sleep = 5,dtmax = 0.1)
 
 
 ###############################################################
@@ -101,13 +84,11 @@ fixed_co2<-data.frame(act_en=6677,
                       Disper=5)
 
 load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/bodenparameter/ranges.R")
-ranges<-cbind(realistic_ranges,data.frame(ks=c(0.001,1),
-                                          ks2=c(0.001,0.05),
-                                          ks3=c(0.0001,0.01),
+ranges<-cbind(realistic_ranges,data.frame(ks3=c(0.0001,0.01),
                                           h_opt=c(-80,-10),
                                           p_distr=c(0.001,0.2)))
 
-mc<-mc_parallel(nr=20000,sleep=5,ranges=ranges,
+mc<-mc_parallel(nr=11,sleep=5,ranges=ranges,
                  fixed=cbind(fixed,fixed_co2),
                 n_nodes = 9,Mat = c(rep(1,3),rep(2,5),3))
 
@@ -164,7 +145,7 @@ rmse<-mc[[1]]
 nse<-mc[[3]]
 fix_pars<-cbind(par[which.min(rmse),],fixed,fixed_co2)
 
-mcca<-mc_parallel(nr=10000,ranges = data.frame(calcit=c(0.1,2),
+mcca<-mc_parallel(nr=10,ranges = data.frame(calcit=c(0.1,2),
                                            calcit2=c(0.1,2),
                                            difuz=c(0,0.001),
                                            difuz2=c(0,0.001),

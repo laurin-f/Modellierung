@@ -57,7 +57,7 @@ EET_na<- function (r, xrange, X, Y, design_type, Nboot = 0, alfa = 0.05)
   }
   else {
     EE[EE==Inf]<-NA
-    mi <- colMeans(EE,na.rm = T)
+    mi <- colMeans(abs(EE),na.rm = T)
     sigma <- apply(EE, 2, sd,na.rm=T)
     robj <- list(mi = mi, sigma = sigma, EE = EE)
   }

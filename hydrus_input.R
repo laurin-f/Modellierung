@@ -505,7 +505,7 @@ read_hydrus.out<-function(obs=all,#Messungen
 ######################################
 #function to set read Hydrus concentration outputfile
 
-read_conc.out<-function(projektpfad=projektpfad1,
+read_conc.outalt<-function(projektpfad=projektpfad1,
                         n_nodes=9,
                         obs=all){#anzahl Knoten
   #Conc.out datei einlesen
@@ -565,6 +565,37 @@ read_conc.out<-function(projektpfad=projektpfad1,
   sub$ca_conc[sub$ca_conc<=30]<-NA
   
   vals<-subset(vals,tiefe%in%sub$tiefe)
+  
+  merged<-merge(sub,vals,all=T)
+  out<-merged[order(merged$t_min),]
+  RMSE<-sqrt(mean((out$ca_conc-out$Ca_mod)^2,na.rm = T))
+  nse<-NSE(obs=out$ca_conc,out$Ca_mod)
+  #ausgabe der Werte
+  return(list(out,RMSE,nse))}
+
+read_conc.out<-function(projektpfad=projektpfad1,
+                           obs=all_s){
+  
+  fields<-count.fields(paste0(projektpfad,"Obs_Node_Ch.out"),blank.lines.skip = F,skip=5)
+  nrows<-which(fields!=51)-2
+  #Conc.out datei einlesen
+  obs_node_ch<-read.table(paste0(projektpfad,"Obs_Node_Ch.out"),nrows = nrows,skip=5,header = T)
+  
+  Ca_vals<-obs_node_ch[,grep("Ca|time",colnames(obs_node_ch))]
+  colnames(Ca_vals)<-c("t_min",-2,-6,-10,-14,-17)
+  vals<-data.table::melt(Ca_vals,id=1,value.name="Ca_mod",variable.name="tiefe")
+  
+  Ca_g_pro_mol<-40.1
+  Ca_z<-2
+  vals$Ca_mod<-vals$Ca_mod*Ca_g_pro_mol/Ca_z#mg/l
+  
+  #t_min als Zeit nach Event 1 in Minuten
+  event1<-min(which(obs$rain_mm_h>0))
+  obs$t_min<-as.numeric(difftime(obs$date,obs$date[event1],units = "min"))
+  
+  sub<-subset(obs,t_min%in%vals$t_min)
+  sub<-sub[,c(1:2,13:14,16:17)]
+  sub$ca_conc[sub$ca_conc<=30]<-NA
   
   merged<-merge(sub,vals,all=T)
   out<-merged[order(merged$t_min),]
@@ -658,7 +689,7 @@ hydrus<-function(params,
   #wenn read  = TRUE den output einlesen ...
   if(read==T){
   out<-read_hydrus.out(treat = treat,projektpfad = pfad,UNSC=UNSC,obs=obs)[[1]]
-  out_ca<-read_conc.out(projektpfad = pfad,n_nodes = n_nodes,obs=obs)[[1]]
+  out_ca<-read_conc.out(projektpfad = pfad,obs=obs)[[1]]
   out2<-merge(out,out_ca,all=T)
   #und ausgeben
   return(out2)}

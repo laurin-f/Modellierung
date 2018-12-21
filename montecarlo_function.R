@@ -600,7 +600,7 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
   return(mc)
 }#Ende
 
-loadfile<-"mc_17.12"
+loadfile<-"mc_out-nr_24000-12-19_14.25"
 fixed=cbind(fixed,fixed_co2)
 treat="all"
 sleep=8
@@ -619,13 +619,14 @@ mc_out<-function(fixed,
                  ndottys=200,
                  free_drain=T,
                  fit.ca=F,
-                 dtmax=10){
+                 dtmax=10,
+                 obs=all_s){
   mcpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/"
   plotpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/abbildungen/plots/mc/"
-  if(exists("rmse")){
+  if(exists("rmse",mode = "function")){
     rm(rmse)}
   load(file = paste0(mcpfad,loadfile,".R"))
-  if(!exists("rmse")){
+  if(!exists("rmse",mode = "function")){
     par<-mc[[2]]
     rmse<-mc[[1]]
     nse<-mc[[3]]
@@ -667,7 +668,7 @@ mc_out<-function(fixed,
               free_drain=free_drain,
               print_times = 1000,
               dtmax = dtmax,
-              obs=all_s)
+              obs=obs)
   
   
   out$tiefe<-as.numeric(out$tiefe)
@@ -699,7 +700,7 @@ mc_out<-function(fixed,
   
 
   named<-setNames(lbls,sort(unique(dotty_melt$variable)))
-  rmse_dotty+facet_wrap(~variable,scales = "free",labeller = as_labeller(named))+theme_classic()+
+  rmse_dotty+facet_wrap(~variable,scales = "free",labeller = as_labeller(named))+theme_bw()+
     ggsave(paste0(plotpfad,"dottyplots/RMSE/dotty_",loadfile,".pdf"),height = 8,width = 10)
   
 
@@ -773,6 +774,8 @@ mc_out<-function(fixed,
   write.table(Y,paste0(mcpfad,"Y.csv"),row.names = F,col.names = F,sep=",")
   write.table(range,paste0(mcpfad,"range.csv"),row.names = F,col.names = F,sep=",")
 
+
+  shell(paste("cd C:/Octave/Octave-4.4.1","&& octave C:/Users/ThinkPad/Documents/Masterarbeit/programme/Use_EET.m",sep=" "),wait=T)
   
   library(stringr)
   # Compute Elementary Effects:
@@ -788,7 +791,7 @@ mc_out<-function(fixed,
     library(dplyr)
     shapes<-factor(EET$Mat,labels = setNames(c(16,17,15),unique(EET$Mat)))
     shapes<-as.numeric(as.character(shapes))
-  names<-c(expression(alpha[1],alpha[2],alpha[3],D[a],h[opt],K[S1],K[S2],K[S3],n[1],n[2],n[3],P[distr],P[opt]))
+  names<-c(expression(alpha[1],alpha[2],D[a],h[opt],K[S1],K[S2],K[S3],n[1],n[2],P[distr],P[opt]))
   
   # Plot results in the plane (mean(EE),std(EE)):
   if(length(which(!is.na(EET$sigma)))>0){
@@ -796,7 +799,8 @@ mc_out<-function(fixed,
     print("saving GSA plot")
     #SAFER::EET_plot(mi, sigma,  xlab = "Mean of EEs", ylab = "Sd of EEs",  labels = colnames(par))
     
-    ggplot(EET)+geom_point(aes(mi,sigma,col=id,shape=id),size=2)+theme_classic()+scale_shape_manual(name="Parameter",labels=names,values = shapes[order(colnames(par))])+scale_color_manual(name="Parameter",labels=names,values = colors[order(colnames(par))])
+    ggplot(EET)+geom_point(aes(mi,sigma,col=id,shape=id),size=2)+theme_classic()+scale_shape_manual(name="Parameter",labels=names,values = shapes[order(colnames(par))])+scale_color_manual(name="Parameter",labels=names,values = colors[order(colnames(par))])+
+      ggsave(paste0(plotpfad,"EE/EE_",loadfile,".pdf"),height = 9,width = 9)
     
     #ggplot(EET)+geom_point(aes(mi,sigma,col=par,shape=Mat),size=2)+theme_classic()+scale_color_manual(name="parameter",values = c(2:6,"orange","purple"))+scale_shape_manual(name="parameter",values = c(16:17,15))
   }
@@ -882,25 +886,31 @@ mc_out<-function(fixed,
   #######################
   #caplot tiefenprofil
   #berechnung der Masse gelöstem Calciums pro zeitschritt
-  zeitschritt_ca<-mean(diff(out$t_min[out$tiefe==-17&!is.na(out$Ca_mod)]))
-  out$ca_mg_mod<-out$Ca_mod*abs(out$q_mod)/1000*zeitschritt_ca#mg/l *l/min *min=mg
-  
-  ca_mg_sums<-aggregate(out$ca_mg_mod,list(out$treatment,out$tiefe),function(x) sum(x,na.rm=T))
-  q_sums<-aggregate(abs(out$q_mod[!is.na(out$Ca_mod)]),list(out$treatment[!is.na(out$Ca_mod)],out$tiefe[!is.na(out$Ca_mod)]),function(x) sum(x,na.rm=T))
+  out$ca_mg_mod<-out$Ca_mod*abs(out$q_mod)/1000*10#mg/l *l/min *min=mg
+  event2<-out$t_min[!is.na(out$rain_mm_h)][which(diff(out$rain_mm_h[!is.na(out$rain_mm_h)])>0)[2]]
+
+  out2<-subset(out,t_min>=event2)
+  ca_mg_sums<-aggregate(out2$ca_mg_mod,list(out2$treatment,out2$tiefe),function(x) sum(x,na.rm=T))
+  q_sums<-aggregate(abs(out2$q_mod),list(out2$treatment,out2$tiefe),function(x) sum(x,na.rm=T))
   ca_mg_sums$Ca_ml_mod<-ca_mg_sums$x/q_sums$x*1000/zeitschritt_ca#mg/l*min/min
   colnames(ca_mg_sums)<-c("treatment","tiefe","Ca_mg_mod","Ca_ml_mod")
+  ca_mg_sums$Ca_ml_mod[ca_mg_sums$tiefe==0]<-2.17
   
-  ca_means<-aggregate(out[out$t_min>0,c(2,4,14)],list(out$treatment[out$t_min>0],out$tiefe[out$t_min>0]),function(x) mean(x,na.rm=T))
+  ca_means<-aggregate(out2[out2$t_min>0,c(2,4,14)],list(out2$treatment[out2$t_min>0],out2$tiefe[out2$t_min>0]),function(x) mean(x,na.rm=T))
 
   capath<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/ca/"
   load(file=paste0(capath,"cafm.R"))
+  ic<-subset(ic,round(rain_mm_h)!=16)
+  ic$treatment<-round(ic$rain_mm_h)
   
+  icmean<-aggregate(ic[2:7],list(ic$treatment,ic$tiefe),mean)
   legendtitle<-expression("Intensität [mm*h"^{-1}*"]")
   ggplot()+
-    geom_point(data=subset(ic,!is.na(rain_mm_h)),aes(ca,tiefe,col=as.factor(round(rain_mm_h)),shape=as.factor(round(rain_mm_h))))+
-    geom_path(data=ca_means,aes(Ca_mod,tiefe,col=as.factor(treatment)),linetype="dotted")+
-    geom_path(data=ca_mg_sums,aes(Ca_ml_mod,tiefe,col=as.factor(treatment)))+
-    labs(x=expression("Ca"^{"2+"}*"  [mg * l"^{-1}*"]"),y="tiefe [cm]",col=legendtitle,shape=legendtitle)+theme_classic()+
+    geom_path(data=icmean,aes(ca,tiefe,col=as.factor(treatment),linetype="mean (obs)"))+
+    geom_point(data=subset(ic,!is.na(rain_mm_h)),aes(ca,tiefe,col=as.factor(treatment),shape="obs"))+
+    geom_path(data=ca_mg_sums,aes(Ca_ml_mod,tiefe,col=as.factor(treatment),linetype="mod"))+labs(x=expression("Ca"^{"2+"}*"  [mg * l"^{-1}*"]"),y="tiefe [cm]",col=legendtitle,shape="",linetype="")+scale_linetype_manual(name="",values=2:1)+theme_bw()+facet_wrap(~treatment)+
     ggsave(paste0(plotpfad,"ca/Ca_tiefenprofil-",treat,"-",loadfile,".pdf"),height = 9,width = 9)
 }
 
+test<-runif(100)
+test[sample(1:100,50)]<-NA
