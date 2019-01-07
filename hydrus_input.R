@@ -369,7 +369,8 @@ read_hydrus.out<-function(obs=all,#Messungen
                           projektpfad=projektpfad1,
                           UNSC=T,#wurde UNSATCHEM benutzt oder nicht
                           #Tiefen die Benutzt werden um objective Function zu ermitteln
-                          fit.tiefe=c(-2,-6,-10,-14)){
+                          fit.tiefe=c(-2,-6,-10,-14),
+                          min_nrows=2200){
   #überprüfen ob outpufile existiert
   if(file.exists(paste0(projektpfad,"Obs_Node.out"))){
     #wenn ja spalten Zählen
@@ -381,7 +382,7 @@ read_hydrus.out<-function(obs=all,#Messungen
     #sonst entspricht nrow der Reihenzahl der .out datei 
     nrows<-ifelse(length(which(fields!=ncols))!=0,which(fields!=ncols)[1]-2,length(fields))
     #wenn nrows größer ist als 300...
-  if(nrows>2500){
+  if(nrows>min_nrows){
     #wird die .out datei eingelesen
     obs_node<-read.table(paste0(projektpfad,"Obs_Node.out"),skip=10,nrows = nrows,header = T)
     
@@ -621,7 +622,7 @@ hydrus<-function(params,
                  dtmax=10,
                  n_nodes=9,
                  Mat=c(rep(1,3),rep(2,5),3),
-                 print_times = 100){
+                 print_times = 100,min_nrows=2200){
   #wenn treat ="all"
   if(treat=="all"){
     #wird für tmax  die zeitdifferenz vom ersten zum letzten Messwert in minuten verwendet
@@ -688,7 +689,7 @@ hydrus<-function(params,
 }
   #wenn read  = TRUE den output einlesen ...
   if(read==T){
-  out<-read_hydrus.out(treat = treat,projektpfad = pfad,UNSC=UNSC,obs=obs)[[1]]
+  out<-read_hydrus.out(treat = treat,projektpfad = pfad,UNSC=UNSC,obs=obs,min_nrows=min_nrows)[[1]]
   out_ca<-read_conc.out(projektpfad = pfad,obs=obs)[[1]]
   out2<-merge(out,out_ca,all=T)
   #und ausgeben

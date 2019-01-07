@@ -232,10 +232,15 @@ colnames(realistic_bulk)<-c("bulk","bulk2")
 
 
 
-realistic_ranges<-data.frame(alpha=alpha_range_Ah1,alpha2=alpha_range_Ah2,n=n_range_Ah1,n2=n_range_Ah2,p_opt=c(0.00016,0.00022),DispA,ks=ks_range,ks2=ks_range)
+realistic_ranges<-data.frame(alpha=alpha_range_Ah1,alpha2=alpha_range_Ah2,n=n_range_Ah1,n2=n_range_Ah2,p_opt=c(0.00015,0.00022),DispA,ks=ks_range,ks2=ks_range)
+
+
+#tabellenwerte für ks matrix cm/min von silt loam bis sandy loam
+#carsel parrish 1988
+realistic_ranges_dist<-data.frame(alpha=c(0.02,0.075),alpha2=c(0.02,0.075),n=c(1.41,1.89),n2=c(1.41,1.89),p_opt=c(0.00019,0.00026),ks=ks_range,ks2=ks_range)
 
 #params<-data.frame(alpha=colMeans(alpha),n=colMeans(n),ths=colMeans(ths),thr=colMeans(thr),hseep=-100,l=0.5,ks=0.09)
-save(realistic_ranges,realistic_bulk,file=paste0(soilpfad,"ranges.R"))
+save(realistic_ranges,realistic_bulk,realistic_ranges_dist,file=paste0(soilpfad,"ranges.R"))
 
 library(xtable)
 tabelle1<-cbind(0.75,0.11,realistic_ranges[c(1,4,7,8,9)],realistic_bulk$bulk)

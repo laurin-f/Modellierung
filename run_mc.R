@@ -53,7 +53,7 @@ fixed_co2<-data.frame(act_en=6677,
                       Disper=5)
 
 
-mc<-mc_parallel(nr=20000,sleep=6,ranges=data.frame(alpha=c(0.1,1),
+mc<-mc_parallel(nr=2,sleep=6,ranges=data.frame(alpha=c(0.1,1),
                                                n=c(1.1,4.5),
                                                ks=c(0.001,1),
                                                alpha2=c(0.1,1),
@@ -70,7 +70,17 @@ mc<-mc_parallel(nr=20000,sleep=6,ranges=data.frame(alpha=c(0.1,1),
                 dtmax = 10)
 
 
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_out-nr_24000-12-19_14.25",treat = "all",ndottys = 1000,sleep = 5,dtmax = 0.1)
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-realistic",treat = "all",ndottys = 1000,sleep = 5,dtmax = 10)
+
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_120000-free-ranges",treat = "all",ndottys = 1000,sleep = 5,dtmax = 1)
+
+
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-realistic_free_ks",treat = "all",ndottys = 1000,sleep = 5,dtmax = 10)
+
+
+
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_120000-free_dist",treat = "all",ndottys = 1000,sleep = 5,dtmax = 10,obs=alldist_s,min_nrows = 2200)
+
 
 
 ###############################################################

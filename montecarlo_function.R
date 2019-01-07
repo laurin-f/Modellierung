@@ -600,14 +600,14 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
   return(mc)
 }#Ende
 
-loadfile<-"mc_out-nr_24000-12-19_14.25"
+loadfile<-"mc_120000-free-ranges"
 fixed=cbind(fixed,fixed_co2)
 treat="all"
 sleep=8
 ndottys=1000
 free_drain=T
 fit.ca=F
-dtmax=0.1
+dtmax=1
 
 ###############################
 #mc out function
@@ -620,7 +620,9 @@ mc_out<-function(fixed,
                  free_drain=T,
                  fit.ca=F,
                  dtmax=10,
-                 obs=all_s){
+                 obs=all_s,
+                 min_nrows=2500,
+                 Probe="undist"){
   mcpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/"
   plotpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/abbildungen/plots/mc/"
   if(exists("rmse",mode = "function")){
@@ -668,7 +670,8 @@ mc_out<-function(fixed,
               free_drain=free_drain,
               print_times = 1000,
               dtmax = dtmax,
-              obs=obs)
+              obs=obs,
+              min_nrows=min_nrows)
   
   
   out$tiefe<-as.numeric(out$tiefe)
@@ -775,7 +778,7 @@ mc_out<-function(fixed,
   write.table(range,paste0(mcpfad,"range.csv"),row.names = F,col.names = F,sep=",")
 
 
-  shell(paste("cd C:/Octave/Octave-4.4.1","&& octave C:/Users/ThinkPad/Documents/Masterarbeit/programme/Use_EET.m",sep=" "),wait=T)
+  #shell(paste("cd C:/Octave/Octave-4.4.1","&& octave C:/Users/ThinkPad/Documents/Masterarbeit/programme/Use_EET.m",sep=" "),wait=T)
   
   library(stringr)
   # Compute Elementary Effects:
@@ -836,7 +839,7 @@ mc_out<-function(fixed,
   #lade datensatz all.R
   load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
   #zeitspanne in der beregnet wurde
-  event<-subset(events,start>=min(all_s$date)&stop<=max(all_s$date))
+  event<-subset(events,start>=min(obs$date)&stop<=max(obs$date))
   
   #die Startzeiten der einzelnen Events in Minuten nach dem ersten Event
   #+1 da kein input bei t=0 reinkann
@@ -845,7 +848,7 @@ mc_out<-function(fixed,
   event$time_stop<-as.numeric(difftime(event$stop,event$start[1],units = "min"))+1
   
   tiefenstufen<-c(-2,-6,-10,-14)
-  
+
   print("saving timeline plots")
   #thetaplot
   ggplot()+
@@ -879,7 +882,7 @@ mc_out<-function(fixed,
   ggplot(subset(out,tiefe==-17&!is.na(Ca_mod)))+
     geom_line(aes(t_min,Ca_mod,col="mod"))+geom_line(aes(t_min,ca_conc,col="obs"))+
     theme_classic()+
-    labs(x="Zeit [min]",y=expression("Ca"^{2+""}*" [mg * l"^{-1}*"]"),color="tiefe")+
+    labs(x="Zeit [min]",y=expression("Ca"^{2+""}*" [mg * l"^{-1}*"]"),color="Tiefe")+
     ggsave(paste0(plotpfad,"ca/Ca_treat-",treat,"-",loadfile,".pdf"),height = 7,width = 9)
   
   
@@ -892,7 +895,7 @@ mc_out<-function(fixed,
   out2<-subset(out,t_min>=event2)
   ca_mg_sums<-aggregate(out2$ca_mg_mod,list(out2$treatment,out2$tiefe),function(x) sum(x,na.rm=T))
   q_sums<-aggregate(abs(out2$q_mod),list(out2$treatment,out2$tiefe),function(x) sum(x,na.rm=T))
-  ca_mg_sums$Ca_ml_mod<-ca_mg_sums$x/q_sums$x*1000/zeitschritt_ca#mg/l*min/min
+  ca_mg_sums$Ca_ml_mod<-ca_mg_sums$x/q_sums$x*1000/10#mg/l*min/min
   colnames(ca_mg_sums)<-c("treatment","tiefe","Ca_mg_mod","Ca_ml_mod")
   ca_mg_sums$Ca_ml_mod[ca_mg_sums$tiefe==0]<-2.17
   
@@ -900,17 +903,23 @@ mc_out<-function(fixed,
 
   capath<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/ca/"
   load(file=paste0(capath,"cafm.R"))
-  ic<-subset(ic,round(rain_mm_h)!=16)
+  ic<-subset(ic,round(rain_mm_h)!=16&sample==Probe)
   ic$treatment<-round(ic$rain_mm_h)
+  ic<-ic[order(ic$treatment),]
   
   icmean<-aggregate(ic[2:7],list(ic$treatment,ic$tiefe),mean)
   legendtitle<-expression("Intensität [mm*h"^{-1}*"]")
-  ggplot()+
-    geom_path(data=icmean,aes(ca,tiefe,col=as.factor(treatment),linetype="mean (obs)"))+
-    geom_point(data=subset(ic,!is.na(rain_mm_h)),aes(ca,tiefe,col=as.factor(treatment),shape="obs"))+
-    geom_path(data=ca_mg_sums,aes(Ca_ml_mod,tiefe,col=as.factor(treatment),linetype="mod"))+labs(x=expression("Ca"^{"2+"}*"  [mg * l"^{-1}*"]"),y="tiefe [cm]",col=legendtitle,shape="",linetype="")+scale_linetype_manual(name="",values=2:1)+theme_bw()+facet_wrap(~treatment)+
-    ggsave(paste0(plotpfad,"ca/Ca_tiefenprofil-",treat,"-",loadfile,".pdf"),height = 9,width = 9)
+  names<-paste("Intensit\xe4t =",unique(ic$treatment),"mm/h")
+  names[2:length(unique(ic$treatment))]<-paste(unique(ic$treatment)[2:length(unique(ic$treatment))],"mm/h")
+  named<-setNames(names,unique(ic$treatment))
+
+  ca_tiefenplot<-ggplot()+
+    geom_path(data=icmean[icmean$treatment%in%unique(ca_mg_sums$treatment),],aes(ca,tiefe,col="mean (obs)",linetype="mean (obs)"))+
+    geom_point(data=subset(ic,!is.na(rain_mm_h)&treatment%in%unique(ca_mg_sums$treatment)),aes(ca,tiefe,shape="obs"))+
+    geom_path(data=ca_mg_sums,aes(Ca_ml_mod,tiefe,col="mod",linetype="mod"))+labs(x=expression("Ca"^{"2+"}*"  [mg * l"^{-1}*"]"),y="Tiefe [cm]",col="",shape="",linetype="")+scale_linetype_manual(name="",values=2:1)+scale_color_manual(name="",values=1:2)+theme_bw()+facet_wrap(~treatment,labeller = as_labeller(named))#+
+    #ggsave(paste0(plotpfad,"ca/Ca_tiefenprofil-",treat,"-",loadfile,".pdf"),height = 9,width = 9)
+  pdf(paste0(plotpfad,"ca/Ca_tiefenprofil-",loadfile,".pdf"),height = 6,width = 9)
+  print(ca_tiefenplot)
+  dev.off()
 }
 
-test<-runif(100)
-test[sample(1:100,50)]<-NA

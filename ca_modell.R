@@ -35,7 +35,9 @@ ca_sum
 
 #mit den Messungen der IC zusammenfügen
 ic<-merge(ic,ca_sum,all=T)
-
 #plot der IC werte und der über die LF berechneten
 #zwei aussreißer da hier die LF nicht bis zum ende gemessen wurde
 ggplot(subset(ic,!is.na(ca_transf)))+geom_point(aes(ca,ca_transf,col=datum))+geom_abline(slope=1,intercept=0)
+
+
+
