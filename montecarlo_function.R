@@ -643,6 +643,9 @@ mc_out<-function(fixed,
   if(fit.ca==T){
     realistic_ranges<-realistic_bulk 
   }
+  if(nrow(obs)==nrow(alldist_s)){
+    realistic_ranges<-realistic_ranges_dist
+  }
   
   realistic_ranges$id<-1:2
   ranges_melt<-data.table::melt(realistic_ranges,id="id")
@@ -740,33 +743,10 @@ mc_out<-function(fixed,
   #SAFER
   #######################################
   
-  # X<-as.matrix(par[!is.na(rmse),])
-  # Y<-rmse[!is.na(rmse)]
-  # r<-floor(length(Y)/(ncol(par)+1))
-  # nr<-r*(ncol(par)+1)
-  # X<-X[1:nr,]
-  # Y<-Y[1:nr]
-  # range<-apply(X,2,range)
-  
   X<-as.matrix(par)
   Y<-rmse
   r<-floor(length(Y)/(ncol(par)+1))
   range<-apply(X,2,range)
-  
-
-  # M<-ncol(X)
-  # nr<-r*(M+1)
-  # distr_par<-as.list(ranges)
-  # X<-SAFER::OAT_sampling(r=r,M=M,distr_fun = "unif",distr_par = distr_par,samp_strat = "lhs",des_type = "radial")
-  
-  # X<-as.matrix(par)
-  # Y<-rmse
-  # Y[is.na(Y)]<-max(rmse,na.rm = T)+runif(1,-10,10)
-  # r<-floor(length(Y)/(ncol(X)+1))
-  # nr<-r*(ncol(X)+1)
-  # X<-X[1:nr,]
-  # Y<-Y[1:nr]
-  #range<-apply(X,2,range)
   
   DistrPar<-vector("list",ncol(X))
   for(i in 1:ncol(X)){

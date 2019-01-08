@@ -53,23 +53,6 @@ fixed_co2<-data.frame(act_en=6677,
                       Disper=5)
 
 
-mc<-mc_parallel(nr=2,sleep=6,ranges=data.frame(alpha=c(0.1,1),
-                                               n=c(1.1,4.5),
-                                               ks=c(0.001,1),
-                                               alpha2=c(0.1,1),
-                                               n2=c(1.1,1.9),
-                                               ks2=c(0.0001,0.1),
-                                               alpha3=c(0.1,1),
-                                               n3=c(1.2,1.9),
-                                               ks3=c(0.0001,0.01),
-                                               p_opt=c(0.0000001,0.0005),
-                                               DispA=c(0.01,5),
-                                               h_opt=c(-80,-10),
-                                               p_distr=c(0.001,0.2)),
-                fixed=cbind(fixed,fixed_co2),fit.calcium = F,
-                dtmax = 10)
-
-
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-realistic",treat = "all",ndottys = 1000,sleep = 5,dtmax = 10)
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_120000-free-ranges",treat = "all",ndottys = 1000,sleep = 5,dtmax = 1)

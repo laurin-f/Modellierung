@@ -227,8 +227,8 @@ ks_peak_diff<-lapply(all_list,function(x) 4/as.numeric(difftime(x$date[x$tiefe==
 range(ks_peak_diff)#cm/min
 ks_range#cm/min
 
-realistic_bulk<-as.data.frame(bulks)
-colnames(realistic_bulk)<-c("bulk","bulk2")
+realistic_bulk<-data.frame(bulk=bulks[,1],bulk2=bulks[,2],cec=c(100,500))
+#colnames(realistic_bulk)<-c("bulk","bulk2")
 
 
 
