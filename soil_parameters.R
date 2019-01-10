@@ -116,11 +116,16 @@ fit_range<-rbind(fit_min,fit_max[order(fit_max$psi,decreasing = T),])
 Ah1_agr<-aggregate(Ah1$th_norm,list(Ah1$pf),mean)
 colnames(Ah1_agr)<-c("pf","th_norm")
 
-Ah1plot<-ggplot()+geom_polygon(data=fit_range,aes(th_mod,log10(-psi),fill=paste0("RMSE<",crit)),alpha=0.5)+geom_path(data=Ah1,aes(th_norm,pf,col="obs",linetype=MG_ID),show.legend = F)+geom_line(data=fit_best,aes(th_mod,log10(-psi),col="best fit"),size=1.4)+labs(x=expression(S[e]),y="pF")+theme_classic()+scale_colour_manual(name="",values = c("red",rep(grey(0.3),11)),labels=c("best fit",rep("obs",11)))+scale_fill_manual(name="",values = "grey")+scale_linetype_manual(values=rep(1,11))+annotate("text",x=0.8,y=c(3.15,3,2.85),label=c("best fit",paste(c("alpha","n")," = ",signif(c(alpha[bestrmse],n[bestrmse]),2))))
+Ah1plot<-ggplot()+
+  geom_polygon(data=fit_range,aes(th_mod,log10(-psi),fill=""),alpha=0.5)+
+  geom_path(data=Ah1,aes(th_norm,pf,col="obs",linetype=MG_ID),show.legend = F)+
+  geom_line(data=fit_best,aes(th_mod,log10(-psi),col="best fit"),size=1.4)+
+  labs(x=expression(S[e]),y="pF")+theme_classic()+
+  scale_colour_manual(name="",values = c("red",rep(grey(0.3),11)),labels=c("best fit",rep("obs",11)))+scale_fill_manual(name=paste0("RMSE<",crit),values = "grey")+scale_linetype_manual(values=rep(1,11))+annotate("text",x=0.8,y=c(3.15,3,2.85),label=c("best fit",paste(c("alpha","n")," = ",signif(c(alpha[bestrmse],n[bestrmse]),2))))
 Ah1plot
 
 
-Ah1plot+ggsave(paste0(plotpfad,"muafit.pdf"),width=7,height=5)
+Ah1plot+ggsave(paste0(plotpfad,"muafit.pdf"),width=6,height=4.5)
 
 ########################################
 #paramter für Ah2 fitten
@@ -200,12 +205,18 @@ alpha2<-ranges_Ah2[,1]
 
 n<-ranges_Ah1[,2]
 n2<-ranges_Ah2[,2]
+
 #The free-air diffusivity of CO2 is 0.152 cm2 s−1
 D0<-0.152*60
 
 eps<-range(soil.xls$air_15000hPa[soil.xls$Horizon%in%c("Ah1","Ah2")],na.rm = T)/100
 
 DispA<-1.5*eps^2.74*D0
+
+#ptf from Moldrup et al.
+ths_dist<-0.45
+Ds_max<-ths_dist^1.5*D0
+
 
 bulks<-t(aggregate(soil.xls$Dichte,list(soil.xls$Horizon),function(x) range(x,na.rm = T))[1:2,][2])
 
@@ -237,7 +248,7 @@ realistic_ranges<-data.frame(alpha=alpha_range_Ah1,alpha2=alpha_range_Ah2,n=n_ra
 
 #tabellenwerte für ks matrix cm/min von silt loam bis sandy loam
 #carsel parrish 1988
-realistic_ranges_dist<-data.frame(alpha=c(0.02,0.075),alpha2=c(0.02,0.075),n=c(1.41,1.89),n2=c(1.41,1.89),p_opt=c(0.00019,0.00026),ks=ks_range,ks2=ks_range)
+realistic_ranges_dist<-data.frame(alpha=c(0.02,0.075),alpha2=c(0.02,0.075),n=c(1.41,1.89),n2=c(1.41,1.89),p_opt=c(0.00019,0.00026),ks=ks_range,ks2=ks_range,DispA=c(0.5,Ds_max))
 
 #params<-data.frame(alpha=colMeans(alpha),n=colMeans(n),ths=colMeans(ths),thr=colMeans(thr),hseep=-100,l=0.5,ks=0.09)
 save(realistic_ranges,realistic_bulk,realistic_ranges_dist,file=paste0(soilpfad,"ranges.R"))

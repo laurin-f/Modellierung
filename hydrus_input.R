@@ -217,7 +217,7 @@ selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen 
     #Gapon exchange constants aus Alterra 2003 für Löss: 
     #K[Ca/Mg]=0.27; K[Ca/Na]=-0.6; K[ca/K]=-1.6
     ca_vals<-paste(" ",params$bulk,params$difuz,params$disperl,params$cec,params$calcit," 0  0  0.27  -0.6  -1.6")
-    ca_vals2<-paste(" ",params$bulk2,params$difuz2,params$disperl2,params$cec2,params$calcit2," 0  0  0.27  -0.6  -1.6")
+    ca_vals2<-paste(" ",params$bulk2,params$difuz,params$disperl,params$cec,params$calcit," 0  0  0.27  -0.6  -1.6")
     ca_pos1<-grep("Bulk.d.",lines)+1
     lines[ca_pos1]<-ca_vals
     lines[(ca_pos1+1):(ca_pos1+2)]<-ca_vals2

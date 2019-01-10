@@ -682,7 +682,10 @@ mc_out<-function(fixed,
   ##################################
   #export dottyplots for RMSE
   ##################################
+
   lbls<-sort(paste(colnames(par),"best =",signif(par[which.min(rmse),],2)))
+  lbls<-sub("Disp","Diff",lbls)
+  lbls<-gsub("p_","P_",lbls)
 
   
   best.100<-sort(rmse)[ndottys]
@@ -706,8 +709,8 @@ mc_out<-function(fixed,
   
 
   named<-setNames(lbls,sort(unique(dotty_melt$variable)))
-  rmse_dotty+facet_wrap(~variable,scales = "free",labeller = as_labeller(named))+theme_bw()+
-    ggsave(paste0(plotpfad,"dottyplots/RMSE/dotty_",loadfile,".pdf"),height = 8,width = 10)
+  rmse_dotty+facet_wrap(~variable,scales = "free",ncol = 3,labeller = as_labeller(named))+theme_bw()+labs(x="Value",y="RMSE")+
+    ggsave(paste0(plotpfad,"dottyplots/RMSE/dotty_",loadfile,".pdf"),height = 8,width = 8)
   
 
 
@@ -855,7 +858,7 @@ mc_out<-function(fixed,
     geom_line(data=subset(out,tiefe%in%tiefenstufen),aes(t_min,CO2_mod,col="mod"),na.rm = T)+
     facet_wrap(~tiefe,ncol=2,scales = "free")+
     theme_classic()+
-    labs(x="Zeit [min]",y=expression("CO"[2]*" [ppm]]"))+
+    labs(x="Zeit [min]",y=expression("CO"[2]*" [ppm]"))+
     ggsave(paste0(plotpfad,"co2/CO2_treat-",treat,"-",loadfile,".pdf"),height = 9,width = 9)
   
   #ca zeitreihen plot 
@@ -888,7 +891,6 @@ mc_out<-function(fixed,
   ic<-ic[order(ic$treatment),]
   
   icmean<-aggregate(ic[2:7],list(ic$treatment,ic$tiefe),mean)
-  legendtitle<-expression("Intensität [mm*h"^{-1}*"]")
   names<-paste("Intensit\xe4t =",unique(ic$treatment),"mm/h")
   names[2:length(unique(ic$treatment))]<-paste(unique(ic$treatment)[2:length(unique(ic$treatment))],"mm/h")
   named<-setNames(names,unique(ic$treatment))
@@ -901,5 +903,6 @@ mc_out<-function(fixed,
   pdf(paste0(plotpfad,"ca/Ca_tiefenprofil-",loadfile,".pdf"),height = 6,width = 9)
   print(ca_tiefenplot)
   dev.off()
+  assign(loadfile,out,envir = .GlobalEnv)
 }
 
