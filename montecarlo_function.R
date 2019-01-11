@@ -3,299 +3,6 @@
 #########################################
 
 
-#########################################
-#Funktion für Monte carlo Runs mit Hydrus
-#parallelisiert
-#########################################
-
-mc_parallel<-function(nr=100,#anzahl Modellläufe
-                      #Parameter Ranges
-                      ranges,
-                      #Parameter die nicht variiert werden
-                      fixed,
-                      #wie oft soll das modell parallel gerechnet werden
-                      n_parallel=4,
-                      #pfad=projektpfad1,
-                      UNSAT=T,#soll UNSATCHEM verwendet werden
-                      treatm="all",#intensität oder "all"
-                      sleep=5,#sleeptime für die .exe
-                      #wenn T werden Paramtersätze über das Latin Hypercube Sampling gezogen
-                      OAT=T,
-                      #Tiefen die Benutzt werden um objective Function zu ermitteln
-                      fit.tiefe=c(-2,-6,-10,-14),
-                      #soll die lower Boundary free drain verwendet werden oder seepage face
-                      free_drain=T,
-                      #soll  die objective Function auf CO2 oder Ca gefittet werden
-                      fit.calcium=F,
-                      #anzahl Knoten
-                      n_nodes=9,
-                      #Verteilung des Bodenmaterials
-                      Mat=c(rep(1,3),rep(2,5),3),
-                      #anzahl Print times
-                      print_times=100,
-                      #maximaler zeitschritt
-                      dtmax=0.1){
-  starttime<-Sys.time()
-  #Rscript mit Hydrus Functionen ausführen
-  source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/hydrus_input.R")
-  
-  #wenn lhs verwendet werden soll
-  if(OAT==F){
-    #lade nötiges Package
-    library(lhs)
-    #wenn nr kleiner gleich 100 ist kann optimumLHS verwendet werden
-    if(nr<=100){
-      lhs<-optimumLHS(n=nr,k=ncol(ranges))
-      
-      #bei größeren nr dauert optimumLHS zu lange und randomLHS wird verwendet
-    }else{
-      lhs<-randomLHS(n=nr,k=ncol(ranges))
-    }
-    
-    #Datensatz für  die Parametersätze anlegen
-    par<-as.data.frame(matrix(NA,nrow = nr,ncol = ncol(ranges)))
-    #Spaltennamen von den Ranges übernehmen
-    colnames(par)<-colnames(ranges)
-    
-    #Schleife um die lhs Parameterwerte an die Ranges anzupassen
-    for (i in 1:ncol(ranges)){
-      par[,i]<-ranges[1,i]+(ranges[2,i]-ranges[1,i])*lhs[,i]
-    }
-    
-    #wenn kein lhs verwendet wird werden Parameter zufällig gezogen
-  }else{
-    M<-ncol(ranges)
-    r<-round(nr/(M+1))
-    nr<-r*(M+1)
-    distr_par<-as.list(ranges)
-    par<-SAFER::OAT_sampling(r=r,M=M,distr_fun = "unif",distr_par = distr_par,samp_strat = "lhs",des_type = "radial")
-
-    
-    par<-as.data.frame(par)
-    colnames(par)<-colnames(ranges)
-    
-  }
-  
-  #Parameter auf 3 signifikante Nachkommastellen Runden
-  #par<-signif(par,3)
-  #file enstsprechend zu UNSC == T/F auswählen
-  file<-paste0("UNSC",1:n_parallel) 
-  
-  #wenn treat ="all"
-  if(treatm=="all"){
-    #lade datensatz all.R
-    load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
-    #wird für tmax  die zeitdifferenz vom ersten zum letzten Messwert in minuten verwendet
-    tmax<-as.numeric(difftime(max(all$date),min(all$date),units = "min"))
-    #t_event wird dann nicht gebraucht
-    t_event<-NULL
-    #alle auf TRUE gesetzt
-    alle<-T
-  }else{#wenn treat nicht "all" ist
-    #berechnung von t_event
-    t_event<-round(50/treatm*60)
-    #tmax wird gesetzt
-    tmax<-6000
-    #alle auf FALSE gesetzt
-    alle<-F
-  }
-  
-  projektpfad<-paste0("C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/UNSC",1:n_parallel,"/")
-  programmpfad<-paste0("C:/Users/ThinkPad/Documents/Masterarbeit/programme/Hydrus-1D_4-",1:n_parallel,"/")
-  
-  system("taskkill /IM H1D_UNSC.EXE",show.output.on.console=F)
-  
-  for (i in 1:n_parallel){
-  #atmos.in funktion ausführen
-  atmos.in(obs=all,
-           int=treatm,
-           event=t_event,
-           alle=alle,
-           total_t = tmax,
-           projektpfad = projektpfad[i])
-  
-  #profile.in funktion ausführen
-  profile.in(projektpfad = projektpfad[i],Mat = Mat,n_nodes = n_nodes,th=seq(0.2,0.4,len=n_nodes))
-  }
-  #Vektoren für RMSE & NSE anlegen
-  rmse<-rep(NA,nr)
-  nse<-rep(NA,nr)
-  
-  #MonteCarlo Schleife mit nr durchläufen
-  for (i in seq(1,nr,n_parallel)){
-
-      
-    for (j in 1:n_parallel){
-      if(nrow(par)>=(i+j-1)){
-
-    #Parametersatz i mit den fix-Parametern zusammenfügen
-    pars<-cbind(par[(i+j-1),],fixed)
-    
-
-    
-    #selector.in funktion mit dem i-ten Parametersatz
-    selector.in(params = pars,
-                projektpfad = projektpfad[j],
-                tmax=tmax,
-                UNSC = UNSAT,
-                free_drain=free_drain,
-                print_times = print_times,
-                dtmax = dtmax)
-    
-    
-    #hydrus ausführen
-    hydrus.exe(sleep=sleep,file = file[j],UNSC=UNSAT,taskkill = T,programmpfad = programmpfad[j],wait = T)
-      }
-    }
-    #kurz verschnaufen
-    Sys.sleep(1)
-    
-    
-    check_CPU<-function(sleep2=sleep){
-    tasklist<-system("wmic path Win32_PerfFormattedData_PerfProc_Process get Name,PercentProcessorTime",intern=T)
-    tasksplit<-strsplit(tasklist[2:(length(tasklist)-1)]," \\s+")
-    tasks<-do.call("rbind",tasksplit)
-    startpoint<-Sys.time()
-    if(length(grep("H1D_UNSC",tasks))>0){
-    while(length(which(tasks[grep("H1D_UNSC",tasks),2]>0))>2&as.numeric(difftime(Sys.time(),startpoint,units = "sec"))<=sleep2){
-      Sys.sleep(0.1)
-      tasklist<-system("wmic path Win32_PerfFormattedData_PerfProc_Process get Name,PercentProcessorTime",intern=T)
-      tasksplit<-strsplit(tasklist[2:(length(tasklist)-1)]," \\s+")
-      tasks<-do.call("rbind",tasksplit)
-    }}
-    }
-    
-    check_CPU()
-    system("taskkill /IM H1D_UNSC.EXE",show.output.on.console=F)
-    
-    fault_check<-shell('tasklist /FI "IMAGENAME eq WerFault.exe"',intern = T)
-    if(length(grep("INFORMATION",fault_check))==0){
-      system("taskkill /IM WerFault.exe",show.output.on.console=F)}
-    exe_check<-shell('tasklist /FI "IMAGENAME eq H1D_UNSC.EXE"',intern = T)
-    
-    while(length(grep("INFORMATION",exe_check))==0){
-      Sys.sleep(0.01)
-      exe_check<-shell('tasklist /FI "IMAGENAME eq H1D_UNSC.EXE"',intern = T)
-      system("taskkill /IM H1D_UNSC.EXE",show.output.on.console=F)
-    }
-    
-    for (j in 1:n_parallel){
-      if(length(rmse)>=(i+j-1)){
-    #output function anwenden
-      if(fit.calcium==T){
-        out<-read_conc.out(projektpfad = projektpfad[j],n_nodes = n_nodes)
-      }else{
-        out<-read_hydrus.out(treat=treatm,
-                         projektpfad=projektpfad[j],
-                         UNSC=UNSAT,fit.tiefe = fit.tiefe)}
-      
-    #Objective Functions in Vektoren schreiben
-    rmse[(i+j-1)]<-out[[2]]
-    nse[(i+j-1)]<-out[[3]]}}
-    
-    ##############################################
-    #langsamer werden wenn NA
-    ##############################################
-    
-    dtmax_fac<-1
-    dtmax2<-dtmax
-    
-    while(is.na(mean(rmse[i:(i+n_parallel-1)]))&dtmax2>=0.1){
-    dtmax2<-  dtmax2/10
-    print(paste("calculating",length(which(is.na(rmse[i:(i+n_parallel-1)]))),"models with dtmax =",dtmax2))
-      for (j in 1:n_parallel){
-      if(nrow(par)>=(i+j-1)){
-        if(is.na(rmse[(i+j-1)])){
-        #Parametersatz i mit den fix-Parametern zusammenfügen
-        pars<-cbind(par[(i+j-1),],fixed)
-        
-        
-        
-        #selector.in funktion mit dem i-ten Parametersatz
-        selector.in(params = pars,
-                    projektpfad = projektpfad[j],
-                    tmax=tmax,
-                    UNSC = UNSAT,
-                    free_drain=free_drain,
-                    print_times = print_times,
-                    dtmax = dtmax2)
-        
-        
-        #hydrus ausführen
-        hydrus.exe(sleep=sleep,file = file[j],UNSC=UNSAT,taskkill = T,programmpfad = programmpfad[j],wait = T)
-      }
-      }
-    }
-    #kurz verschnaufen
-    #Sys.sleep(1)
-    
-    check_CPU(sleep = sleep+10*dtmax_fac)
-    system("taskkill /IM H1D_UNSC.EXE",show.output.on.console=F)
-    
-    fault_check<-shell('tasklist /FI "IMAGENAME eq WerFault.exe"',intern = T)
-    if(length(grep("INFORMATION",fault_check))==0){
-    system("taskkill /IM WerFault.exe",show.output.on.console=F)}
-    
-    exe_check<-shell('tasklist /FI "IMAGENAME eq H1D_UNSC.EXE"',intern = T)
-    
-    while(length(grep("INFORMATION",exe_check))==0){
-      Sys.sleep(0.01)
-      exe_check<-shell('tasklist /FI "IMAGENAME eq H1D_UNSC.EXE"',intern = T)
-      system("taskkill /IM H1D_UNSC.EXE",show.output.on.console=F)
-    }
-    
-    for (j in 1:n_parallel){
-      if(length(rmse)>=(i+j-1)){
-        if(is.na(rmse[(i+j-1)])){
-        #output function anwenden
-        if(fit.calcium==T){
-          out<-read_conc.out(projektpfad = projektpfad[j],n_nodes = n_nodes)
-        }else{
-          out<-read_hydrus.out(treat=treatm,
-                               projektpfad=projektpfad[j],
-                               UNSC=UNSAT,fit.tiefe = fit.tiefe)}
-        
-        #Objective Functions in Vektoren schreiben
-        rmse[(i+j-1)]<-out[[2]]
-        nse[(i+j-1)]<-out[[3]]}}}
-    dtmax_fac<-dtmax_fac+1
-    }
-    ####################
-    #ende langsamer
-    #####################
-    
-    exe_check<-shell('tasklist /FI "IMAGENAME eq H1D_UNSC.EXE"',intern = T)
-    
-    while(length(grep("INFORMATION",exe_check))==0){
-      Sys.sleep(0.01)
-      exe_check<-shell('tasklist /FI "IMAGENAME eq H1D_UNSC.EXE"',intern = T)
-      system("taskkill /IM H1D_UNSC.EXE",show.output.on.console=F)
-    }
-    
-    
-    
-    #Fortschritt der Schleife ausgeben
-    print(paste(i/nr*100,"%"))
-    print(rmse[i:(i+n_parallel-1)])
-    #falls später ein Fehler auftritt speichern der Daten
-    save(rmse,par,nse,file="C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/mc_temp.R") 
-  }#ende Monteccarlo Schleife
-  #output in Liste schreiben
-  mc<-list(rmse,par,nse)
-  #falls 
-  if(nr>100){
-    filename<-paste0("mc_out-nr_",nr,"-",format(Sys.time(),"%m-%d_%H.%M"))
-    save(mc,file = paste0(mcpfad,filename,".R"))
-    print(paste("saved file",filename))}
-  
-  print("calculation time:")
-  print(Sys.time()-starttime)
-  print(paste(length(which(!is.na(rmse)))/nr*100,"% succesfully calculated"))
-  
-  #ausgabe der Parameter & Objective Function
-  return(mc)
-}#Ende
-
 mc_parallel2<-function(nr=100,#anzahl Modellläufe
                       #Parameter Ranges
                       ranges,
@@ -600,7 +307,7 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
   return(mc)
 }#Ende
 
-loadfile<-"mc_120000-free-ranges"
+loadfile<-"mc_120000-free_ranges"
 fixed=cbind(fixed,fixed_co2)
 treat="all"
 sleep=8
@@ -622,7 +329,8 @@ mc_out<-function(fixed,
                  dtmax=10,
                  obs=all_s,
                  min_nrows=2500,
-                 Probe="undist"){
+                 Probe="undist",
+                 Nboot=1){
   mcpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/"
   plotpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/abbildungen/plots/mc/"
   if(exists("rmse",mode = "function")){
@@ -658,12 +366,7 @@ mc_out<-function(fixed,
   
   pars<-cbind(par[which.min(rmse),],fixed)
   colnames(pars)<-gsub("_bot","3",colnames(pars))
-  # 
-  # pars2<-par
-  # for (i in 1:3){
-  # pari<-pars2[,colnames(pars2)==colnames(realistic_ranges)[i]]
-  # pars2<-pars2[pari>=realistic_ranges[1,i]&pari<=realistic_ranges[2,i],]
-  # }
+  
   
   out<-hydrus(params = pars,
               UNSC=T,
@@ -764,6 +467,9 @@ mc_out<-function(fixed,
   #shell(paste("cd C:/Octave/Octave-4.4.1","&& octave C:/Users/ThinkPad/Documents/Masterarbeit/programme/Use_EET.m",sep=" "),wait=T)
   
   library(stringr)
+  
+  
+  if(Nboot==1){
   # Compute Elementary Effects:
   #EETind <- SAFER::EET_indices(r=r,xrange= DistrPar, X=X, Y=Y, design_type="radial")
   EETind <- EET_na(r=r,xrange= DistrPar, X=X, Y=Y, design_type="radial")
@@ -780,37 +486,35 @@ mc_out<-function(fixed,
   names<-c(expression(alpha[1],alpha[2],D[a],h[opt],K[S1],K[S2],K[S3],n[1],n[2],P[distr],P[opt]))
   
   # Plot results in the plane (mean(EE),std(EE)):
-  if(length(which(!is.na(EET$sigma)))>0){
-    par(mfrow=c(1,1))
     print("saving GSA plot")
-    #SAFER::EET_plot(mi, sigma,  xlab = "Mean of EEs", ylab = "Sd of EEs",  labels = colnames(par))
     
     ggplot(EET)+geom_point(aes(mi,sigma,col=id,shape=id),size=2)+theme_classic()+scale_shape_manual(name="Parameter",labels=names,values = shapes[order(colnames(par))])+scale_color_manual(name="Parameter",labels=names,values = colors[order(colnames(par))])+
       ggsave(paste0(plotpfad,"EE/EE_",loadfile,".pdf"),height = 9,width = 9)
-    
-    #ggplot(EET)+geom_point(aes(mi,sigma,col=par,shape=Mat),size=2)+theme_classic()+scale_color_manual(name="parameter",values = c(2:6,"orange","purple"))+scale_shape_manual(name="parameter",values = c(16:17,15))
-  }
+  }else{
   
-  # # Use bootstrapping to derive confidence bounds:
-  # 
-  #Nboot <-100
-  # 
+    print("saving GSA Boot plot")
+  # Use bootstrapping to derive confidence bounds:
+
   #EETind100 <- SAFER::EET_indices(r, DistrPar, X, Y, design_type="radial", Nboot)
-  # 
-  # EE <- EETind100$EE
-  # mi <- EETind100$mi
-  # sigma <- EETind100$sigma
-  # mi_lb <- EETind100$mi_lb
-  # mi_ub <- EETind100$mi_ub
-  # sigma_lb <- EETind100$sigma_lb
-  # sigma_ub <- EETind100$sigma_ub
-  # 
-  # # Plot bootstrapping results in the plane (mean(EE),std(EE)):
-  # #EET_plot
-  # 
-  # 
-  # EET_plot(mi, sigma, mi_lb, mi_ub, sigma_lb, sigma_ub, labels = X_labels)
-  # 
+  EETind100 <- EET_na(r=r,xrange= DistrPar, X=X, Y=Y, design_type="radial",Nboot)
+  
+  EET100<-as.data.frame(EETind100[c(1:2,4:9)])
+  EET100$id<-colnames(par)
+  EET100$par<-str_replace(colnames(par),"2|3","")
+  mat<-str_extract(colnames(par),"2|3")
+  EET100$Mat<-ifelse(is.na(mat),"1",mat)
+  
+  colors<-factor(EET100$par,labels = setNames(c(2:6,"orange","darkgreen"),unique(EET100$par)))
+  colors<-as.character(colors)
+  library(dplyr)
+  shapes<-factor(EET100$Mat,labels = setNames(c(16,17,15),unique(EET100$Mat)))
+  shapes<-as.numeric(as.character(shapes))
+  names<-c(expression(alpha[1],alpha[2],D[a],h[opt],K[S1],K[S2],K[S3],n[1],n[2],P[distr],P[opt]))
+  
+  ggplot(EET100)+geom_rect(aes(xmin=mi_lb,xmax=mi_ub,ymin=sigma_lb,ymax=sigma_ub,fill=id),col=0,alpha=0.15,show.legend = F)+geom_point(aes(mi,sigma,col=id,shape=id),size=2)+theme_classic()+scale_shape_manual(name="Parameter",labels=names,values = shapes[order(colnames(par))])+scale_color_manual(name="Parameter",labels=names,values = colors[order(colnames(par))])+scale_fill_manual(name="",labels=names,values = colors[order(colnames(par))])+
+    ggsave(paste0(plotpfad,"EE/EE_boot",loadfile,".pdf"),height = 4,width = 7)
+  
+}
   #######################################
   # export  mod vs. obs data plots
   #######################################

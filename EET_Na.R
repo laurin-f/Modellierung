@@ -32,9 +32,9 @@ EET_na<- function (r, xrange, X, Y, design_type, Nboot = 0, alfa = 0.05)
   if (Nboot > 1) {
     B <- matrix(sample.int(r, r * Nboot, replace = TRUE), 
                 r, Nboot)
-    mi_all <- apply(B, 2, function(b) colMeans(EE[b, ]))
+    mi_all <- apply(B, 2, function(b) colMeans(EE[b, ],na.rm = T))
     sigma_all <- apply(B, 2, function(b) apply(EE[b, ], 
-                                               2, sd))
+                                               2, sd,na.rm = T))
     mi <- rowMeans(mi_all)
     mi_sd <- apply(mi_all, 1, sd)
     mi_lb <- apply(mi_all, 1, sort)

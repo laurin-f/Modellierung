@@ -13,8 +13,6 @@ source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/EET_na.R")
 
 library(ggplot2)
 library(stringr)
-
-
 tiefenstufen<-c(-2,-6,-10,-14)
 ####################################Z
 #Monte Carlo
@@ -71,29 +69,49 @@ loadfiles_undist<-loadfiles[-grep("dist",loadfiles)]
 loadfiles_dist<-loadfiles[grep("dist",loadfiles)]
 
 for(i in 1:length(loadfiles_undist)){
-  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],treat = "all",ndottys = 1000,sleep = 5,dtmax = 1)
+  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],treat = "all",ndottys = 1000,sleep = 5,dtmax = 1,Nboot = 100)
 }
-  
+
+
 for(i in 1:length(loadfiles_dist)){
-  mc_out(fixed=cbind(fixed_dist,fixed_co2),loadfile = loadfiles_dist[i],treat = "all",ndottys = 1000,sleep = 5,dtmax = 10,obs=alldist_s,min_nrows = 2200)
+  mc_out(fixed=cbind(fixed_dist,fixed_co2),loadfile = loadfiles_dist[i],treat = "all",ndottys = 1000,sleep = 5,dtmax = 10,obs=alldist_s,min_nrows = 2200,Probe = "dist",Nboot = 100)
 }
 
 runname<-str_extract(loadfiles_undist,"-.+")
 runname<-substr(runname,2,nchar(runname)) 
 runname<-gsub("_"," ",runname)
 
-co2plt<-ggplot(data=subset(get(loadfiles_undist[1]),tiefe%in%c(-2,-6,-10,-14)))+geom_line(aes(t_min/(60*24),CO2_raw,linetype=""),col=1)
+#events laden
+events<-event()
+
+#zeitspanne ausschneiden
+event<-subset(events,start>=min(all_s$date)&stop<=max(all_s$date))
+event2<-data.frame(start=rep(event$start,4),stop=rep(event$stop,4),tiefe=rep(c(-2,-6,-10,-14),each=nrow(event)))
+
+maindata<-subset(get(loadfiles_undist[1]),tiefe%in%c(-2,-6,-10,-14))
+#maindata$start<-ymd_hm(NA)
+#maindata$stop<-ymd_hm(NA)
+# 
+# for (i in c(-2,-6,-10,-14)){
+# maindata$start[maindata$tiefe==i][1:nrow(event)]<-event$start
+# maindata$stop[maindata$tiefe==i][1:nrow(event)]<-event$stop}
+
+co2plt<-ggplot(data=maindata)+geom_line(aes(date,CO2_raw,linetype=""),col=1)
 
 for(i in 1:length(loadfiles_undist)){
   data<-get(loadfiles_undist[i])
   data$run<-runname[i]
-co2plt<-co2plt+geom_line(data=subset(data,tiefe%in%c(-2,-6,-10,-14)),aes(t_min/(60*24),CO2_mod,col=run))
+co2plt<-co2plt+geom_line(data=subset(data,tiefe%in%c(-2,-6,-10,-14)),aes(date,CO2_mod,col=run))
 }
 co2plt+
-  facet_wrap(~as.factor(tiefe),ncol = 2,scales = "free")+
+  geom_rect(data=event2,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
+  facet_wrap(~as.factor(tiefe),ncol = 1,scales = "free")+
   labs(x="Zeit [Tage]",y=expression("CO"[2]*" [ppm]"),col="mod",linetype="obs")+
   theme_classic()+
-  ggsave(paste0(plotpfad,"co2_mod_undist.pdf"),width=8,height = 6)
+  scale_fill_manual(name="Beregnung",values="blue")+
+  ggsave(paste0(plotpfad,"co2_mod_undist.pdf"),width=7,height = 9)
+
+
 
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = ,treat = "all",ndottys = 1000,sleep = 5,dtmax = 10)
