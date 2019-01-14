@@ -232,11 +232,43 @@ lapply(all_list,function(x) max(x$q,na.rm=T)/A)#cm3/min
 
 #zeitdifferenz zwischen der negativsten steigung von theta in tiefe -14 und -10 
 #zur abschätzung der gesättigten wasserleitfähigkeit
+
+par(mfrow=c(2,2))
+ for (i in 1:4){
+   x<-subset(all_list[[i]],tiefe%in%c(-10,-14))
+peak14cm<-x$date[x$tiefe==-14][which.min(diff(x$theta[x$tiefe==-14]))-1]
+peak10cm<-x$date[x$tiefe==-10][which.min(diff(x$theta[x$tiefe==-10]))-1]
+plot(x$date,x$theta)
+points(peak10cm,x$theta[x$date==peak10cm&x$tiefe==-10],col=2)
+points(peak14cm,x$theta[x$date==peak14cm&x$tiefe==-14],col=3)}
+par(mfrow=c(1,1))
+
+#zeitdifferenz zwischen erstem wert mit negativerer steigung als 0.001 der höchstens 
+#0.1 kleiner ist als der peak
+ks_peak_diff2<-1:4
+par(mfrow=c(2,2))
+for (i in 1:4){
+  x<-subset(all_list[[i]],tiefe%in%c(-10,-14)&!is.na(theta))
+  x10<-subset(x,tiefe==-10)
+  x14<-subset(x,tiefe==-14)
+  
+  peak14cm<-x14$date[c(0,diff(x14$theta))<(-0.001)&x14$theta-max(x14$theta)>-0.1][1]
+  peak10cm<-x10$date[c(0,diff(x10$theta))<(-0.001)&x10$theta-max(x10$theta)>-0.1][1]
+  ks_peak_diff2[i]<-4/as.numeric(difftime(peak14cm,peak10cm,units = "min"))
+  plot(x$date,x$theta)
+  points(peak10cm,x10$theta[x10$date==peak10cm],col=2)
+  points(peak14cm,x14$theta[which(x14$date==peak14cm)],col=3)
+  }
+par(mfrow=c(1,1))
+
 ks_peak_diff<-lapply(all_list,function(x) 4/as.numeric(difftime(x$date[x$tiefe==-14][which.min(diff(x$theta[x$tiefe==-14]))],x$date[x$tiefe==-10][which.min(diff(x$theta[x$tiefe==-10]))],units="min")))[1:4]
 
 #die ranges sind ungefähr im selben Werte beirech
 range(ks_peak_diff)#cm/min
+range(ks_peak_diff2)#cm/min
+
 ks_range#cm/min
+
 
 realistic_bulk<-data.frame(bulk=bulks[,1],bulk2=bulks[,2],cec=c(100,500))
 #colnames(realistic_bulk)<-c("bulk","bulk2")

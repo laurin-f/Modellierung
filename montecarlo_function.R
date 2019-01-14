@@ -458,10 +458,10 @@ mc_out<-function(fixed,
   for(i in 1:ncol(X)){
     DistrPar[[i]]<-signif(range[,i],2)
   }
-  
-  write.table(X,paste0(mcpfad,"X.csv"),row.names = F,col.names = F,sep=",")
-  write.table(Y,paste0(mcpfad,"Y.csv"),row.names = F,col.names = F,sep=",")
-  write.table(range,paste0(mcpfad,"range.csv"),row.names = F,col.names = F,sep=",")
+  mc_type<-stringr::str_replace(loadfile,"mc_\\d+(_|-)","")
+  write.table(X,paste0(mcpfad,"X",mc_type,".csv"),row.names = F,col.names = F,sep=",")
+  write.table(Y,paste0(mcpfad,"Y",mc_type,".csv"),row.names = F,col.names = F,sep=",")
+  write.table(range,paste0(mcpfad,"range",mc_type,".csv"),row.names = F,col.names = F,sep=",")
 
 
   #shell(paste("cd C:/Octave/Octave-4.4.1","&& octave C:/Users/ThinkPad/Documents/Masterarbeit/programme/Use_EET.m",sep=" "),wait=T)
