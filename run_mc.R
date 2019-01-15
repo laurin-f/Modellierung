@@ -52,18 +52,28 @@ fixed_dist<-data.frame(thr=0.067,
                        CaAds=500,
                        CaPrec=500)
 
-
-###############################################################
-#co2 with changing water paramters
-###############################################################
 fixed_co2<-data.frame(act_en=6677,
                       h_crit=-10^6,
                       michaelis=0.19,
                       DispW=0.00106181,
                       Disper=5)
 
+fixedca<-data.frame(thr=0.11,
+                    ths=0.75,
+                    thr2=0.13,
+                    ths2=0.64,
+                    thr3=0.13,
+                    ths3=0.64,
+                    hseep=0,
+                    l=0.5)
+###############################################################
+#co2 with changing water paramters
+###############################################################
+
+
 loadfiles<-list.files(mcpfad,pattern = ".R")
 loadfiles<-loadfiles[loadfiles!="mc_temp.R"]
+loadfiles<-loadfiles[-grep("ca",loadfiles)]
 loadfiles<-substr(loadfiles,1,nchar(loadfiles)-2)
 loadfiles_undist<-loadfiles[-grep("dist",loadfiles)]
 loadfiles_dist<-loadfiles[grep("dist",loadfiles)]
@@ -96,11 +106,16 @@ maindata<-subset(get(loadfiles_undist[1]),tiefe%in%c(-2,-6,-10,-14))
 
 name_tiefe<-setNames(c("Tiefe = -2 cm","-6 cm","-10 cm","-14 cm"),c(2,6,10,14))
 co2plt<-ggplot(data=maindata)+geom_line(aes(date,CO2_raw,linetype=""),col=1)
+bfplt<-ggplot(data=maindata)+geom_line(aes(date,theta,linetype=""),col=1)
+qplt<-ggplot(data=subset(get(loadfiles_undist[1]),tiefe==-17))+geom_line(aes(date,q_interpol*5,linetype=""),col=1)
 
 for(i in 1:length(loadfiles_undist)){
   data<-get(loadfiles_undist[i])
   data$run<-runname[i]
 co2plt<-co2plt+geom_line(data=subset(data,tiefe%in%c(-2,-6,-10,-14)),aes(date,CO2_mod,col=run))
+bfplt<-bfplt+geom_line(data=subset(data,tiefe%in%c(-2,-6,-10,-14)),aes(date,theta_mod,col=run))
+qplt<-qplt+geom_line(data=subset(data,tiefe==-17),aes(date,q_mod,col=run))
+
 }
 co2plt+
   geom_rect(data=event2,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
@@ -109,6 +124,21 @@ co2plt+
   theme_classic()+
   scale_fill_manual(name="Beregnung",values="blue")+
   ggsave(paste0(plotpfad,"co2_mod_undist.pdf"),width=7,height = 9)
+
+bfplt+
+  geom_rect(data=event2,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
+  facet_wrap(~as.factor(-tiefe),labeller = as_labeller(name_tiefe),ncol = 1,scales = "free")+
+  labs(title="ungestörte Probe",x="Zeit [Tage]",y=expression("CO"[2]*" [ppm]"),col="mod",linetype="obs")+
+  theme_classic()+
+  scale_fill_manual(name="Beregnung",values="blue")+
+  ggsave(paste0(plotpfad,"bf_mod_undist.pdf"),width=7,height = 9)
+
+qplt+
+  geom_rect(data=event,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
+  labs(title="ungestörte Probe",x="Zeit [Tage]",y=expression("CO"[2]*" [ppm]"),col="mod",linetype="obs")+
+  theme_classic()+
+  scale_fill_manual(name="Beregnung",values="blue")+
+  ggsave(paste0(plotpfad,"q_mod_undist.pdf"),width=7,height = 9)
 
 #######################
 #modelläufe zusammmen dist
@@ -128,11 +158,15 @@ event2<-data.frame(start=rep(event$start,4),stop=rep(event$stop,4),tiefe=rep(c(-
 maindata<-subset(get(loadfiles_dist[1]),tiefe%in%c(-2,-6,-10,-14))
 
 co2plt<-ggplot(data=maindata)+geom_line(aes(date,CO2_raw,linetype=""),col=1)
+bfplt<-ggplot(data=maindata)+geom_line(aes(date,theta,linetype=""),col=1)
+qplt<-ggplot(data=subset(get(loadfiles_dist[1]),tiefe==-17))+geom_line(aes(date,q_interpol*5,linetype=""),col=1)
 
 for(i in 1:length(loadfiles_dist)){
   data<-get(loadfiles_dist[i])
   data$run<-runname[i]
   co2plt<-co2plt+geom_line(data=subset(data,tiefe%in%c(-2,-6,-10,-14)),aes(date,CO2_mod,col=run))
+  bfplt<-bfplt+geom_line(data=subset(data,tiefe%in%c(-2,-6,-10,-14)),aes(date,theta_mod,col=run))
+  qplt<-qplt+geom_line(data=subset(data,tiefe==-17),aes(date,q_mod,col=run))
 }
 co2plt+
   geom_rect(data=event2,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
@@ -142,12 +176,32 @@ co2plt+
   scale_fill_manual(name="Beregnung",values="blue")+
   ggsave(paste0(plotpfad,"co2_mod_dist.pdf"),width=7,height = 9)
 
+bfplt+
+  geom_rect(data=event2,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
+  facet_wrap(~as.factor(-tiefe),labeller = as_labeller(name_tiefe),ncol = 1,scales = "free")+
+  labs(title="ungestörte Probe",x="Zeit [Tage]",y=expression("CO"[2]*" [ppm]"),col="mod",linetype="obs")+
+  theme_classic()+
+  scale_fill_manual(name="Beregnung",values="blue")+
+  ggsave(paste0(plotpfad,"bf_mod_dist.pdf"),width=7,height = 9)
+
+qplt+
+  geom_rect(data=event,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
+  labs(title="ungestörte Probe",x="Zeit [Tage]",y=expression("CO"[2]*" [ppm]"),col="mod",linetype="obs")+
+  theme_classic()+
+  scale_fill_manual(name="Beregnung",values="blue")+
+  ggsave(paste0(plotpfad,"q_mod_dist.pdf"),width=7,height = 9)
+
 ######################################################################
 
 
+loadfile<-"mc_60000-realistic"
+load(file = paste0(mcpfad,loadfile,".R"))
 
+par<-mc[[2]]
+rmse<-mc[[1]]
+fix_pars<-cbind(par[which.min(rmse),],fixedca,fixed_co2)
 
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = ,treat = "all",ndottys = 1000,sleep = 5,dtmax = 10)
+mc_out(fixed=fix_pars,loadfile = "mc_90000-ca_realistic" ,treat = "all",ndottys = 1000,sleep = 5,dtmax = 10,fit.ca = T)
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_120000-free_ranges",treat = "all",ndottys = 1000,sleep = 5,dtmax = 1)
 

@@ -622,7 +622,9 @@ hydrus<-function(params,
                  dtmax=10,
                  n_nodes=9,
                  Mat=c(rep(1,3),rep(2,5),3),
-                 print_times = 100,min_nrows=2200){
+                 print_times = 100,
+                 kin_sol=F,
+                 min_nrows=2200){
   #wenn treat ="all"
   if(treat=="all"){
     #wird für tmax  die zeitdifferenz vom ersten zum letzten Messwert in minuten verwendet
@@ -659,7 +661,8 @@ hydrus<-function(params,
               free_drain = free_drain,
               dtmin = dtmin,
               dtmax=dtmax,
-              print_times = print_times)
+              print_times = print_times,
+              kin_sol = kin_sol)
   
   #file enstsprechend zu UNSC == T/F auswählen
   file<-ifelse(UNSC==T,"undisturbed","undisturbed2")
