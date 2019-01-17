@@ -383,24 +383,94 @@ mc_out<-function(fixed,
   
   out$tiefe<-as.numeric(out$tiefe)
   
+  #######################################
+  #SAFER
+  #######################################
+  
+  X<-as.matrix(par)
+  Y<-rmse
+  r<-floor(length(Y)/(ncol(par)+1))
+  range<-apply(X,2,range)
+  
+  DistrPar<-vector("list",ncol(X))
+  for(i in 1:ncol(X)){
+    DistrPar[[i]]<-signif(range[,i],2)
+  }
+  mc_type<-stringr::str_replace(loadfile,"mc_\\d+(_|-)","")
+  write.table(X,paste0(mcpfad,"X",mc_type,".csv"),row.names = F,col.names = F,sep=",")
+  write.table(Y,paste0(mcpfad,"Y",mc_type,".csv"),row.names = F,col.names = F,sep=",")
+  write.table(range,paste0(mcpfad,"range",mc_type,".csv"),row.names = F,col.names = F,sep=",")
+  
+  
+  #shell(paste("cd C:/Octave/Octave-4.4.1","&& octave C:/Users/ThinkPad/Documents/Masterarbeit/programme/Use_EET.m",sep=" "),wait=T)
+  
+  library(stringr)
+  
+  
+    if(Nboot==1){
+    # Compute Elementary Effects:
+    #EETind <- SAFER::EET_indices(r=r,xrange= DistrPar, X=X, Y=Y, design_type="radial")
+    EETind <- EET_na(r=r,xrange= DistrPar, X=X, Y=Y, design_type="radial")
+    EET<-as.data.frame(EETind[1:2])
+    EET$id<-colnames(par)
+    EET$par<-str_replace(colnames(par),"2|3","")
+    mat<-str_extract(colnames(par),"2|3")
+    EET$Mat<-ifelse(is.na(mat),"1",mat)
+    colors<-factor(EET$par,labels = setNames(c(2:6,"orange","purple"),unique(EET$par)))
+      colors<-as.character(colors)
+      library(dplyr)
+      shapes<-factor(EET$Mat,labels = setNames(c(16,17,15),unique(EET$Mat)))
+      shapes<-as.numeric(as.character(shapes))
+    names<-c(expression(alpha[1],alpha[2],D[a],h[opt],K[S1],K[S2],K[S3],n[1],n[2],P[distr],P[opt]))
+
+    # Plot results in the plane (mean(EE),std(EE)):
+      print("saving GSA plot")
+
+      ggplot(EET)+geom_point(aes(mi,sigma,col=id,shape=id),size=2)+theme_classic()+scale_shape_manual(name="Parameter",labels=names,values = shapes[order(colnames(par))])+scale_color_manual(name="Parameter",labels=names,values = colors[order(colnames(par))])+
+        ggsave(paste0(plotpfad,"EE/EE_",loadfile,".pdf"),height = 9,width = 9)
+    }else{
+
+      print("saving GSA Boot plot")
+    # Use bootstrapping to derive confidence bounds:
+
+    #EETind100 <- SAFER::EET_indices(r, DistrPar, X, Y, design_type="radial", Nboot)
+    EETind100 <- EET_na(r=r,xrange= DistrPar, X=X, Y=Y, design_type="radial",Nboot)
+
+    EET100<-as.data.frame(EETind100[c(1:2,4:9)])
+    EET100$id<-colnames(par)
+    EET100$par<-str_replace(colnames(par),"2|3","")
+    mat<-str_extract(colnames(par),"2|3")
+    EET100$Mat<-ifelse(is.na(mat),"1",mat)
+
+    colors<-factor(EET100$par,labels = setNames(c(2:6,"orange","darkgreen"),unique(EET100$par)))
+    colors<-as.character(colors)
+    library(dplyr)
+    shapes<-factor(EET100$Mat,labels = setNames(c(16,17,15),unique(EET100$Mat)))
+    shapes<-as.numeric(as.character(shapes))
+    names<-c(expression(alpha[1],alpha[2],D[a],h[opt],K[S1],K[S2],K[S3],n[1],n[2],P[distr],P[opt]))
+
+    ggplot(EET100)+geom_rect(aes(xmin=mi_lb,xmax=mi_ub,ymin=sigma_lb,ymax=sigma_ub,fill=id),col=0,alpha=0.15,show.legend = F)+geom_point(aes(mi,sigma,col=id,shape=id),size=2)+theme_classic()+scale_shape_manual(name="Parameter",labels=names,values = shapes[order(colnames(par))])+scale_color_manual(name="Parameter",labels=names,values = colors[order(colnames(par))])+scale_fill_manual(name="",labels=names,values = colors[order(colnames(par))])+
+      ggsave(paste0(plotpfad,"EE/EE_boot",loadfile,".pdf"),height = 4,width = 7)
+
+  }
   ##################################
   #export dottyplots for RMSE
   ##################################
 
-  lbls<-sort(paste(colnames(par),"best =",signif(par[which.min(rmse),],2)))
-  lbls<-sub("Disp","Diff",lbls)
-  lbls<-gsub("p_","P_",lbls)
 
-  
+
   best.100<-sort(rmse)[ndottys]
   pargood<-par[rmse<best.100&!is.na(rmse),]
   rmsegood<-rmse[rmse<best.100&!is.na(rmse)]
   dotty_rmse<-cbind(rmsegood,pargood)
   
+  lbls<-sort(paste(colnames(pargood),"best =",signif(pargood[which.min(rmsegood),],2)))
+  lbls<-sub("Disp","Diff",lbls)
+  lbls<-gsub("p_","P_",lbls)
+  
   dotty_melt<-data.table::melt(dotty_rmse,id=1)
   dotty_melt$variable<-as.character(dotty_melt$variable)
   dotty_melt<-dotty_melt[order(dotty_melt$variable),]
-
     
   rmse_dotty<-ggplot()+
     geom_point(data=dotty_melt,aes(value,rmsegood),size=0.5)+
@@ -417,7 +487,38 @@ mc_out<-function(fixed,
     ggsave(paste0(plotpfad,"dottyplots/RMSE/dotty_",loadfile,".pdf"),height = 8,width = 8)
   
 
+  ##################################
+  #export dottyplots for RMSE  for most sensitve Parameters
+  ##################################
+  
+  if(Nboot!=1){EET<-EET100}
+  best4<-order(EET$mi,decreasing = T)[1:4]
+  best.100<-sort(rmse)[ndottys]
+  pargood<-par[rmse<best.100&!is.na(rmse),best4]
+  rmsegood<-rmse[rmse<best.100&!is.na(rmse)]
+  dotty_rmse<-cbind(rmsegood,pargood)
+  
+  lbls<-sort(paste(colnames(pargood),"best =",signif(pargood[which.min(rmsegood),],2)))
+  lbls<-sub("Disp","Diff",lbls)
+  lbls<-gsub("p_","P_",lbls)
+  
+  dotty_melt<-data.table::melt(dotty_rmse,id=1)
+  dotty_melt$variable<-as.character(dotty_melt$variable)
+  dotty_melt<-dotty_melt[order(dotty_melt$variable),]
+  
+  rmse_dotty<-ggplot()+
+    geom_point(data=dotty_melt,aes(value,rmsegood),size=0.5)+
+    geom_point(data=subset(dotty_melt,rmsegood==min(rmsegood)),aes(value,rmsegood),col=2)
+  
+    rmse_dotty<-rmse_dotty+geom_rect(data=realistic_range[realistic_range$variable%in%colnames(pargood),],aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")
 
+  print("saving dotty plots best 4")
+  
+  as.data.frame(1:10)
+  
+  named<-setNames(lbls,sort(unique(dotty_melt$variable)))
+  rmse_dotty+facet_wrap(~variable,scales = "free",ncol = 2,labeller = as_labeller(named))+theme_bw()+labs(x="Value",y="RMSE")+
+    ggsave(paste0(plotpfad,"dottyplots/RMSE/best4_",loadfile,".pdf"),height = 5,width = 7)
   
   ##################################
   #export dottyplots for NSE
@@ -446,76 +547,7 @@ mc_out<-function(fixed,
     ggsave(paste0(plotpfad,"dottyplots/NSE/dotty_",loadfile,".pdf"),height = 8,width = 10)
   
   
-  #######################################
-  #SAFER
-  #######################################
-  
-  X<-as.matrix(par)
-  Y<-rmse
-  r<-floor(length(Y)/(ncol(par)+1))
-  range<-apply(X,2,range)
-  
-  DistrPar<-vector("list",ncol(X))
-  for(i in 1:ncol(X)){
-    DistrPar[[i]]<-signif(range[,i],2)
-  }
-  mc_type<-stringr::str_replace(loadfile,"mc_\\d+(_|-)","")
-  write.table(X,paste0(mcpfad,"X",mc_type,".csv"),row.names = F,col.names = F,sep=",")
-  write.table(Y,paste0(mcpfad,"Y",mc_type,".csv"),row.names = F,col.names = F,sep=",")
-  write.table(range,paste0(mcpfad,"range",mc_type,".csv"),row.names = F,col.names = F,sep=",")
 
-
-  #shell(paste("cd C:/Octave/Octave-4.4.1","&& octave C:/Users/ThinkPad/Documents/Masterarbeit/programme/Use_EET.m",sep=" "),wait=T)
-  
-  library(stringr)
-  
-  
-#   if(Nboot==1){
-#   # Compute Elementary Effects:
-#   #EETind <- SAFER::EET_indices(r=r,xrange= DistrPar, X=X, Y=Y, design_type="radial")
-#   EETind <- EET_na(r=r,xrange= DistrPar, X=X, Y=Y, design_type="radial")
-#   EET<-as.data.frame(EETind[1:2])
-#   EET$id<-colnames(par)
-#   EET$par<-str_replace(colnames(par),"2|3","")
-#   mat<-str_extract(colnames(par),"2|3")
-#   EET$Mat<-ifelse(is.na(mat),"1",mat)
-#   colors<-factor(EET$par,labels = setNames(c(2:6,"orange","purple"),unique(EET$par)))
-#     colors<-as.character(colors)
-#     library(dplyr)
-#     shapes<-factor(EET$Mat,labels = setNames(c(16,17,15),unique(EET$Mat)))
-#     shapes<-as.numeric(as.character(shapes))
-#   names<-c(expression(alpha[1],alpha[2],D[a],h[opt],K[S1],K[S2],K[S3],n[1],n[2],P[distr],P[opt]))
-#   
-#   # Plot results in the plane (mean(EE),std(EE)):
-#     print("saving GSA plot")
-#     
-#     ggplot(EET)+geom_point(aes(mi,sigma,col=id,shape=id),size=2)+theme_classic()+scale_shape_manual(name="Parameter",labels=names,values = shapes[order(colnames(par))])+scale_color_manual(name="Parameter",labels=names,values = colors[order(colnames(par))])+
-#       ggsave(paste0(plotpfad,"EE/EE_",loadfile,".pdf"),height = 9,width = 9)
-#   }else{
-#   
-#     print("saving GSA Boot plot")
-#   # Use bootstrapping to derive confidence bounds:
-# 
-#   #EETind100 <- SAFER::EET_indices(r, DistrPar, X, Y, design_type="radial", Nboot)
-#   EETind100 <- EET_na(r=r,xrange= DistrPar, X=X, Y=Y, design_type="radial",Nboot)
-#   
-#   EET100<-as.data.frame(EETind100[c(1:2,4:9)])
-#   EET100$id<-colnames(par)
-#   EET100$par<-str_replace(colnames(par),"2|3","")
-#   mat<-str_extract(colnames(par),"2|3")
-#   EET100$Mat<-ifelse(is.na(mat),"1",mat)
-#   
-#   colors<-factor(EET100$par,labels = setNames(c(2:6,"orange","darkgreen"),unique(EET100$par)))
-#   colors<-as.character(colors)
-#   library(dplyr)
-#   shapes<-factor(EET100$Mat,labels = setNames(c(16,17,15),unique(EET100$Mat)))
-#   shapes<-as.numeric(as.character(shapes))
-#   names<-c(expression(alpha[1],alpha[2],D[a],h[opt],K[S1],K[S2],K[S3],n[1],n[2],P[distr],P[opt]))
-#   
-#   ggplot(EET100)+geom_rect(aes(xmin=mi_lb,xmax=mi_ub,ymin=sigma_lb,ymax=sigma_ub,fill=id),col=0,alpha=0.15,show.legend = F)+geom_point(aes(mi,sigma,col=id,shape=id),size=2)+theme_classic()+scale_shape_manual(name="Parameter",labels=names,values = shapes[order(colnames(par))])+scale_color_manual(name="Parameter",labels=names,values = colors[order(colnames(par))])+scale_fill_manual(name="",labels=names,values = colors[order(colnames(par))])+
-#     ggsave(paste0(plotpfad,"EE/EE_boot",loadfile,".pdf"),height = 4,width = 7)
-#   
-# }
   #######################################
   # export  mod vs. obs data plots
   #######################################

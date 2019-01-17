@@ -201,7 +201,7 @@ par<-mc[[2]]
 rmse<-mc[[1]]
 fix_pars<-cbind(par[which.min(rmse),],fixedca,fixed_co2)
 
-mc_out(fixed=fix_pars,loadfile = "mc_90000-ca_realistic" ,treat = "all",ndottys = 1000,sleep = 5,dtmax = 10,fit.ca = T)
+mc_out(fixed=fix_pars,loadfile = "mc_90000-ca_realistic" ,treat = "all",ndottys = 1000,sleep = 5,dtmax = 1,fit.ca = T)
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_120000-free_ranges",treat = "all",ndottys = 1000,sleep = 5,dtmax = 1)
 
@@ -337,6 +337,33 @@ print("saving GSA plot")
 
 library(ggplot2)
 
-ggplot(EET_oct)+geom_rect(aes(xmin=mi_lb,xmax=mi_ub,ymin=sigma_lb,ymax=sigma_ub,fill=id),col=0,alpha=0.15,show.legend = F)+geom_point(aes(mi,sigma,col=id,shape=id),size=2)+theme_classic()+scale_shape_manual(name="Parameter",labels=names,values = shapes[order(colnames(par))])+scale_color_manual(name="Parameter",labels=names,values = colors[order(colnames(par))])+scale_fill_manual(name="",labels=names,values = colors[order(colnames(par))])+ggsave(paste0(plotpfad,"/EE/","M_",gsub("(mi_-|.csv)","",tempfile[1]),".pdf"),width=7,height=4)
+ggplot(EET_oct)+
+  geom_rect(aes(xmin=mi_lb,xmax=mi_ub,ymin=sigma_lb,ymax=sigma_ub,fill=id),col=0,alpha=0.15,show.legend = F)+
+  geom_point(aes(mi,sigma,col=id,shape=id),size=2)+
+  theme_classic()+
+  scale_shape_manual(name="Parameter",labels=names,values = shapes[order(colnames(par))])+
+  scale_color_manual(name="Parameter",labels=names,values = colors[order(colnames(par))])+
+  scale_fill_manual(name="",labels=names,values = colors[order(colnames(par))])+
+  labs(x=expression(S[i]),y="sigma")+
+  ggsave(paste0(plotpfad,"/EE/","M_",gsub("(mi_-|.csv)","",tempfile[1]),".pdf"),width=7,height=4)
 }
+
+
+
+
+lapply(1:10,function(x) x+1)
+pars<-vector("list",length(loadfiles))
+for (i in 1:length(loadfiles)){
+load(file = paste0(mcpfad,loadfiles[i],".R"))
+par<-mc[[2]]
+rmse<-mc[[1]]
+pars[[i]]<-par[which.min(rmse),]
+  }
+pars<-do.call("rbind",pars)
+rownames(pars)<-stringr::str_replace(loadfiles,"mc_\\d+(_|-)","")
+rownames(pars)<-stringr::str_replace_all(rownames(pars),"_"," ")
+
+pars<-pars[order(rownames(pars)),]
+pars<-pars[,order(colnames(pars))]
+xtable::xtable(t(pars))
 

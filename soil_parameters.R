@@ -281,7 +281,7 @@ realistic_ranges<-data.frame(alpha=alpha_range_Ah1,alpha2=alpha_range_Ah2,n=n_ra
 #tabellenwerte für ks matrix cm/min von silt loam bis sandy loam
 #carsel parrish 1988
 realistic_ranges_dist<-data.frame(alpha=c(0.02,0.075),alpha2=c(0.02,0.075),n=c(1.41,1.89),n2=c(1.41,1.89),p_opt=c(0.00019,0.00026),ks=ks_range,ks2=ks_range,DispA=c(0.5,Ds_max))
-
+0.105-0.105*0.2
 #params<-data.frame(alpha=colMeans(alpha),n=colMeans(n),ths=colMeans(ths),thr=colMeans(thr),hseep=-100,l=0.5,ks=0.09)
 save(realistic_ranges,realistic_bulk,realistic_ranges_dist,file=paste0(soilpfad,"ranges.R"))
 
