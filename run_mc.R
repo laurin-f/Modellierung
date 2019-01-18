@@ -8,7 +8,7 @@ plotpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/abbildungen/plots/mc/"
 load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
 
 source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/hydrus_input.R")
-source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/montecarlo_function.R")
+source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/mc_out_function.R")
 source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/EET_na.R")
 
 library(ggplot2)
@@ -79,12 +79,12 @@ loadfiles_undist<-loadfiles[-grep("dist",loadfiles)]
 loadfiles_dist<-loadfiles[grep("dist",loadfiles)]
 
 for(i in 1:length(loadfiles_undist)){
-  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],treat = "all",ndottys = 1000,sleep = 5,dtmax = 1,Nboot = 100)
+  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = 1,Nboot = 100)
 }
 
 
 for(i in 1:length(loadfiles_dist)){
-  mc_out(fixed=cbind(fixed_dist,fixed_co2),loadfile = loadfiles_dist[i],treat = "all",ndottys = 1000,sleep = 5,dtmax = 10,obs=alldist_s,min_nrows = 2200,Probe = "dist",Nboot = 100)
+  mc_out(fixed=cbind(fixed_dist,fixed_co2),loadfile = loadfiles_dist[i],dtmax = 10,obs=alldist_s,Probe = "dist",Nboot = 100)
 }
 
 #########################
@@ -201,47 +201,15 @@ par<-mc[[2]]
 rmse<-mc[[1]]
 fix_pars<-cbind(par[which.min(rmse),],fixedca,fixed_co2)
 
-mc_out(fixed=fix_pars,loadfile = "mc_90000-ca_realistic" ,treat = "all",ndottys = 1000,sleep = 5,dtmax = 1,fit.ca = T)
+mc_out(fixed=fix_pars,loadfile = "mc_90000-ca_realistic" ,dtmax = 1,fit.ca = T)
 
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_120000-free_ranges",treat = "all",ndottys = 1000,sleep = 5,dtmax = 1)
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_120000-free_ranges",dtmax = 1)
 
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-realistic_free_ks",dtmax = 10)
 
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-realistic_free_ks",treat = "all",ndottys = 1000,sleep = 5,dtmax = 10)
-
-
-
-mc_out(fixed=cbind(fixed_dist,fixed_co2),loadfile = "mc_120000-free_dist",treat = "all",ndottys = 1000,sleep = 5,dtmax = 10,obs=alldist_s,min_nrows = 2200)
-
-get("mc_120000-free-ranges")
-
-###############################################################
-#co2 with changing water paramters realistic ranges
-###############################################################
-
-fixed_co2<-data.frame(act_en=6677,
-                      h_crit=-10^6,
-                      michaelis=0.19,
-                      DispW=0.00106181,
-                      Disper=5)
-
-load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/bodenparameter/ranges.R")
-ranges<-cbind(realistic_ranges,data.frame(ks3=c(0.0001,0.01),
-                                          h_opt=c(-80,-10),
-                                          p_distr=c(0.001,0.2)))
-
-mc<-mc_parallel(nr=11,sleep=5,ranges=ranges,
-                 fixed=cbind(fixed,fixed_co2),
-                n_nodes = 9,Mat = c(rep(1,3),rep(2,5),3))
+mc_out(fixed=cbind(fixed_dist,fixed_co2),loadfile = "mc_120000-free_dist",dtmax = 10,obs=alldist_s)
 
 
-#save(mc,file = paste0(mcpfad,"mc_wp_co2-",Sys.Date(),".R"))
-loadfile<-"mc_out-nr_20000-11-25_12.02"
-#load(file = paste0(mcpfad,loadfile,".R"))
-
-loadfile<-"mc_temp"
-#load(file = paste0(mcpfad,loadfile,".R"))
-
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_out-nr_20000-11-29_07.47",treat = "all",ndottys = 300)
 
 #######################
 #caplot
@@ -259,49 +227,12 @@ ggplot()+
 
   ggplot()+geom_point(data=subset(out,tiefe%in%tiefenstufen&!is.na(Ca_mod)),aes(Ca_mod,tiefe))
 
-######################
-#calcium mc
-######################
 
-fixed<-data.frame(thr=0.11,
-                  ths=0.75,
-                  thr2=0.13,
-                  ths2=0.64,
-                  thr3=0.13,
-                  ths3=0.64,
-                  hseep=0,
-                  l=0.5,
-                  cec=0,
-                  cec2=0)
-fixed_co2<-data.frame(act_en=6677,
-                      h_crit=-10^6,
-                      michaelis=0.19,
-                      DispW=0.00106181,
-                      Disper=5)
-loadfile<-"mc_out-nr_4000-11-29_15.50"
-load(file = paste0(mcpfad,loadfile,".R"))
-
-par<-mc[[2]]
-rmse<-mc[[1]]
-nse<-mc[[3]]
-fix_pars<-cbind(par[which.min(rmse),],fixed,fixed_co2)
-
-
-parca<-mcca[[2]]
-rmseca<-mcca[[1]]
-nseca<-mcca[[3]]
-plot(rmseca)
-
-parsca<-cbind(parca[which.min(rmseca),],fix_pars)
-
-outca<-hydrus(params=parsca,)
-
-mc_out(fixed=fix_pars,loadfile = "mc_out-nr_10000-11-30_02.26",treat = "all",ndottys = 300,fit.ca=T)
-
-
-
+  
 ######################
 #EE outpput from Matlab function
+#######################
+  
 misi<-list.files(mcpfad,pattern = "mi|si.*.csv")
 mc_types<-stringr::str_replace(loadfiles,"mc_\\d+(_|-)","")
 mc_types<-paste0("_-",mc_types,"\\.")

@@ -37,14 +37,14 @@ hydrus.exe<-function(file="undisturbed",#auf welche datei soll hydrus zugreifen
   #wenn taskkill==T wird das Powershellscript mit dem eingebauten taskkill befehl verwendet
   if(taskkill==T){
     #.txt mit vorlage für Powershell-Code lesen
-    script<-readLines(paste0(scriptpath,"hydrus_exe.txt")) 
+    script<-readLines(paste0(scriptpath,"hydrus_exe.txt"))  
+    #im Powershell-Code wird die gewünschte sleeptime eingefügt
+    script<-sub("secs",sleep,script) 
   }else{
     #wenn kein taskkill gewünscht dann wird die .txt ohne taskkill genommen
     script<-readLines(paste0(scriptpath,"hydrus_exe2.txt"))
   }
-  
-  #im Powershell-Code wird die gewünschte sleeptime eingefügt
-  script<-sub("secs",sleep,script)
+
   #im Powershell-Code wird die gewünschte Pfad eingefügt
   script<-sub("programmpfad",gsub("/","\\\\\\\\",programmpfad),script)
   #wenn kein UNSATCHEM verwendet werden soll...
@@ -214,14 +214,19 @@ selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen 
   #####################################
   #Solute Parameter
   #####################################
+    #Werte für Solute Parameter in Vektor
     #Gapon exchange constants aus Alterra 2003 für Löss: 
     #K[Ca/Mg]=0.27; K[Ca/Na]=-0.6; K[ca/K]=-1.6
     ca_vals<-paste(" ",params$bulk,params$difuz,params$disperl,params$cec,params$calcit," 0  0  0.27  -0.6  -1.6")
     ca_vals2<-paste(" ",params$bulk2,params$difuz,params$disperl,params$cec,params$calcit," 0  0  0.27  -0.6  -1.6")
+    
+    #Position der Solute Parameter im Input finden
     ca_pos1<-grep("Bulk.d.",lines)+1
+    #Werte einsetzen
     lines[ca_pos1]<-ca_vals
     lines[(ca_pos1+1):(ca_pos1+2)]<-ca_vals2
     
+    #Calcite Adsorbiert und Precipitated werte in input
     ca_pos2<-grep("Calcite      Gypsum",lines)
     lines[(ca_pos2-1)]<-paste(" ",params$CaAds," 0 0 0")
     lines[(ca_pos2+1)]<-paste(" ",params$CaPrec," 0 0 0 0 0")
@@ -246,6 +251,7 @@ selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen 
   #########################################
   #kinetic Solution
   #########################################
+  #wenn kinetic solution verwendet wird kommt ein "t" an die entsprechende stelle im input
   lines[grep("lRate",lines)+1]<-ifelse(kin_sol==T," t      f         0         1"," f      f         0         1")
   
   #########################################
@@ -448,13 +454,6 @@ read_hydrus.out<-function(obs=all,#Messungen
       sub$t_min<-as.numeric(difftime(sub$date,sub$date[event1],units = "min"))
       
       
-      # #Events mittels Funktion laden
-      # source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
-      # events<-event()
-      # 
-      # #t_min als Zeit nach Event 1 in Minuten
-      # sub$t_min<-as.numeric(difftime(obs$date,events$start[2],units = "min"))
-      
     }else{#wenn treat nicht "all" ist
       #wird die Messungen mit der gewünschten Niederschlagsintensität verwendet
       sub<-subset(obs,treatment==treat&tiefe%in%tiefenstufen)}
@@ -469,7 +468,6 @@ read_hydrus.out<-function(obs=all,#Messungen
     sub2<-subset(sub,tiefe %in% fit.tiefe)
       
 
-    
     #RootMeanSquaresError RMSE berechnen
     rmse_theta<-sqrt(mean((sub2$theta-sub2$theta_mod)^2,na.rm = T))
     rmse_q<-sqrt(mean((sub$q_interpol*5-sub$q_mod)^2,na.rm = T))
@@ -506,104 +504,55 @@ read_hydrus.out<-function(obs=all,#Messungen
 ######################################
 #function to set read Hydrus concentration outputfile
 
-read_conc.outalt<-function(projektpfad=projektpfad1,
-                        n_nodes=9,
-                        obs=all){#anzahl Knoten
-  #Conc.out datei einlesen
-  lines<-readLines(paste0(projektpfad,"Conc.out"))
-  #Zeitpunkte der Messungen aus der Datei entnehmen
-  time<-as.numeric(substr(lines[grep("Time:",lines)],7,19))
-  #spaltennamen aus der Datei entnehmen
-  names<-strsplit(lines[grep("Node",lines)][1],"\\s+")[[1]]
-  #spalte eins soll time heißen
-  names[1]<-"time"
-  
-  #leere Liste für Ca++ Werte
-  vals<-vector("list",length(time))
-  
-  #Schleife um Werte in die Liste zu schreiben
-  for (i in 1:length(time)){
-    #position der Werte zum Zeitpunkt i
-    pos_vals<-(grep("Node",lines)+2)[i]:(grep("Node",lines)+1+n_nodes)[i]
-    #Werte des i-ten Zeitschritts auschneiden
-    list_vals<-strsplit(lines[pos_vals],"\\s+")
-    #da strsplit automatisch eine Liste erstellt wird diese wieder entpackt 
-    #und als data.frame in die vals liste geschrieben
-    vals[[i]]<-as.data.frame(do.call("rbind",list_vals))
-    #in die erste Spalte des Data.frame kommt der i-te zeitschritt 
-    vals[[i]][,1]<-time[i]
-  }
-  
-  #die vals liste wird entpackt
-  vals<-do.call("rbind",vals)
-  #die spaltennamen werden angepasst
-  colnames(vals)<-names
-  
-  #die Werte werden mittels apply spalte für spalte in Zahlen umgewandelt
-  #und als data.frame gespeichert
-  vals<-as.data.frame(apply(vals, 2, function(x) as.numeric(as.character(x))))
-  vals<-vals[,c(1,3,4)]
-  colnames(vals)<-c("t_min","tiefe","Ca_mod")
-
-  Ca_g_pro_mol<-40.1
-  Ca_z<-2
-  vals$Ca_mod<-vals$Ca_mod*Ca_g_pro_mol/Ca_z#mg/l
-  
-  load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
-  
-  #t_min als Zeit nach Event 1 in Minuten
-  event1<-min(which(obs$rain_mm_h>0))
-  obs$t_min<-as.numeric(difftime(obs$date,obs$date[event1],units = "min"))
-  
-  # source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
-  # 
-  # events<-event()
-  # 
-  # #t_min als Zeit nach Event 1 in Minuten
-  # obs$t_min<-as.numeric(difftime(obs$date,events$start[2],units = "min"))
-  sub<-subset(obs,t_min%in%vals$t_min)
-  sub<-sub[,c(1:2,13:14,16:17)]
-  sub$ca_conc[sub$ca_conc<=30]<-NA
-  
-  vals<-subset(vals,tiefe%in%sub$tiefe)
-  
-  merged<-merge(sub,vals,all=T)
-  out<-merged[order(merged$t_min),]
-  RMSE<-sqrt(mean((out$ca_conc-out$Ca_mod)^2,na.rm = T))
-  nse<-NSE(obs=out$ca_conc,out$Ca_mod)
-  #ausgabe der Werte
-  return(list(out,RMSE,nse))}
-
 read_conc.out<-function(projektpfad=projektpfad1,
                            obs=all_s){
-  
+  #Anzahl Felder im Output zählen
   fields<-count.fields(paste0(projektpfad,"Obs_Node_Ch.out"),blank.lines.skip = F,skip=5)
+  #die letzte Reihe die Eingelesen werden soll ist die letzte die 51 Elemente hat 
+  #-2 weil auch eine Reihe beim Header draufgeht 
   nrows<-which(fields!=51)-2
   #Conc.out datei einlesen
   obs_node_ch<-read.table(paste0(projektpfad,"Obs_Node_Ch.out"),nrows = nrows,skip=5,header = T)
   
+  #nur Calcium-Werte auswählen
   Ca_vals<-obs_node_ch[,grep("Ca|time",colnames(obs_node_ch))]
+  #Spaltennamen als Tiefenstufe
   colnames(Ca_vals)<-c("t_min",-2,-6,-10,-14,-17)
+  #daten ins long-format melten
   vals<-data.table::melt(Ca_vals,id=1,value.name="Ca_mod",variable.name="tiefe")
   
-  Ca_g_pro_mol<-40.1
+  #Einheit anpassen
+  #Molare Masse Calcium
+  Ca_g_pro_mol<-40.1#g/mol
+  #Ladung Calcium
   Ca_z<-2
-  vals$Ca_mod<-vals$Ca_mod*Ca_g_pro_mol/Ca_z#mg/l
+  #Einheit von meq/l in mg/l
+  vals$Ca_mod<-vals$Ca_mod*Ca_g_pro_mol/Ca_z#meq/l*g/mol/z  ->mg/l
   
   #t_min als Zeit nach Event 1 in Minuten
   event1<-min(which(obs$rain_mm_h>0))
   obs$t_min<-as.numeric(difftime(obs$date,obs$date[event1],units = "min"))
   
+  ############################
+  #messungen mit modellierten Werte zusammenführen
+  #nur Werte mit identischem t_min
   sub<-subset(obs,t_min%in%vals$t_min)
+  #relevante Spalten auswählen
   sub<-sub[,c(1:2,13:14,16:17)]
+  #Ca-Konz. unter 30 sind durch nicht vollständig gefüllte LF-Kammer entstanden
   sub$ca_conc[sub$ca_conc<=30]<-NA
   
+  #obs und mod mergen
   merged<-merge(sub,vals,all=T)
+  #reihenfolge nach t_min
   out<-merged[order(merged$t_min),]
+  #RMSE bestimmen
   RMSE<-sqrt(mean((out$ca_conc-out$Ca_mod)^2,na.rm = T))
+  #NSE bestimmen
   nse<-NSE(obs=out$ca_conc,out$Ca_mod)
   #ausgabe der Werte
-  return(list(out,RMSE,nse))}
+  return(list(out,RMSE,nse))
+  }#Ende
 
 #####################################################
 #function to run all above functions
@@ -668,8 +617,9 @@ hydrus<-function(params,
   file<-ifelse(UNSC==T,"undisturbed","undisturbed2")
   
   #hydrus.exe ausführen
-  programmpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/programme/Hydrus-1D 4.xx/"
   hydrus.exe(file = file,UNSC=UNSC,sleep = sleep,Inverse = inverse,taskkill = taskkill)
+  
+  #wenn kein Taskkill verwendet werden soll
   if(taskkill==F){
     Sys.sleep(1)
   check_CPU<-function(){
