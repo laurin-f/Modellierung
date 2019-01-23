@@ -19,7 +19,8 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
                  dtmax=10,#maximaler zeitschritt
                  obs=all_s,#Messung mit der das Modell verglichen wird
                  Probe="undist",#wurde die gestörte oder die ungestörte Probe benutzt
-                 Nboot=1){#Anzahl an Bootstrapping-Läufen
+                 kin_sol=F,
+                 Nboot=100){#Anzahl an Bootstrapping-Läufen
   
   #definieren der Pfade
   mcpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/"
@@ -80,7 +81,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
               dtmax = dtmax,
               obs=obs,
               min_nrows=100,
-              kin_sol=fit.ca)
+              kin_sol=kin_sol)
   
   #tiefe von factor in numeric
   out$tiefe<-as.numeric(out$tiefe)
@@ -88,7 +89,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   #######################################
   #SAFER für Sensitivitätsanalyse
   #######################################
-  
+  if(Nboot>0){
   #X als Matrix der Parametersätze
   X<-as.matrix(par)
   #Y als Gütemaß der Modelläufe
@@ -117,11 +118,15 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   write.table(range,paste0(mcpfad,"range",mc_type,".csv"),row.names = F,col.names = F,sep=",")
   
   #wenn kein Bootstrapping gemacht wird
-    if(Nboot==1){
+
     # Elementary Effects mit für NA's umgeschriebener Funktion  berechnen
-    EETind <- EET_na(r=r,xrange= DistrPar, X=X, Y=Y, design_type="radial")
+    EETind <- EET_na(r=r,xrange= DistrPar, X=X, Y=Y, design_type="radial",Nboot = Nboot)
     #Output liste als Data.frame
+    if(Nboot==1){
     EET<-as.data.frame(EETind[1:2])
+    }else{
+    EET<-as.data.frame(EETind[c(1:2,4:9)]) 
+    }
     #Spalte mit Parameternamen anfügen
     EET$id<-colnames(par)
     #Spalte mit Parameternamen ohne tiefendiffernzierung
@@ -130,43 +135,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     mat<-str_extract(colnames(par),"2|3")
     #überall wo keine tiefe angegeben ist wird 1 eingetragen
     EET$Mat<-ifelse(is.na(mat),"1",mat)
-    
-    #Farben für die  Parameter angeben
-    colors<-factor(EET$par,labels = setNames(c(2:6,"orange","purple"),unique(EET$par)))
-    colors<-as.character(colors)
-    
-    #shapes für  die Tiefenstufen angeben  
-    shapes<-factor(EET$Mat,labels = setNames(c(16,17,15),unique(EET$Mat)))
-    shapes<-as.numeric(as.character(shapes))
-    
-    #Namen der Parameter als Expression
-    names<-c(expression(alpha[1],alpha[2],D[a],h[opt],K[S1],K[S2],K[S3],n[1],n[2],P[distr],P[opt]))
-
-    #Ergebnisse plotten
-    print("saving GSA plot")
-
-    ggplot(EET)+
-      geom_point(aes(mi,sigma,col=id,shape=id),size=2)+
-      theme_classic()+
-      scale_shape_manual(name="Parameter",labels=names,values = shapes[order(colnames(par))])+
-      scale_color_manual(name="Parameter",labels=names,values = colors[order(colnames(par))])+
-      ggsave(paste0(plotpfad,"EE/EE_",loadfile,".pdf"),height = 9,width = 9)
-    
-    }else{#Falls Bootstrapping verwendet wird
-
-    #Bootstrapping wird verwendet um Konfidenzintervall zu bestimmen
-    EETind <- EET_na(r=r,xrange= DistrPar, X=X, Y=Y, design_type="radial",Nboot)
-    #Output liste als Data.frame
-    EET<-as.data.frame(EETind[c(1:2,4:9)])
-    #Spalte mit Parameternamen anfügen
-    EET$id<-colnames(par)
-    #Spalte mit Parameternamen ohne tiefendiffernzierung
-    EET$par<-str_replace(colnames(par),"2|3","")
-    #Spalte nur mit der Tiefe der Parameter
-    mat<-str_extract(colnames(par),"2|3")
-    #überall wo keine tiefe angegeben ist wird 1 eingetragen
-    EET$Mat<-ifelse(is.na(mat),"1",mat)
-
+    if(fit.ca==F){
     #Farben für die  Parameter angeben
     colors<-factor(EET$par,labels = setNames(c(2:6,"orange","darkgreen"),unique(EET$par)))
     colors<-as.character(colors)
@@ -175,8 +144,32 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     shapes<-factor(EET$Mat,labels = setNames(c(16,17,15),unique(EET$Mat)))
     shapes<-as.numeric(as.character(shapes))
     
+
     #Namen der Parameter als Expression
     names<-c(expression(alpha[1],alpha[2],D[a],h[opt],K[S1],K[S2],K[S3],n[1],n[2],P[distr],P[opt]))
+    }else{
+      #Farben für die  Parameter angeben
+      colors<-factor(EET$par,labels = setNames(c(2:6,"orange","darkgreen"),unique(EET$par)))
+      colors<-as.character(colors)
+      
+      #shapes für  die Tiefenstufen angeben  
+      shapes<-factor(EET$Mat,labels = setNames(c(16,17),unique(EET$Mat)))
+      shapes<-as.numeric(as.character(shapes))
+    names<-sort(colnames(par))
+    }
+
+    
+    if(Nboot==1){    
+      #Ergebnisse plotten
+    print("saving GSA plot")
+    ggplot(EET)+
+      geom_point(aes(mi,sigma,col=id,shape=id),size=2)+
+      theme_classic()+
+      scale_shape_manual(name="Parameter",labels=names,values = shapes[order(colnames(par))])+
+      scale_color_manual(name="Parameter",labels=names,values = colors[order(colnames(par))])+
+      ggsave(paste0(plotpfad,"EE/EE_",loadfile,".pdf"),height = 9,width = 9)
+    
+    }else{#Falls Bootstrapping verwendet wird
 
     #Ergebnisse plotten
     print("saving GSA Boot plot")
@@ -191,7 +184,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
       ggsave(paste0(plotpfad,"EE/EE_boot",loadfile,".pdf"),height = 4,width = 7)
 
   }#Ende EE Plots
-  
+  }
   ##################################
   #export dottyplots for RMSE
   ##################################
@@ -352,7 +345,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   ggplot(subset(out,tiefe==-17&!is.na(Ca_mod)))+
     geom_line(aes(t_min,Ca_mod,col="mod"))+geom_line(aes(t_min,ca_conc,col="obs"))+
     theme_classic()+
-    labs(x="Zeit [min]",y=expression("Ca"^{2+""}*" [mg * l"^{-1}*"]"),color="Tiefe")+
+    labs(x="Zeit [min]",y=expression("Ca"^{2+""}*" [mg / l]"),color="Tiefe")+
     ggsave(paste0(plotpfad,"ca/Ca_treat-",treat,"-",loadfile,".pdf"),height = 7,width = 9)
   
   
@@ -399,7 +392,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   ca_tiefenplot<-ggplot()+
     geom_path(data=icmean[icmean$treatment%in%unique(ca_mg_sums$treatment),],aes(ca,tiefe,col="mean (obs)",linetype="mean (obs)"))+
     geom_point(data=subset(ic,!is.na(rain_mm_h)&treatment%in%unique(ca_mg_sums$treatment)),aes(ca,tiefe,shape="obs"))+
-    geom_path(data=ca_mg_sums,aes(Ca_ml_mod,tiefe,col="mod",linetype="mod"))+labs(x=expression("Ca"^{"2+"}*"  [mg * l"^{-1}*"]"),y="Tiefe [cm]",col="",shape="",linetype="")+
+    geom_path(data=ca_mg_sums,aes(Ca_ml_mod,tiefe,col="mod",linetype="mod"))+labs(x=expression("Ca"^{"2+"}*"  [mg / l]"),y="Tiefe [cm]",col="",shape="",linetype="")+
     scale_linetype_manual(name="",values=2:1)+
     scale_color_manual(name="",values=1:2)+
     theme_bw()+

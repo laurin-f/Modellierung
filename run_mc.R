@@ -79,7 +79,7 @@ loadfiles_undist<-loadfiles[-grep("dist",loadfiles)]
 loadfiles_dist<-loadfiles[grep("dist",loadfiles)]
 
 for(i in 1:length(loadfiles_undist)){
-  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = 1,Nboot = 100)
+  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = c(1,10,10)[i],Nboot = 100)
 }
 
 
@@ -201,9 +201,15 @@ par<-mc[[2]]
 rmse<-mc[[1]]
 fix_pars<-cbind(par[which.min(rmse),],fixedca,fixed_co2)
 
-mc_out(fixed=fix_pars,loadfile = "mc_90000-ca_realistic" ,dtmax = 1,fit.ca = T)
+mc_out(fixed=fix_pars,loadfile = "mc_90000-ca_realistic" ,dtmax = 1,fit.ca = T,kin_sol = T,Nboot = 100)
+
+mc_out(fixed=fix_pars,loadfile = "mc_36000-ca_realistic_free_ks_kinsol_F" ,dtmax = 10,fit.ca = T,ndottys = 30000)
+
+mc_out(fixed=fix_pars,loadfile = "mc_36000-ca_realistic_free_ks_kinsol" ,dtmax = 10,fit.ca = T,kin_sol = T,ndottys = 10000)
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_120000-free_ranges",dtmax = 1)
+
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_59995_realistic_fix_p_dis",dtmax = 0.01,Nboot = 0)
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-realistic_free_ks",dtmax = 10)
 
@@ -281,8 +287,10 @@ ggplot(EET_oct)+
 
 
 
+####################################
+#Tabelle der Parametersätze
+####################################
 
-lapply(1:10,function(x) x+1)
 pars<-vector("list",length(loadfiles))
 for (i in 1:length(loadfiles)){
 load(file = paste0(mcpfad,loadfiles[i],".R"))
