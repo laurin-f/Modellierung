@@ -1,12 +1,15 @@
 
 loadfile<-"mc_120000-free_ranges"
 fixed=cbind(fixed,fixed_co2)
-treat="all"
-sleep=8
+
 ndottys=1000
-free_drain=T
+
 fit.ca=F
 dtmax=1
+kin_sol=F
+Nboot=100
+Probe="undist"
+obs=all_s
 
 ###############################
 #mc out function
@@ -20,20 +23,24 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
                  obs=all_s,#Messung mit der das Modell verglichen wird
                  Probe="undist",#wurde die gestörte oder die ungestörte Probe benutzt
                  kin_sol=F,
-                 Nboot=100){#Anzahl an Bootstrapping-Läufen
+                 Nboot=100,
+                 plot=F){#Anzahl an Bootstrapping-Läufen
   
   #definieren der Pfade
   mcpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/"
   plotpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/abbildungen/plots/mc/"
-  
+  if(exists("rmse")){
+    rm(rmse,envir = .GlobalEnv)
+    }
   #Output des MC-Laufs laden
   load(file = paste0(mcpfad,loadfile,".R"))
+  if(!exists("rmse")){
   #der Output ist in die Liste mc geschrieben
   #die einzelnen listenelemente auspacken
   par<-mc[[2]]
   rmse<-mc[[1]]
-  nse<-mc[[3]]
-  
+  nse<-mc[[3]]}
+
   #packages laden
   library(ggplot2)
   library(stringr)
@@ -77,7 +84,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
               treat = "all",
               taskkill=F,
               free_drain=T,
-              print_times = 100,
+              print_times = 2000,
               dtmax = dtmax,
               obs=obs,
               min_nrows=100,
@@ -85,7 +92,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   
   #tiefe von factor in numeric
   out$tiefe<-as.numeric(out$tiefe)
-  
+  if(plot==T){
   #######################################
   #SAFER für Sensitivitätsanalyse
   #######################################
@@ -321,7 +328,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     facet_wrap(~tiefe,ncol=1,scales = "free")+
     theme_classic()+
     labs(x="Zeit [min]",y=expression(theta*" [Vol %]"))+
-    ggsave(paste0(plotpfad,"theta/thetas_treat-",treat,"-",loadfile,".pdf"),height = 9,width = 9)
+    ggsave(paste0(plotpfad,"theta/",ifelse(kin_sol==T,"kinsol-",""),loadfile,".pdf"),height = 9,width = 9)
   
   #q plot
   ggplot()+
@@ -329,7 +336,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     geom_line(data=subset(out,tiefe==-17),aes(t_min,q_interpol*5,col="obs"),na.rm = T)+
     geom_line(data=subset(out,tiefe==-17),aes(t_min,q_mod,col="mod"),na.rm = T)+
     theme_classic()+
-    labs(x="Zeit [min]",y=expression("q [ml min"^{-1}*"]"))+ggsave(paste0(plotpfad,"q/q_treat-",treat,"-",loadfile,".pdf"),height = 5,width = 9)
+    labs(x="Zeit [min]",y=expression("q [ml min"^{-1}*"]"))+ggsave(paste0(plotpfad,"q/",ifelse(kin_sol==T,"kinsol-",""),loadfile,".pdf"),height = 5,width = 9)
   
   #Co2 plot
   ggplot()+
@@ -339,20 +346,20 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     facet_wrap(~tiefe,ncol=2,scales = "free")+
     theme_classic()+
     labs(x="Zeit [min]",y=expression("CO"[2]*" [ppm]"))+
-    ggsave(paste0(plotpfad,"co2/CO2_treat-",treat,"-",loadfile,".pdf"),height = 9,width = 9)
+    ggsave(paste0(plotpfad,"co2/",ifelse(kin_sol==T,"kinsol-",""),loadfile,".pdf"),height = 9,width = 9)
   
   #ca zeitreihen plot 
   ggplot(subset(out,tiefe==-17&!is.na(Ca_mod)))+
     geom_line(aes(t_min,Ca_mod,col="mod"))+geom_line(aes(t_min,ca_conc,col="obs"))+
     theme_classic()+
     labs(x="Zeit [min]",y=expression("Ca"^{2+""}*" [mg / l]"),color="Tiefe")+
-    ggsave(paste0(plotpfad,"ca/Ca_treat-",treat,"-",loadfile,".pdf"),height = 7,width = 9)
+    ggsave(paste0(plotpfad,"ca/",ifelse(kin_sol==T,"kinsol-",""),loadfile,".pdf"),height = 7,width = 9)
   
   
   #######################
   #caplot tiefenprofil
   #berechnung der Masse gelöstem Calciums pro zeitschritt
-  out$ca_mg_mod<-out$Ca_mod*abs(out$q_mod)/1000*10#mg/l *l/min *min=mg
+  out$ca_mg_mod<-out$Ca_mod*out$q_mod/1000*10#mg/l *l/min *min=mg
   
   #da das erste Event nur Warm-Up Period ist wird das zweite Event ausgewählt
   #dabei wird der Zweite wert gewählt bei dem Regen beginnt
@@ -363,7 +370,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   #die calcium summen der unterschiedlichen Tiefenstufen je nach intensität bestimmen
   ca_mg_sums<-aggregate(out2$ca_mg_mod,list(out2$treatment,out2$tiefe),function(x) sum(x,na.rm=T))
   #dasselbe für den Abfluss
-  q_sums<-aggregate(abs(out2$q_mod),list(out2$treatment,out2$tiefe),function(x) sum(x,na.rm=T))
+  q_sums<-aggregate(out2$q_mod,list(out2$treatment,out2$tiefe),function(x) sum(x,na.rm=T))
   
   #die  Ca-Konz. über die Menge Calcium durch den Abfluss berechnen
   ca_mg_sums$Ca_ml_mod<-ca_mg_sums$x/q_sums$x*1000/10#mg/l*min/min
@@ -388,22 +395,77 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   names[2:length(unique(ic$treatment))]<-paste(unique(ic$treatment)[2:length(unique(ic$treatment))],"mm/h")
   named<-setNames(names,unique(ic$treatment))
 
+  # #plot erstellen
+  # ca_tiefenplot<-ggplot()+
+  #   geom_path(data=icmean[icmean$treatment%in%unique(ca_mg_sums$treatment),],aes(ca,tiefe,col="mean (obs)",linetype="mean (obs)"))+
+  #   geom_point(data=subset(ic,!is.na(rain_mm_h)&treatment%in%unique(ca_mg_sums$treatment)),aes(ca,tiefe,shape="obs"))+
+  #   geom_path(data=ca_mg_sums,aes(Ca_ml_mod,tiefe,col="mod",linetype="mod"))+labs(x=expression("Ca"^{"2+"}*"  [mg / l]"),y="Tiefe [cm]",col="",shape="",linetype="")+
+  #   scale_linetype_manual(name="",values=2:1)+
+  #   scale_color_manual(name="",values=1:2)+
+  #   theme_bw()+
+  #   facet_wrap(~treatment,labeller = as_labeller(named))
+  
   #plot erstellen
   ca_tiefenplot<-ggplot()+
-    geom_path(data=icmean[icmean$treatment%in%unique(ca_mg_sums$treatment),],aes(ca,tiefe,col="mean (obs)",linetype="mean (obs)"))+
-    geom_point(data=subset(ic,!is.na(rain_mm_h)&treatment%in%unique(ca_mg_sums$treatment)),aes(ca,tiefe,shape="obs"))+
-    geom_path(data=ca_mg_sums,aes(Ca_ml_mod,tiefe,col="mod",linetype="mod"))+labs(x=expression("Ca"^{"2+"}*"  [mg / l]"),y="Tiefe [cm]",col="",shape="",linetype="")+
-    scale_linetype_manual(name="",values=2:1)+
-    scale_color_manual(name="",values=1:2)+
-    theme_bw()+
-    facet_wrap(~treatment,labeller = as_labeller(named))
+    geom_point(data=subset(ic,!is.na(rain_mm_h)&treatment%in%unique(ca_mg_sums$treatment)),aes(ca,tiefe,col=as.factor(treatment),shape="obs"))+
+    geom_path(data=ca_mg_sums,aes(Ca_ml_mod,tiefe,col=as.factor(treatment),linetype="mod"))+labs(x=expression("Ca"^{"2+"}*"  [mg / l]"),y="Tiefe [cm]",col="",shape="",linetype="")+
+    theme_bw()
   
   #plot speichern
-  pdf(paste0(plotpfad,"ca/Ca_tiefenprofil-",loadfile,".pdf"),height = 6,width = 9)
+  pdf(paste0(plotpfad,"ca_tiefenprofil/",ifelse(kin_sol==T,"kinsol-",""),loadfile,".pdf"),height = 6,width = 9)
   print(ca_tiefenplot)
   dev.off()
   
+  #######################
+  #caplot tiefenprofil
+  
+  ca_we_sums<-aggregate(out2$Ca_weather,list(out2$treatment,out2$tiefe),function(x) sum(x,na.rm=T))
+  
+  ca_we_sum<-aggregate(out2$Ca_weather,list(out2$treatment),function(x) sum(x,na.rm=T))
+  colnames(ca_we_sum)<-c("treatment","ca_we")
+  print(ca_we_sum)
+  plot(ca_we_sum)
+  #spaltennamen definieren
+  colnames(ca_we_sums)<-c("treatment","tiefe","ca_we")
+  #plot erstellen
+  ca_we_tiefenplot<-ggplot()+
+    geom_path(data=ca_we_sums,aes(ca_we,tiefe,col=as.factor(treatment)))+labs(x=expression("Ca"^{"2+"}*"  [mg / l]"),y="Tiefe [cm]",col="",shape="",linetype="")+
+    theme_bw()
+  
+  #plot speichern
+  pdf(paste0(plotpfad,"SI/ca_we",ifelse(kin_sol==T,"kinsol-",""),loadfile,".pdf"),height = 6,width = 9)
+  print(ca_we_tiefenplot)
+  dev.off()
+  
+  if(kin_sol==T){
+  #######################
+  #caplot tiefenprofil
+  #berechnung der Masse gelöstem Calciums pro zeitschritt
+  out2$SI_q<-out2$SI*out2$q_mod#mg/l *l/min *min=mg
+  
+  #die calcium summen der unterschiedlichen Tiefenstufen je nach intensität bestimmen
+  SI_sums<-aggregate(out2$SI_q,list(out2$treatment,out2$tiefe),function(x) sum(x,na.rm=T))
+  
+  #die  Ca-Konz. über die Menge Calcium durch den Abfluss berechnen
+  SI_sums$SI_sum<-SI_sums$x/q_sums$x#mg/l*min/min
+  
+  #spaltennamen definieren
+  colnames(SI_sums)<-c("treatment","tiefe","SI_q_sum","SI_sum")
+  SI_sums$SI_sum[SI_sums$tiefe==0]<-0#mg/l
+  SI_sums$tiefe<-as.numeric(SI_sums$tiefe)
+  SI_sums<-SI_sums[order(SI_sums$tiefe),]
+  #plot erstellen
+  SI_tiefenplot<-ggplot()+
+    geom_path(data=SI_sums,aes(SI_sum,tiefe,col=as.factor(treatment)))+labs(x=expression("Ca"^{"2+"}*"  [mg / l]"),y="Tiefe [cm]",col="",shape="",linetype="")+
+    theme_bw()
+  
+  #plot speichern
+  pdf(paste0(plotpfad,"SI/kinsol-",loadfile,".pdf"),height = 6,width = 9)
+  print(SI_tiefenplot)
+  dev.off()
+  }#end SI tiefenprofil
+  }#ende plot schleife
   #den Modelloutput mit namen der geladenen MC-Datei in die global environment schreiben
-  assign(loadfile,out,envir = .GlobalEnv)
+  assign(paste0(ifelse(kin_sol==T,"kinsol-",""),loadfile),out,envir = .GlobalEnv)
 }#ende 
 

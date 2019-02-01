@@ -45,7 +45,8 @@ a<-7.5
 c<-0.15
 W<-seq(0,1,0.01)
 fw<-1-exp(-a*W+c)
-plot(fw)}
+plot(W,fw)
+}
 
 #fO2<-
  
@@ -58,7 +59,8 @@ thetaR<-seq(0,1,0.01)
 Ws<-c(seq(0,0.1,0.01),seq(0.1,0.3,0.01),seq(0.3,0.8,0.01),seq(0.8,1,0.01))
 fws<-c(seq(0,0.6,len=11),seq(0.6,1,len=21),rep(1,51),seq(1,0.5,len=21))
 fw<-approx(Ws,fws,xout=thetaR)
-plot(fw)}
+plot(fw)
+}
 
 
 if(fw_model=="pumpanen"){
@@ -66,17 +68,23 @@ if(fw_model=="pumpanen"){
 #f(W) Pumpanen et al. (2003)
 
 #E0<-max(theta)
-thetav<-theta
+thetav<-seq(0,0.61,0.01)
 a<-3.83
 b<-4.43
 g<-0.854
 d<-1.25
 
 fw<-thetav
-for (j in 1:ncol(thetav)){
-  E0<-max(thetav[,j])
-for (i in 1:nrow(thetav)){
-fw[i,j]<-min(a*thetav[i,j]^d,b*(E0-thetav[i,j])^g,1)}}#ende j-loop
+x<-1:100
+y<-x^(1/3)
+plot(x,y) 
+lines(x,log(x))
+E0<-max(thetav)
+for (i in 1:length(thetav)){
+fw[i]<-min(a*thetav[i]^d,b*(E0-thetav[i])^g,1)}#ende j-loop
+  0.6*0.6
+  plot(thetav/E0,fw)
+  abline(v=0.55)
   }#ende pumpanen
   if(fw_model==""){
     fw<-matrix(1,1,length(depth))

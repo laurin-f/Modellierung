@@ -511,7 +511,7 @@ read_conc.out<-function(projektpfad=projektpfad1,
   #die letzte Reihe die Eingelesen werden soll ist die letzte die 51 Elemente hat 
   #-2 weil auch eine Reihe beim Header draufgeht 
   nrows<-which(fields!=51)-2
-  #Conc.out datei einlesen
+  #Obs_Node_Ch.out datei einlesen
   obs_node_ch<-read.table(paste0(projektpfad,"Obs_Node_Ch.out"),nrows = nrows,skip=5,header = T)
   
   #nur Calcium-Werte auswählen
@@ -519,7 +519,15 @@ read_conc.out<-function(projektpfad=projektpfad1,
   #Spaltennamen als Tiefenstufe
   colnames(Ca_vals)<-c("t_min",-2,-6,-10,-14,-17)
   #daten ins long-format melten
-  vals<-data.table::melt(Ca_vals,id=1,value.name="Ca_mod",variable.name="tiefe")
+  vals<-data.table::melt(Ca_vals,id=1,value.name="Ca_meq",variable.name="tiefe")
+  
+  #nur Alkalinity-Werte auswählen
+  Alk_vals<-obs_node_ch[,grep("Alk|time",colnames(obs_node_ch))]
+  #Spaltennamen als Tiefenstufe
+  colnames(Alk_vals)<-c("t_min",-2,-6,-10,-14,-17)
+  #daten ins long-format melten
+  vals2<-data.table::melt(Alk_vals,id=1,value.name="Alk_mod",variable.name="tiefe")
+  vals<-merge(vals,vals2)
   
   #Einheit anpassen
   #Molare Masse Calcium
@@ -527,7 +535,7 @@ read_conc.out<-function(projektpfad=projektpfad1,
   #Ladung Calcium
   Ca_z<-2
   #Einheit von meq/l in mg/l
-  vals$Ca_mod<-vals$Ca_mod*Ca_g_pro_mol/Ca_z#meq/l*g/mol/z  ->mg/l
+  vals$Ca_mod<-vals$Ca_meq*Ca_g_pro_mol/Ca_z#meq/l*g/mol/z  ->mg/l
   
   #t_min als Zeit nach Event 1 in Minuten
   event1<-min(which(obs$rain_mm_h>0))
@@ -554,6 +562,97 @@ read_conc.out<-function(projektpfad=projektpfad1,
   return(list(out,RMSE,nse))
   }#Ende
 
+read_Nod_inf.out<-function(projektpfad=projektpfad1,
+                           n_nodes=9,
+                           obs=all_s){#anzahl Knoten
+  #Equil.out datei einlesen
+  
+  nrows<-which(count.fields(paste0(projektpfad,"CO2_inf.out"),skip=4)!=12)-1
+  colnames<-read.table(paste0(projektpfad,"CO2_inf.out"),skip=1,nrows = 1,stringsAsFactors = F)
+  colnames[1]<-"t_min"
+  CO2_inf<-read.table(paste0(projektpfad,"CO2_inf.out"),skip=4,nrows = nrows,col.names = colnames)
+  CO2_inf<-CO2_inf[,c(1:2,9)]
+  CO2_inf$tiefe<-0
+  
+  lines<-readLines(paste0(projektpfad,"Nod_Inf.out"))
+  #Zeitpunkte der Messungen aus der Datei entnehmen
+  time<-as.numeric(substr(lines[grep("Time:",lines)[-1]],7,19))
+  
+  Equil.out<-readLines(paste0(projektpfad,"Equil.out"))
+  #Zeitpunkte der Messungen aus der Datei entnehmen
+  time2<-as.numeric(substr(Equil.out[grep("Time:",Equil.out)],7,19))
+  
+  solid.out<-readLines(paste0(projektpfad,"solid.out"))
+  #Zeitpunkte der Messungen aus der Datei entnehmen
+  time3<-as.numeric(substr(solid.out[grep("Time:",solid.out)],7,19))
+  
+  #beide haben gleiche Printtimes
+  which(time-time2!=0)
+  which(time-time3!=0)
+  
+  
+  pos_vals<-which(nchar(lines)==nchar(lines[(grep("Node",lines)+3)[1]]))
+  pos_vals2<-which(nchar(Equil.out)==nchar(Equil.out[(grep("aHCO3",Equil.out)+3)[1]]))
+  pos_vals3<-which(nchar(solid.out)==nchar(solid.out[(grep("Node",solid.out)+2)[1]]))
+  
+
+  substr(Equil.out[pos_vals2-3][1],87,92)
+  substr(Equil.out[pos_vals2][1],87,92)
+  IAPc<-as.numeric(substr(Equil.out[pos_vals2],87,92))
+  
+  substr(Equil.out[pos_vals2-3][1],17,24)
+  substr(Equil.out[pos_vals2][1],17,26)
+  aCa<-as.numeric(substr(Equil.out[pos_vals2],17,26))
+  
+  substr(Equil.out[pos_vals2-3][1],28,37)
+  substr(Equil.out[pos_vals2][1],28,37)
+  aHCO3<-as.numeric(substr(Equil.out[pos_vals2],28,37))
+  
+  substr(Equil.out[pos_vals2-3][1],55,62)
+  substr(Equil.out[pos_vals2][1],58,61)
+  pH<-as.numeric(substr(Equil.out[pos_vals2],58,61))
+  
+  substr(solid.out[pos_vals3-2][1],17,24)
+  substr(solid.out[pos_vals3][1],17,24)
+  Ca_solid<-as.numeric(substr(solid.out[pos_vals3],17,24))
+
+  
+  substr(solid.out[pos_vals3-2][1],70,80)
+  substr(solid.out[pos_vals3][1],71,78)
+  Ca_surf<-as.numeric(substr(solid.out[pos_vals3],71,78))
+  
+  IAP<-10^(-IAPc)
+  SI<-log10(IAP/10^-8.453)
+  SI[SI>2]<-NA
+  tiefe<-na.omit(as.numeric(substr(lines[pos_vals],8,10)))
+  
+  chars<-nchar(lines[pos_vals])[1]
+  
+  P_mod<-na.omit(as.numeric(substr(lines[pos_vals],chars-9,chars)))
+
+  vals<-data.frame(t_min=rep(time,each=9),tiefe,P_mod,pH,IAPc,SI,Ca_solid,Ca_surf)
+  vals$Ca_weather<-NA
+  for(i in unique(tiefe)){
+    vals$Ca_weather[vals$tiefe==i]<-c(0,diff(vals$Ca_solid[vals$tiefe==i])/diff(vals$t_min[vals$tiefe==i]))
+  }
+  vals$P_4<-NA
+  vals$P_4[vals$tiefe==0]<-tapply(vals$P_mod[vals$tiefe<=-4],vals$t_min[vals$tiefe<=-4],sum)
+
+  vals$P_2<-NA
+  vals$P_2[vals$tiefe==0]<-tapply(vals$P_mod[vals$tiefe<=-2],vals$t_min[vals$tiefe<=-2],sum)
+
+  vals$P_0<-NA
+  vals$P_0[vals$tiefe==0]<-tapply(vals$P_mod[vals$tiefe<=0],vals$t_min[vals$tiefe<=0],sum)
+
+  vals<-merge(vals,CO2_inf,all=T)
+  vals$P_0_korr<-vals$P_0+max(vals$vProd,na.rm = T)-max(vals$P_0,na.rm = T)
+  vals$P_2_korr<-vals$P_2+max(vals$vProd,na.rm = T)-max(vals$P_0,na.rm = T)
+  vals$P_4_korr<-vals$P_4+max(vals$vProd,na.rm = T)-max(vals$P_0,na.rm = T)
+  # vals$P_0[c(1,nrow(vals))]<-0
+  # vals$P_2[c(1,nrow(vals))]<-0
+  # vals$P_4[c(1,nrow(vals))]<-0
+  return(vals)}
+
 #####################################################
 #function to run all above functions
 
@@ -571,7 +670,7 @@ hydrus<-function(params,
                  dtmax=10,
                  n_nodes=9,
                  Mat=c(rep(1,3),rep(2,5),3),
-                 print_times = 100,
+                 print_times = 2000,
                  kin_sol=F,
                  min_nrows=2200){
   #wenn treat ="all"
@@ -621,7 +720,7 @@ hydrus<-function(params,
   
   #wenn kein Taskkill verwendet werden soll
   if(taskkill==F){
-    Sys.sleep(1)
+    Sys.sleep(3)
   check_CPU<-function(){
     tasklist<-system("wmic path Win32_PerfFormattedData_PerfProc_Process get Name,PercentProcessorTime",intern=T)
     tasksplit<-strsplit(tasklist[2:(length(tasklist)-1)]," \\s+")
@@ -629,7 +728,7 @@ hydrus<-function(params,
     
     if(length(grep("H1D_UNSC",tasks))>0){
       while(length(which(tasks[grep("H1D_UNSC",tasks),2]>0))>0){
-        Sys.sleep(0.1)
+        Sys.sleep(0.5)
         tasklist<-system("wmic path Win32_PerfFormattedData_PerfProc_Process get Name,PercentProcessorTime",intern=T)
         tasksplit<-strsplit(tasklist[2:(length(tasklist)-1)]," \\s+")
         tasks<-do.call("rbind",tasksplit)
@@ -639,12 +738,15 @@ hydrus<-function(params,
   
   check_CPU()
   system("taskkill /IM H1D_UNSC.EXE",show.output.on.console=F)
+  Sys.sleep(1)
 }
   #wenn read  = TRUE den output einlesen ...
   if(read==T){
   out<-read_hydrus.out(treat = treat,projektpfad = pfad,UNSC=UNSC,obs=obs,min_nrows=min_nrows)[[1]]
   out_ca<-read_conc.out(projektpfad = pfad,obs=obs)[[1]]
+  out_P<-read_Nod_inf.out(projektpfad = pfad,obs=obs)
   out2<-merge(out,out_ca,all=T)
+  out2<-merge(out2,out_P,all=T)
   #und ausgeben
   return(out2)}
 }
