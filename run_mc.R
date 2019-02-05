@@ -78,10 +78,10 @@ loadfiles_undist<-loadfiles[-grep("dist",loadfiles)]
 loadfiles_dist<-loadfiles[grep("dist",loadfiles)]
 
 for(i in 1:length(loadfiles_undist)){
-  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = c(1,10,10)[i],Nboot = 100,kin_sol = F,plot=F)
+  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = c(1,10,10)[i],Nboot = 100,kin_sol = T,plot=T)
 }
 for(i in 1:length(loadfiles_undist)){
-  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = c(1,10,10)[i],Nboot = 100,kin_sol = T,plot=F)
+  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = c(1,10,10)[i],Nboot = 100,kin_sol = F,plot=T)
 }
 
 
@@ -105,7 +105,37 @@ events<-event()
 event<-subset(events,start>=min(all_s$date)&stop<=max(all_s$date))
 event2<-data.frame(start=rep(event$start,4),stop=rep(event$stop,4),tiefe=rep(c(-2,-6,-10,-14),each=nrow(event)))
 
-maindata<-subset(get(loadfiles_undist[3]),tiefe%in%c(-2,-6,-10,-14))
+maindata<-subset(get(loadfiles_undist_kinsol[3]),tiefe%in%c(-2,-6,-10,-14))
+
+data<-get(loadfiles_undist_kinsol[3])
+event2<-data$t_min[!is.na(data$rain_mm_h)][which(diff(data$rain_mm_h[!is.na(data$rain_mm_h)])>0)[2]]
+
+#subset des outputs ohne warm-up-event
+data<-subset(data,t_min>=event2)
+
+
+data$CO2_q<-data$CO2_mod*data$q_mod
+data$SI_q<-data$SI*data$q_mod
+
+CO2_q_sums<-aggregate(data.frame(CO2_q=data$CO2_q,q=data$q_mod,CO2=data$CO2_mod,SI=data$SI,SI_q=data$SI_q,ca_we=data$Ca_weather),list(treatment=data$treatment,tiefe=data$tiefe),function(x) mean(x,na.rm=T))
+
+CO2_q_sums$CO2_q<-CO2_q_sums$CO2_q/CO2_q_sums$q
+CO2_q_sums$SI_q<-CO2_q_sums$SI_q/CO2_q_sums$q
+
+aggs<-aggregate(data.frame(q=data$q_mod,CO2=data$CO2_mod,CO2_q=data$CO2_q,SI=data$SI,SI_q=data$SI_q),list(treatment=data$treatment),function(x) mean(x,na.rm=T))
+ca_we_sum<-aggregate(data$Ca_weather,list(data$treatment),function(x) sum(x,na.rm=T))
+
+aggs$CO2_q<-aggs$CO2_q/aggs$q
+aggs$SI_q<-aggs$SI_q/aggs$q
+aggs$ca_verwitterung<-ca_we_sum$x#meq/kg
+
+
+print(xtable::xtable(aggs[,-c(2,5)]),include.rownames = F)
+
+ggplot(CO2_q_sums)+geom_point(aes(CO2_q,tiefe,col=treatment))
+
+ggplot(CO2_q_sums)+geom_point(aes(treatment,CO2_q,col="CO2_q"))+geom_point(aes(treatment,CO2,col="CO2"))
+
 
 name_tiefe<-setNames(c("Tiefe = -2 cm","-6 cm","-10 cm","-14 cm"),c(2,6,10,14))
 co2plt<-ggplot(data=maindata)+geom_line(aes(date,CO2_raw,linetype=""),col=1)
@@ -178,15 +208,17 @@ ggplot(data=maindata)+geom_line(aes(date,q_mod,linetype="",col=tiefe))
 
 ggplot(data=subset(get(loadfiles_undist[1]),tiefe==-17))+geom_line(aes(date,Ca_meq/Alk_mod,linetype=""),col=1)
 
-Pplt<-ggplot(data=subset(get(loadfiles_undist[1]),!is.na(P_mod)&tiefe>-5))+geom_line(aes(t_min,P_mod,col=as.factor(tiefe)))
+Pplt<-ggplot(data=subset(get(loadfiles_undist[3]),!is.na(P_mod)))+geom_line(aes(t_min,P_mod,col=as.factor(tiefe)))
 Pplt
+max(data$P_mod,na.rm = T)
 
-ggplot(data=subset(get(loadfiles_undist_kinsol[3]),!is.na(P_0)))+geom_line(aes(date,P_2_korr,col="Prod -2 cm"))+geom_line(aes(date,P_4_korr,col="Prod -4 cm"))+geom_line(aes(date,cvTop,col="Flux 0 cm"))+geom_line(aes(date,vProd,col="Prod 0 cm"))+
+
+ggplot(data=subset(get(loadfiles_undist_kinsol[3]),!is.na(P_0)))+geom_line(aes(date,P_2_korr,col="3"))+geom_line(aes(date,P_4_korr,col="4"))+geom_line(aes(date,cvTop,col="1"))+geom_line(aes(date,vProd,col="2"))+
   geom_rect(data=event,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+theme_classic()+
-  labs(x="",y=expression("CO"[2]*" [ml / (cm"^2*"min)]"),col="mod")+
+  labs(x="",y=expression("CO"[2]*" [ml  cm"^-2*" min"^-1*"]"),col="")+scale_color_discrete(labels=c("Flux 0 cm",paste("Prod <",c(0,-2,-4),"cm")))+
   theme_classic()+
   scale_fill_manual(name="Beregnung",values="blue")+
-  ggsave(paste0(plotpfad,"CO2_Prod_flux.pdf"),width=8,height = 5)
+  ggsave(paste0(plotpfad,"CO2_Prod_flux.pdf"),width=7,height = 4)
 
 
 cvplt<-ggplot(data=subset(get(loadfiles_undist[1]),tiefe==0&!is.na(cvTop)))+geom_line(aes(date,cvTop,col="Flux"))+geom_line(aes(date,vProd,col="Prod"))+
@@ -296,11 +328,14 @@ mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_120000-free_ranges",dtmax = 1
 source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/mc_out_function.R")
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_ca_co2_free",dtmax = 10)
 
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-free_ca_co2",dtmax = 10,plot = T)
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-realistic_free_ks_ca_co2_kinsol",dtmax = 10,kin_sol = T,plot = T)
+
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_59995_realistic_fix_p_dis",dtmax = 0.01,Nboot = 0)
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-realistic_free_ks",dtmax = 10,kin_sol = T,plot = T)
 
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-fitca_realistic_free_ks",dtmax = 10)
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-fitca_realistic_free_ks",dtmax = 10,plot=T)
 
 mc_out(fixed=cbind(fixed_dist,fixed_co2),loadfile = "mc_120000-free_dist",dtmax = 10,obs=alldist_s)
 

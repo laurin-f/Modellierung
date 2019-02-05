@@ -648,9 +648,7 @@ read_Nod_inf.out<-function(projektpfad=projektpfad1,
   vals$P_0_korr<-vals$P_0+max(vals$vProd,na.rm = T)-max(vals$P_0,na.rm = T)
   vals$P_2_korr<-vals$P_2+max(vals$vProd,na.rm = T)-max(vals$P_0,na.rm = T)
   vals$P_4_korr<-vals$P_4+max(vals$vProd,na.rm = T)-max(vals$P_0,na.rm = T)
-  # vals$P_0[c(1,nrow(vals))]<-0
-  # vals$P_2[c(1,nrow(vals))]<-0
-  # vals$P_4[c(1,nrow(vals))]<-0
+
   return(vals)}
 
 #####################################################
@@ -669,7 +667,7 @@ hydrus<-function(params,
                  dtmin=0.0001,
                  dtmax=10,
                  n_nodes=9,
-                 Mat=c(rep(1,3),rep(2,5),3),
+                 Mat=c(rep(1,4),rep(2,4),3),
                  print_times = 2000,
                  kin_sol=F,
                  min_nrows=2200){
@@ -728,7 +726,7 @@ hydrus<-function(params,
     
     if(length(grep("H1D_UNSC",tasks))>0){
       while(length(which(tasks[grep("H1D_UNSC",tasks),2]>0))>0){
-        Sys.sleep(0.5)
+        Sys.sleep(1)
         tasklist<-system("wmic path Win32_PerfFormattedData_PerfProc_Process get Name,PercentProcessorTime",intern=T)
         tasksplit<-strsplit(tasklist[2:(length(tasklist)-1)]," \\s+")
         tasks<-do.call("rbind",tasksplit)
@@ -737,8 +735,9 @@ hydrus<-function(params,
   }
   
   check_CPU()
-  system("taskkill /IM H1D_UNSC.EXE",show.output.on.console=F)
   Sys.sleep(1)
+  system("taskkill /IM H1D_UNSC.EXE",show.output.on.console=F)
+  
 }
   #wenn read  = TRUE den output einlesen ...
   if(read==T){

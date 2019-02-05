@@ -444,19 +444,21 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   out2$SI_q<-out2$SI*out2$q_mod#mg/l *l/min *min=mg
   
   #die calcium summen der unterschiedlichen Tiefenstufen je nach intensität bestimmen
-  SI_sums<-aggregate(out2$SI_q,list(out2$treatment,out2$tiefe),function(x) sum(x,na.rm=T))
+  SI_sums<-aggregate(data.frame(SI_q=out2$SI_q,SI=out2$SI),list(out2$treatment,out2$tiefe),function(x) mean(x,na.rm=T))
+  
+  q_means<-aggregate(out2$q_mod,list(treatment=out2$treatment,tiefe=out2$tiefe),function(x) mean(x,na.rm=T))
   
   #die  Ca-Konz. über die Menge Calcium durch den Abfluss berechnen
-  SI_sums$SI_sum<-SI_sums$x/q_sums$x#mg/l*min/min
+  SI_sums$SI_q<-SI_sums$SI_q/q_means$x#mg/l*min/min
   
   #spaltennamen definieren
-  colnames(SI_sums)<-c("treatment","tiefe","SI_q_sum","SI_sum")
-  SI_sums$SI_sum[SI_sums$tiefe==0]<-0#mg/l
-  SI_sums$tiefe<-as.numeric(SI_sums$tiefe)
-  SI_sums<-SI_sums[order(SI_sums$tiefe),]
+  #colnames(SI_sums)<-c("treatment","tiefe","SI_q","SI")
+  #SI_sums$SI_q[SI_sums$tiefe==0]<-0#mg/l
+  # SI_sums$tiefe<-as.numeric(SI_sums$tiefe)
+  # SI_sums<-SI_sums[order(SI_sums$tiefe),]
   #plot erstellen
   SI_tiefenplot<-ggplot()+
-    geom_path(data=SI_sums,aes(SI_sum,tiefe,col=as.factor(treatment)))+labs(x=expression("Ca"^{"2+"}*"  [mg / l]"),y="Tiefe [cm]",col="",shape="",linetype="")+
+    geom_path(data=SI_sums,aes(SI_q,tiefe,col=as.factor(treatment),linetype="SI_q"))+geom_path(data=SI_sums,aes(SI,tiefe,col=as.factor(treatment),linetype="SI"))+labs(x=expression("SI  []"),y="Tiefe [cm]",col="",shape="",linetype="")+
     theme_bw()
   
   #plot speichern
