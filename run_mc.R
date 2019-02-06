@@ -107,111 +107,44 @@ event2<-data.frame(start=rep(event$start,4),stop=rep(event$stop,4),tiefe=rep(c(-
 
 maindata<-subset(get(loadfiles_undist_kinsol[3]),tiefe%in%c(-2,-6,-10,-14))
 
-data<-get(loadfiles_undist_kinsol[3])
-event2<-data$t_min[!is.na(data$rain_mm_h)][which(diff(data$rain_mm_h[!is.na(data$rain_mm_h)])>0)[2]]
+data1<-get(loadfiles_undist_kinsol[3])
+ohne_warmup<-data1$t_min[!is.na(data1$rain_mm_h)][which(diff(data1$rain_mm_h[!is.na(data1$rain_mm_h)])>0)[2]]
 
 #subset des outputs ohne warm-up-event
-data<-subset(data,t_min>=event2)
+data<-subset(data1,t_min>=ohne_warmup)
 
 
 data$CO2_q<-data$CO2_mod*data$q_mod
 data$SI_q<-data$SI*data$q_mod
 
-CO2_q_sums<-aggregate(data.frame(CO2_q=data$CO2_q,q=data$q_mod,CO2=data$CO2_mod,SI=data$SI,SI_q=data$SI_q,ca_we=data$Ca_weather),list(treatment=data$treatment,tiefe=data$tiefe),function(x) mean(x,na.rm=T))
-
-CO2_q_sums$CO2_q<-CO2_q_sums$CO2_q/CO2_q_sums$q
-CO2_q_sums$SI_q<-CO2_q_sums$SI_q/CO2_q_sums$q
-
 aggs<-aggregate(data.frame(q=data$q_mod,CO2=data$CO2_mod,CO2_q=data$CO2_q,SI=data$SI,SI_q=data$SI_q),list(treatment=data$treatment),function(x) mean(x,na.rm=T))
+SI_q_mean<-aggregate(data.frame(q=data$q_mod[data$tiefe==-17],SI=data$SI[data$tiefe==-17],SI_q=data$SI_q[data$tiefe==-17]),list(treatment=data$treatment[data$tiefe==-17]),function(x) mean(x,na.rm=T))
+SI_q_mean$SI_q<-SI_q_mean$SI_q/SI_q_mean$q
 ca_we_sum<-aggregate(data$Ca_weather,list(data$treatment),function(x) sum(x,na.rm=T))
 
 aggs$CO2_q<-aggs$CO2_q/aggs$q
 aggs$SI_q<-aggs$SI_q/aggs$q
 aggs$ca_verwitterung<-ca_we_sum$x#meq/kg
 
-
 print(xtable::xtable(aggs[,-c(2,5)]),include.rownames = F)
-
-ggplot(CO2_q_sums)+geom_point(aes(CO2_q,tiefe,col=treatment))
-
-ggplot(CO2_q_sums)+geom_point(aes(treatment,CO2_q,col="CO2_q"))+geom_point(aes(treatment,CO2,col="CO2"))
 
 
 name_tiefe<-setNames(c("Tiefe = -2 cm","-6 cm","-10 cm","-14 cm"),c(2,6,10,14))
+
 co2plt<-ggplot(data=maindata)+geom_line(aes(date,CO2_raw,linetype=""),col=1)
 bfplt<-ggplot(data=maindata)+geom_line(aes(date,theta,linetype=""),col=1)
 qplt<-ggplot(data=subset(get(loadfiles_undist[1]),tiefe==-17))+geom_line(aes(date,q_interpol*5,linetype=""),col=1)
+
 alkplt<-ggplot(data=subset(get(loadfiles_undist[2])))+geom_line(aes(t_min,Alk_mod,linetype="",col=as.factor(tiefe)))
 alkplt
-##########################################################
-caroll<-function(t){
-  tk<-t+273.15
-  lnH_Mpa<--6.8346+1.2817*10^4/tk-3.7668*10^6/tk^2+2.997*10^8/tk^3
-  #kH = 1/H = 1/exp(ln(H))
-  kh_Mpa<- 1/exp(lnH_Mpa)#mol/mol/MPa
-  kh_mol_l<-kh_Mpa/18*1000 #/ 18 g/mol * 1000 g/l -> mol/l/MPa
-  kh<-kh_mol_l/1000 #/1000 -> mol/l/kPa
-  return(kh)
-}
-
-logkh<-log10(caroll(20))
-out<-subset(get(loadfiles_undist_kinsol[3]),tiefe%in%c(-2,-6,-10,-14,-17))
-out2<-subset(get(loadfiles_undist[3]),tiefe%in%c(-2,-6,-10,-14,-17))
-out$hco3<-10^(-6.36+logkh)*out$CO2_mod*10^-4/10^-out$pH*10^3
-cahco3<-10^3.02*10^-out$pH*10^3
-out$ca_eq<-10^(8.41-logkh)*(10^-out$pH)^2/(out$CO2_mod*10^-4)*10^3*2+cahco3
-16.69-8.453
-for (i in unique(out$tiefe)){
-out$hco3[out$tiefe==i]<-zoo::rollapply(out$hco3[out$tiefe==i],20,function(x) max(x,na.rm = T),fill=NA)
-out$ca_eq[out$tiefe==i]<-zoo::rollapply(out$ca_eq[out$tiefe==i],20,function(x) max(x,na.rm = T),fill=NA)
-}
-
-ggplot(data=out)+geom_line(aes(t_min,Ca_meq,linetype="",col=as.factor(tiefe)))+geom_line(aes(t_min,ca_eq,linetype="",col=as.factor(tiefe)))
-
-ggplot(data=out)+geom_line(aes(t_min,Alk_mod,linetype="",col=as.factor(tiefe)))+geom_point(aes(t_min,hco3,linetype="",col=as.factor(tiefe)))
-###########################################################
-
-
-ggplot()+geom_line(data=out2,aes(date,Ca_meq-Alk_mod,linetype="",col="eq"))+geom_line(data=out,aes(date,Ca_meq-Alk_mod,linetype="",col="kinsol"))+facet_wrap(~tiefe)+
-  geom_rect(data=event,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)
-
-ggplot()+geom_line(data=out2,aes(t_min,Ca_meq,linetype="",col="eq"))+geom_line(data=out,aes(t_min,Ca_meq,linetype="",col="kinsol"))+facet_wrap(~tiefe)
-ggplot()+geom_line(data=out2,aes(t_min,Ca_meq,linetype="",col="eq"))+geom_line(data=out,aes(t_min,Ca_meq,linetype="",col="kinsol"))+facet_wrap(~tiefe)+geom_line(data=out2,aes(t_min,Alk_mod,linetype="",col="eq"))+geom_line(data=out,aes(t_min,Alk_mod,linetype="",col="kinsol"))+facet_wrap(~tiefe)
-
-ggplot()+geom_line(data=out2,aes(t_min,Alk_mod,linetype="",col="eq"))+geom_line(data=out,aes(t_min,Alk_mod,linetype="",col="kinsol"))+facet_wrap(~tiefe)
-
-
-
-
 
 pHplt<-ggplot(data=subset(get(loadfiles_undist_kinsol[3]),!is.na(pH)))+geom_line(aes(t_min,pH,linetype="",col=tiefe))
 pHplt
 caplt<-ggplot(data=subset(get(loadfiles_undist_kinsol[3])))+geom_line(aes(t_min,Ca_mod,col=as.factor(tiefe)))
 caplt
 
-ggplot(data=subset(get(loadfiles_undist[2])))+geom_line(aes(t_min,Ca_mod*Alk_mod,col=as.factor(tiefe)))
-
-SIplt<-ggplot(data=subset(get(loadfiles_undist_kinsol[3]),!is.na(SI)&tiefe%in%c(-2,-6,-10,-14,-16,-17)))+geom_line(aes(t_min,SI,col=as.factor(tiefe)))
+SIplt<-ggplot(data=subset(get(loadfiles_undist_kinsol[3]),!is.na(SI)&tiefe%in%c(-2,-6,-10,-14,-17)))+geom_line(aes(t_min,SI,col=as.factor(tiefe)))
 SIplt
-
-
-ca_we_plt<-ggplot(data=subset(get(loadfiles_undist_kinsol[3]),!is.na(Ca_solid)&tiefe%in%c(-2,-6,-10,-14,-16,-17)))+geom_line(aes(t_min,Ca_weather,col=as.factor(tiefe)))
-ca_we_plt
-
-ca_solid_plt<-ggplot(data=subset(get(loadfiles_undist_kinsol[3]),!is.na(Ca_solid)&tiefe%in%c(-2,-6,-10,-14,-16,-17)))+geom_line(aes(t_min,Ca_solid,col=as.factor(tiefe)))
-ca_solid_plt
-
-ca_surf_plt<-ggplot(data=subset(get(loadfiles_undist_kinsol[3]),!is.na(Ca_solid)&tiefe%in%c(-2,-6,-10,-14,-16,-17)))+geom_line(aes(t_min,Ca_surf,col=as.factor(tiefe)))
-ca_surf_plt
-
-ggplot(data=maindata)+geom_line(aes(date,q_mod,linetype="",col=tiefe))
-
-ggplot(data=subset(get(loadfiles_undist[1]),tiefe==-17))+geom_line(aes(date,Ca_meq/Alk_mod,linetype=""),col=1)
-
-Pplt<-ggplot(data=subset(get(loadfiles_undist[3]),!is.na(P_mod)))+geom_line(aes(t_min,P_mod,col=as.factor(tiefe)))
-Pplt
-max(data$P_mod,na.rm = T)
-
 
 ggplot(data=subset(get(loadfiles_undist_kinsol[3]),!is.na(P_0)))+geom_line(aes(date,P_2_korr,col="3"))+geom_line(aes(date,P_4_korr,col="4"))+geom_line(aes(date,cvTop,col="1"))+geom_line(aes(date,vProd,col="2"))+
   geom_rect(data=event,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+theme_classic()+
@@ -220,10 +153,6 @@ ggplot(data=subset(get(loadfiles_undist_kinsol[3]),!is.na(P_0)))+geom_line(aes(d
   scale_fill_manual(name="Beregnung",values="blue")+
   ggsave(paste0(plotpfad,"CO2_Prod_flux.pdf"),width=7,height = 4)
 
-
-cvplt<-ggplot(data=subset(get(loadfiles_undist[1]),tiefe==0&!is.na(cvTop)))+geom_line(aes(date,cvTop,col="Flux"))+geom_line(aes(date,vProd,col="Prod"))+
-  geom_rect(data=event,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)
-cvplt
 
 
 for(i in 1:length(loadfiles_undist)){

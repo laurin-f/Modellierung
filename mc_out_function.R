@@ -417,14 +417,11 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   dev.off()
   
   #######################
-  #caplot tiefenprofil
+  #CaCO3 verwitterungs plot
   
+  #Ca_weather zu summen jeder Intensität und tiefenstufe aggregieren
   ca_we_sums<-aggregate(out2$Ca_weather,list(out2$treatment,out2$tiefe),function(x) sum(x,na.rm=T))
   
-  ca_we_sum<-aggregate(out2$Ca_weather,list(out2$treatment),function(x) sum(x,na.rm=T))
-  colnames(ca_we_sum)<-c("treatment","ca_we")
-  print(ca_we_sum)
-  plot(ca_we_sum)
   #spaltennamen definieren
   colnames(ca_we_sums)<-c("treatment","tiefe","ca_we")
   #plot erstellen
@@ -437,25 +434,24 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   print(ca_we_tiefenplot)
   dev.off()
   
+  ######################
+  #SI-tiefenprofil
+  
+  #SI plot nur wenn kinetic Solution verwendet wird da SI sonst immer 0 ist
   if(kin_sol==T){
-  #######################
-  #caplot tiefenprofil
-  #berechnung der Masse gelöstem Calciums pro zeitschritt
+  
+  #zu normierung nach q SI mal q berechnen 
   out2$SI_q<-out2$SI*out2$q_mod#mg/l *l/min *min=mg
   
-  #die calcium summen der unterschiedlichen Tiefenstufen je nach intensität bestimmen
+  #mean von SI_q der unterschiedlichen Tiefenstufen je nach intensität bestimmen
   SI_sums<-aggregate(data.frame(SI_q=out2$SI_q,SI=out2$SI),list(out2$treatment,out2$tiefe),function(x) mean(x,na.rm=T))
   
+  #die mittelwerte von q analog bestimmen
   q_means<-aggregate(out2$q_mod,list(treatment=out2$treatment,tiefe=out2$tiefe),function(x) mean(x,na.rm=T))
   
-  #die  Ca-Konz. über die Menge Calcium durch den Abfluss berechnen
+  #durch die q means teilen um wieder in den Wertebreich von SI zu kommen
   SI_sums$SI_q<-SI_sums$SI_q/q_means$x#mg/l*min/min
   
-  #spaltennamen definieren
-  #colnames(SI_sums)<-c("treatment","tiefe","SI_q","SI")
-  #SI_sums$SI_q[SI_sums$tiefe==0]<-0#mg/l
-  # SI_sums$tiefe<-as.numeric(SI_sums$tiefe)
-  # SI_sums<-SI_sums[order(SI_sums$tiefe),]
   #plot erstellen
   SI_tiefenplot<-ggplot()+
     geom_path(data=SI_sums,aes(SI_q,tiefe,col=as.factor(treatment),linetype="SI_q"))+geom_path(data=SI_sums,aes(SI,tiefe,col=as.factor(treatment),linetype="SI"))+labs(x=expression("SI  []"),y="Tiefe [cm]",col="",shape="",linetype="")+
@@ -465,7 +461,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   pdf(paste0(plotpfad,"SI/kinsol-",loadfile,".pdf"),height = 6,width = 9)
   print(SI_tiefenplot)
   dev.off()
-  }#end SI tiefenprofil
+  }#ende SI tiefenprofil
   }#ende plot schleife
   #den Modelloutput mit namen der geladenen MC-Datei in die global environment schreiben
   assign(paste0(ifelse(kin_sol==T,"kinsol-",""),loadfile),out,envir = .GlobalEnv)

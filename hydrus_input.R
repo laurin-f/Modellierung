@@ -562,94 +562,119 @@ read_conc.out<-function(projektpfad=projektpfad1,
   return(list(out,RMSE,nse))
   }#Ende
 
+#Funktion um CO2 Produktion CO2 fluss sowiw  CaCO3 verwitterung und IAP vom Modell-Output einzulesen
 read_Nod_inf.out<-function(projektpfad=projektpfad1,
                            n_nodes=9,
                            obs=all_s){#anzahl Knoten
-  #Equil.out datei einlesen
+ 
   
+  #Bestimmen bis zu welcher zeile in der CO2_inf.out datei werte stehen
+  #da in der letzteb zeile der Datei "END" steht wird nur bis zu einer Zeile davor eingelesen 
+  #sonst beschwert sich read.csv
   nrows<-which(count.fields(paste0(projektpfad,"CO2_inf.out"),skip=4)!=12)-1
+  #die Spaltennamen seperat einlesen da dazwischen noch eine Zeile mit einheiten steht
   colnames<-read.table(paste0(projektpfad,"CO2_inf.out"),skip=1,nrows = 1,stringsAsFactors = F)
+  #Time in t_min umbenennen
   colnames[1]<-"t_min"
+  #CO2_inf.out einlesen
   CO2_inf<-read.table(paste0(projektpfad,"CO2_inf.out"),skip=4,nrows = nrows,col.names = colnames)
+  #hier werden nur die Spalten mit der Zeit dem CO2_Fluss und Produktion an der Oberflläche benötigt
   CO2_inf<-CO2_inf[,c(1:2,9)]
+  #Tiefe ist an der Oberfläche 0
   CO2_inf$tiefe<-0
   
+  #Nod_Inf.out einlesen
   lines<-readLines(paste0(projektpfad,"Nod_Inf.out"))
   #Zeitpunkte der Messungen aus der Datei entnehmen
   time<-as.numeric(substr(lines[grep("Time:",lines)[-1]],7,19))
   
+  #Equil.out datei einlesen
   Equil.out<-readLines(paste0(projektpfad,"Equil.out"))
   #Zeitpunkte der Messungen aus der Datei entnehmen
   time2<-as.numeric(substr(Equil.out[grep("Time:",Equil.out)],7,19))
   
+  #solid.out einlesen
   solid.out<-readLines(paste0(projektpfad,"solid.out"))
   #Zeitpunkte der Messungen aus der Datei entnehmen
   time3<-as.numeric(substr(solid.out[grep("Time:",solid.out)],7,19))
   
-  #beide haben gleiche Printtimes
+  #alle haben gleiche Printtimes
+  #trotzdem überprüfen
   which(time-time2!=0)
   which(time-time3!=0)
+  #passt
   
-  
+  #da in den Dateien zwischen jeder Printtime unterbrechungen mit extra header in der Datei sind
+  #werden nur diejenigen Zeilen ausgewählt die die richtige Anzahl Zeichen haben
   pos_vals<-which(nchar(lines)==nchar(lines[(grep("Node",lines)+3)[1]]))
   pos_vals2<-which(nchar(Equil.out)==nchar(Equil.out[(grep("aHCO3",Equil.out)+3)[1]]))
   pos_vals3<-which(nchar(solid.out)==nchar(solid.out[(grep("Node",solid.out)+2)[1]]))
   
-
+  #Die position der gewünschten Variablen im string suchen
+  #im header überprüfen ob der Variablenname passt
   substr(Equil.out[pos_vals2-3][1],87,92)
-  substr(Equil.out[pos_vals2][1],87,92)
-  IAPc<-as.numeric(substr(Equil.out[pos_vals2],87,92))
+  #Werte aus dem String ausschneiden
+  pIAPc<-as.numeric(substr(Equil.out[pos_vals2],87,92))
   
-  substr(Equil.out[pos_vals2-3][1],17,24)
-  substr(Equil.out[pos_vals2][1],17,26)
-  aCa<-as.numeric(substr(Equil.out[pos_vals2],17,26))
-  
-  substr(Equil.out[pos_vals2-3][1],28,37)
-  substr(Equil.out[pos_vals2][1],28,37)
-  aHCO3<-as.numeric(substr(Equil.out[pos_vals2],28,37))
-  
+  #dassselbe für die gewünschten anderen Variablen
   substr(Equil.out[pos_vals2-3][1],55,62)
-  substr(Equil.out[pos_vals2][1],58,61)
   pH<-as.numeric(substr(Equil.out[pos_vals2],58,61))
   
   substr(solid.out[pos_vals3-2][1],17,24)
-  substr(solid.out[pos_vals3][1],17,24)
   Ca_solid<-as.numeric(substr(solid.out[pos_vals3],17,24))
 
-  
   substr(solid.out[pos_vals3-2][1],70,80)
-  substr(solid.out[pos_vals3][1],71,78)
   Ca_surf<-as.numeric(substr(solid.out[pos_vals3],71,78))
-  
-  IAP<-10^(-IAPc)
-  SI<-log10(IAP/10^-8.453)
-  SI[SI>2]<-NA
+    
   tiefe<-na.omit(as.numeric(substr(lines[pos_vals],8,10)))
   
   chars<-nchar(lines[pos_vals])[1]
-  
   P_mod<-na.omit(as.numeric(substr(lines[pos_vals],chars-9,chars)))
-
+  
+  #im Modell wird pIAPc also der negativ dekadische logarithmus des IAP ausgegeben
+  #pIAP  zu IAP umrechnen
+  IAP<-10^(-pIAPc)
+  #Sättigungsindex berechnen
+  #das Sättigungsprodukt von calcium beträgt 10^-845
+  SI<-log10(IAP/10^-8.453)
+  #ein paar ausreißer die  zu NAs 
+  SI[SI>2]<-NA
+  range(SI)
+  plot(SI)
+  #die Variablen in einen Dataframe zusammenfügen
+  #da jede variable für jeden zeitschritt in 9 tiefen ausgegeben wird 
+  #wird jeder zeitschritt 9-mal in den Datensatz geschrieben
   vals<-data.frame(t_min=rep(time,each=9),tiefe,P_mod,pH,IAPc,SI,Ca_solid,Ca_surf)
+  #Spalte für CaCO3 verwitterungsrate anlegen
   vals$Ca_weather<-NA
+  #Schleife um CaCO3 Verwitterungrate für  jede tiefe pro zeitschritt zu bestimmen
   for(i in unique(tiefe)){
+    #CaCO3 Verwitterungrate entspricht der veränderung des Calcitgehalts pro Zeitschritt 
     vals$Ca_weather[vals$tiefe==i]<-c(0,diff(vals$Ca_solid[vals$tiefe==i])/diff(vals$t_min[vals$tiefe==i]))
-  }
+  }#ende schleife
+  
+  #Spalte  P_4 und P_2 als summe der Produktion unterhalb -4 cm bzw. -2 cm
+  #wird nur zum leichteren gemeinsamen plot in tiefe 0 geschrieben
   vals$P_4<-NA
   vals$P_4[vals$tiefe==0]<-tapply(vals$P_mod[vals$tiefe<=-4],vals$t_min[vals$tiefe<=-4],sum)
 
   vals$P_2<-NA
   vals$P_2[vals$tiefe==0]<-tapply(vals$P_mod[vals$tiefe<=-2],vals$t_min[vals$tiefe<=-2],sum)
 
+  #Spalte P_0 müsste vProd aus CO2_inf.out entsprechen
+  #weicht jedoch etwas ab, da nur produktion einzelner tiefenstufen summiert 
+  #wird und nicht das integral über die gesamte tiefe genommen werden kann
   vals$P_0<-NA
   vals$P_0[vals$tiefe==0]<-tapply(vals$P_mod[vals$tiefe<=0],vals$t_min[vals$tiefe<=0],sum)
 
+  #Werte mit CO2_inf.out werten mergen
   vals<-merge(vals,CO2_inf,all=T)
+  #P_0 P_2 und P_4 auf vProd werte normieren um die abweichung des absoluten werts zu kompensieren
   vals$P_0_korr<-vals$P_0+max(vals$vProd,na.rm = T)-max(vals$P_0,na.rm = T)
   vals$P_2_korr<-vals$P_2+max(vals$vProd,na.rm = T)-max(vals$P_0,na.rm = T)
   vals$P_4_korr<-vals$P_4+max(vals$vProd,na.rm = T)-max(vals$P_0,na.rm = T)
-
-  return(vals)}
+  #output
+  return(vals)}#ende
 
 #####################################################
 #function to run all above functions
@@ -719,26 +744,34 @@ hydrus<-function(params,
   #wenn kein Taskkill verwendet werden soll
   if(taskkill==F){
     Sys.sleep(3)
+    #funktion um CPU auslastung von hydrus zu bestimmen
   check_CPU<-function(){
+    #liste abfragen in der der Name und die CPU aller laufender Prozesse steht
     tasklist<-system("wmic path Win32_PerfFormattedData_PerfProc_Process get Name,PercentProcessorTime",intern=T)
+    #die strings in der liste bei mindestens zwei leerzeichen auseinanderschneiden
     tasksplit<-strsplit(tasklist[2:(length(tasklist)-1)]," \\s+")
+    #die auseinandergeschnittenen strings zu einer matrix zusammenfügen
     tasks<-do.call("rbind",tasksplit)
     
+    #abfragen ob in der Taskliste H1D_UNSC vorkommt
     if(length(grep("H1D_UNSC",tasks))>0){
+      #while schleife wiederholen solange die CPU von H1D größer als 0 ist
       while(length(which(tasks[grep("H1D_UNSC",tasks),2]>0))>0){
+        #kurz warten
         Sys.sleep(1)
+        #aktuelle Taskliste abfragen und wie  gehabt formatieren
         tasklist<-system("wmic path Win32_PerfFormattedData_PerfProc_Process get Name,PercentProcessorTime",intern=T)
         tasksplit<-strsplit(tasklist[2:(length(tasklist)-1)]," \\s+")
         tasks<-do.call("rbind",tasksplit)
-      }
-      }
-  }
+      }#ende while schleife
+      }#ende if length H1D >0
+  }#ende check_CPU funktion
   
   check_CPU()
   Sys.sleep(1)
   system("taskkill /IM H1D_UNSC.EXE",show.output.on.console=F)
   
-}
+}#ende if taskkill==F
   #wenn read  = TRUE den output einlesen ...
   if(read==T){
   out<-read_hydrus.out(treat = treat,projektpfad = pfad,UNSC=UNSC,obs=obs,min_nrows=min_nrows)[[1]]
@@ -748,4 +781,4 @@ hydrus<-function(params,
   out2<-merge(out2,out_P,all=T)
   #und ausgeben
   return(out2)}
-}
+}#ende
