@@ -23,7 +23,7 @@ fixed<-data.frame(thr=0.11,
                   ths2=0.64,
                   thr3=0.13,
                   ths3=0.64,
-                  hseep=-100,
+                  hseep=0,
                   l=0.5,
                   bulk=0.7561984,
                   bulk2=1.1480438,
@@ -69,7 +69,6 @@ fixedca<-data.frame(thr=0.11,
 #co2 with changing water paramters
 ###############################################################
 
-
 loadfiles<-list.files(mcpfad,pattern = ".R")
 loadfiles<-loadfiles[loadfiles!="mc_temp.R"]
 loadfiles<-loadfiles[-grep("ca",loadfiles)]
@@ -77,11 +76,12 @@ loadfiles<-substr(loadfiles,1,nchar(loadfiles)-2)
 loadfiles_undist<-loadfiles[-grep("dist",loadfiles)]
 loadfiles_dist<-loadfiles[grep("dist",loadfiles)]
 
+
 for(i in 1:length(loadfiles_undist)){
-  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = c(1,10,10)[i],Nboot = 100,kin_sol = T,plot=T)
+  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = c(1,10,10)[i],Nboot = 100,kin_sol = T,plot=T,ndottys = 10000)
 }
 for(i in 1:length(loadfiles_undist)){
-  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = c(1,10,10)[i],Nboot = 100,kin_sol = F,plot=T)
+  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = c(1,10,10)[i],Nboot = 100,kin_sol = F,plot=F)
 }
 
 
@@ -300,8 +300,10 @@ ggplot()+
 #######################
   
 misi<-list.files(mcpfad,pattern = "mi|si.*.csv")
-mc_types<-stringr::str_replace(loadfiles,"mc_\\d+(_|-)","")
-mc_types<-paste0("_-",mc_types,"\\.")
+mc_types1<-stringr::str_replace(loadfiles,"mc_\\d+(_|-)","")
+mc_types1<-mc_types1[-5]
+mc_types<-paste0("_-",mc_types1,"\\.")
+mc_name<-gsub("_"," ",mc_types1)
 
 for (j in 1:length(mc_types)){
 tempfile<-misi[grep(mc_types[j],misi)]
@@ -341,7 +343,7 @@ ggplot(EET_oct)+
   scale_shape_manual(name="Parameter",labels=names,values = shapes[order(colnames(par))])+
   scale_color_manual(name="Parameter",labels=names,values = colors[order(colnames(par))])+
   scale_fill_manual(name="",labels=names,values = colors[order(colnames(par))])+
-  labs(x=expression(S[i]),y="sigma")+
+  labs(title=mc_name[j],x=expression(S[i]),y="sigma")+
   ggsave(paste0(plotpfad,"/EE/","M_",gsub("(mi_-|.csv)","",tempfile[1]),".pdf"),width=7,height=4)
 }
 

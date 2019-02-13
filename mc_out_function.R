@@ -17,7 +17,7 @@ obs=all_s
 #################################
 mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
                  loadfile,#Dateiname des MC-Laufs ihne ".R" Endung
-                 ndottys=1000,#die wieviel besten Modellläufe sollen bei den Dottyplots gezeigt werden
+                 ndottys=10000,#die wieviel besten Modellläufe sollen bei den Dottyplots gezeigt werden
                  fit.ca=F,#wurde an calcium output gefittet
                  dtmax=10,#maximaler zeitschritt
                  obs=all_s,#Messung mit der das Modell verglichen wird
@@ -69,6 +69,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   #Vom long format jeweils min und max werte der Parameter in extra spalten schreiben
   realistic_range<-subset(ranges_melt,id==1)
   realistic_range$max<-ranges_melt$value[ranges_melt$id==2]
+  realistic_ranges<-realistic_ranges[,colnames(realistic_ranges)!="id"]
   
   #####################################
   #run the model
@@ -244,26 +245,26 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   dotty_rmse<-cbind(rmsegood,pargood)
   
   #Labels erstellen
-  lbls<-sort(paste(colnames(pargood),"best =",signif(pargood[which.min(rmsegood),],2)))
-  lbls<-sub("Disp","Diff",lbls)
-  lbls<-gsub("p_","P_",lbls)
-  
+  #lbls<-sort(paste(colnames(pargood),"best =",signif(pargood[which.min(rmsegood),],2)))
+  parnames<-expression(alpha[1],alpha[2],D[A],h[opt],K[S1],K[S2],K[S3],n[1],n[2],P[distr],P[opt])
+  lbls<-parnames[pmatch(sort(colnames(pargood)),sort(colnames(par)))]
+  lbls2<-parnames[pmatch(sort(colnames(realistic_ranges)),sort(colnames(par)))]
   #Datensatz ins long-format bringen
   dotty_melt<-data.table::melt(dotty_rmse,id=1)
   dotty_melt$variable<-as.character(dotty_melt$variable)
   dotty_melt<-dotty_melt[order(dotty_melt$variable),]
   
   #Variablen labeln
-  named_best4<-setNames(lbls,sort(unique(dotty_melt$variable)))
-  
+  dotty_melt$label<-factor(dotty_melt$variable,levels = sort(as.character(unique(dotty_melt$variable))),labels = lbls)
+  realistic_range$label<-factor(realistic_range$variable,levels = sort(as.character(realistic_range$variable)),labels = lbls2)
   #Plotten
   print("saving dotty plots best 4")
   
   ggplot()+
     geom_point(data=dotty_melt,aes(value,rmsegood),size=0.5)+
     geom_point(data=subset(dotty_melt,rmsegood==min(rmsegood)),aes(value,rmsegood),col=2)+
-    geom_rect(data=realistic_range[realistic_range$variable%in%colnames(pargood),],aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
-    facet_wrap(~variable,scales = "free",ncol = 2,labeller = as_labeller(named_best4))+
+    geom_rect(data=realistic_range[realistic_range$label%in%lbls,],aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
+    facet_wrap(~label,scales = "free",ncol = 2,labeller = label_parsed)+
     theme_bw()+
     labs(x="Value",y="RMSE")+
     ggsave(paste0(plotpfad,"dottyplots/RMSE/best4_",loadfile,".pdf"),height = 5,width = 7)
@@ -290,7 +291,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     geom_point(data=dotty_melt,aes(value,nsegood),size=0.5)+
     geom_point(data=subset(dotty_melt,nsegood==max(nsegood)),aes(value,nsegood),col=2)+
     geom_rect(data=realistic_range,aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
-    facet_wrap(~variable,scales = "free",labeller = as_labeller(named))+
+    facet_wrap(~variable,scales = "free",labeller = as_labeller(named_best4))+
     ggsave(paste0(plotpfad,"dottyplots/NSE/dotty_",loadfile,".pdf"),height = 8,width = 10)
   
   
@@ -444,7 +445,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   out2$SI_q<-out2$SI*out2$q_mod#mg/l *l/min *min=mg
   
   #mean von SI_q der unterschiedlichen Tiefenstufen je nach intensität bestimmen
-  SI_sums<-aggregate(data.frame(SI_q=out2$SI_q,SI=out2$SI),list(out2$treatment,out2$tiefe),function(x) mean(x,na.rm=T))
+  SI_sums<-aggregate(data.frame(SI_q=out2$SI_q,SI=out2$SI),list(treatment=out2$treatment,tiefe=out2$tiefe),function(x) mean(x,na.rm=T))
   
   #die mittelwerte von q analog bestimmen
   q_means<-aggregate(out2$q_mod,list(treatment=out2$treatment,tiefe=out2$tiefe),function(x) mean(x,na.rm=T))
@@ -465,5 +466,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   }#ende plot schleife
   #den Modelloutput mit namen der geladenen MC-Datei in die global environment schreiben
   assign(paste0(ifelse(kin_sol==T,"kinsol-",""),loadfile),out,envir = .GlobalEnv)
+  print(paste(loadfile,"best RMSE:",min(rmse,na.rm = T)))
+  print(paste(loadfile,"best NSE:",max(nse,na.rm = T)))
 }#ende 
 

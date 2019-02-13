@@ -376,6 +376,7 @@ read_hydrus.out<-function(obs=all,#Messungen
                           UNSC=T,#wurde UNSATCHEM benutzt oder nicht
                           #Tiefen die Benutzt werden um objective Function zu ermitteln
                           fit.tiefe=c(-2,-6,-10,-14),
+                          traintime=4500,
                           min_nrows=2200){
   #überprüfen ob outpufile existiert
   if(file.exists(paste0(projektpfad,"Obs_Node.out"))){
@@ -465,7 +466,7 @@ read_hydrus.out<-function(obs=all,#Messungen
     
     #falls gewünscht können mit fit.tiefe nur gewisse tiefen 
     #für die berechnung der Objecitve Funktion verwendet werden
-    sub2<-subset(sub,tiefe %in% fit.tiefe)
+    sub2<-subset(sub,tiefe %in% fit.tiefe&t_min>traintime)
       
 
     #RootMeanSquaresError RMSE berechnen
@@ -639,8 +640,6 @@ read_Nod_inf.out<-function(projektpfad=projektpfad1,
   SI<-log10(IAP/10^-8.453)
   #ein paar ausreißer die  zu NAs 
   SI[SI>2]<-NA
-  range(SI)
-  plot(SI)
   #die Variablen in einen Dataframe zusammenfügen
   #da jede variable für jeden zeitschritt in 9 tiefen ausgegeben wird 
   #wird jeder zeitschritt 9-mal in den Datensatz geschrieben
@@ -692,7 +691,7 @@ hydrus<-function(params,
                  dtmin=0.0001,
                  dtmax=10,
                  n_nodes=9,
-                 Mat=c(rep(1,4),rep(2,4),3),
+                 Mat=c(rep(1,3),rep(2,5),3),
                  print_times = 2000,
                  kin_sol=F,
                  min_nrows=2200){
@@ -775,6 +774,7 @@ hydrus<-function(params,
   #wenn read  = TRUE den output einlesen ...
   if(read==T){
   out<-read_hydrus.out(treat = treat,projektpfad = pfad,UNSC=UNSC,obs=obs,min_nrows=min_nrows)[[1]]
+  print(read_hydrus.out(treat = treat,projektpfad = pfad,UNSC=UNSC,obs=obs,min_nrows=min_nrows)[[2]])
   out_ca<-read_conc.out(projektpfad = pfad,obs=obs)[[1]]
   out_P<-read_Nod_inf.out(projektpfad = pfad,obs=obs)
   out2<-merge(out,out_ca,all=T)
