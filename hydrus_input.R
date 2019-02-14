@@ -643,7 +643,7 @@ read_Nod_inf.out<-function(projektpfad=projektpfad1,
   #die Variablen in einen Dataframe zusammenfügen
   #da jede variable für jeden zeitschritt in 9 tiefen ausgegeben wird 
   #wird jeder zeitschritt 9-mal in den Datensatz geschrieben
-  vals<-data.frame(t_min=rep(time,each=9),tiefe,P_mod,pH,IAPc,SI,Ca_solid,Ca_surf)
+  vals<-data.frame(t_min=rep(time,each=9),tiefe,P_mod,pH,SI,Ca_solid,Ca_surf)
   #Spalte für CaCO3 verwitterungsrate anlegen
   vals$Ca_weather<-NA
   #Schleife um CaCO3 Verwitterungrate für  jede tiefe pro zeitschritt zu bestimmen
@@ -694,7 +694,8 @@ hydrus<-function(params,
                  Mat=c(rep(1,3),rep(2,5),3),
                  print_times = 2000,
                  kin_sol=F,
-                 min_nrows=2200){
+                 min_nrows=2200,
+                 traintime=4500){
   #wenn treat ="all"
   if(treat=="all"){
     #wird für tmax  die zeitdifferenz vom ersten zum letzten Messwert in minuten verwendet
@@ -773,9 +774,18 @@ hydrus<-function(params,
 }#ende if taskkill==F
   #wenn read  = TRUE den output einlesen ...
   if(read==T){
-  out<-read_hydrus.out(treat = treat,projektpfad = pfad,UNSC=UNSC,obs=obs,min_nrows=min_nrows)[[1]]
-  print(read_hydrus.out(treat = treat,projektpfad = pfad,UNSC=UNSC,obs=obs,min_nrows=min_nrows)[[2]])
-  out_ca<-read_conc.out(projektpfad = pfad,obs=obs)[[1]]
+  co2_out<-read_hydrus.out(treat = treat,projektpfad = pfad,UNSC=UNSC,obs=obs,min_nrows=min_nrows,traintime = traintime)
+  out<-co2_out[[1]]
+  rmse_co2<-co2_out[[2]]/sd(out$CO2_raw,na.rm = T)
+  ca_out<-read_conc.out(projektpfad = pfad,obs=obs)
+  out_ca<-ca_out[[1]]
+  rmse_ca<-ca_out[[2]]/sd(out_ca$ca_conc,na.rm = T)
+  rmse_both<-(rmse_co2+rmse_ca)/2
+  
+  assign("rmse_co2",rmse_co2,envir = .GlobalEnv)
+  assign("rmse_ca",rmse_ca,envir = .GlobalEnv)
+  assign("rmse_both",rmse_both,envir = .GlobalEnv)
+  
   out_P<-read_Nod_inf.out(projektpfad = pfad,obs=obs)
   out2<-merge(out,out_ca,all=T)
   out2<-merge(out2,out_P,all=T)

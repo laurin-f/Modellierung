@@ -10,6 +10,7 @@ load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
 source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/hydrus_input.R")
 source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/mc_out_function.R")
 source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/EET_na.R")
+source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
 
 library(ggplot2)
 library(stringr)
@@ -71,8 +72,10 @@ fixedca<-data.frame(thr=0.11,
 
 loadfiles<-list.files(mcpfad,pattern = ".R")
 loadfiles<-loadfiles[loadfiles!="mc_temp.R"]
-loadfiles<-loadfiles[-grep("ca",loadfiles)]
 loadfiles<-substr(loadfiles,1,nchar(loadfiles)-2)
+loadfiles_ca<-loadfiles[grep("_-fit",loadfiles)]
+loadfiles<-loadfiles[-grep("_-fit",loadfiles)]
+
 loadfiles_undist<-loadfiles[-grep("dist",loadfiles)]
 loadfiles_dist<-loadfiles[grep("dist",loadfiles)]
 
@@ -86,9 +89,24 @@ for(i in 1:length(loadfiles_undist)){
 
 
 for(i in 1:length(loadfiles_dist)){
-  mc_out(fixed=cbind(fixed_dist,fixed_co2),loadfile = loadfiles_dist[i],dtmax = 10,obs=alldist_s,Probe = "dist",Nboot = 100,plot = T)
+  mc_out(fixed=cbind(fixed_dist,fixed_co2),loadfile = loadfiles_dist[i],dtmax = 10,obs=alldist_s,Probe = "dist",Nboot = 100,plot = F,traintime = c(8000,8000,4500))
 }
 
+rmse_norms<-matrix(NA,3,length(loadfiles_ca))
+colnames(rmse_norms)<-str_extract(loadfiles_ca,"-.+")
+for(i in 1:length(loadfiles_ca)){
+  print(loadfiles_ca[i])
+  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_ca[i],kin_sol = stringr::str_detect(loadfiles_ca,"kinsol")[i],dtmax = c(1,rep(10,5))[i],Nboot = 100,plot = F)
+  rmse_norms[,i]<-c(get("rmse_co2"),get("rmse_ca"),get("rmse_both"))
+}
+rownames(rmse_norms)<-c("rmse co2","rmse ca","rmse both")
+fit<-str_extract(colnames(rmse_norms),"fit_(both|co2|ca)")
+colnames(rmse_norms)<-gsub("_|-|(kinsol)|fit_(both|co2|ca)"," ",colnames(rmse_norms))
+colnames(rmse_norms)<-gsub("(^\\s+)|(\\s+$)","",colnames(rmse_norms))
+rmse_norms2<-rmse_norms[,order(colnames(rmse_norms),fit)]
+fit2<-fit[order(colnames(rmse_norms),fit)]
+
+xtable::xtable(rmse_norms2)
 #########################
 #plot modellläufe zusammen undist
 ##########################
@@ -102,10 +120,10 @@ runname<-gsub("_"," ",runname)
 events<-event()
 
 #zeitspanne ausschneiden
-event<-subset(events,start>=min(all_s$date)&stop<=max(all_s$date))
-event2<-data.frame(start=rep(event$start,4),stop=rep(event$stop,4),tiefe=rep(c(-2,-6,-10,-14),each=nrow(event)))
+event1<-subset(events,start>=min(all_s$date)&stop<=max(all_s$date))
+event2<-data.frame(start=rep(event1$start,4),stop=rep(event1$stop,4),tiefe=rep(c(-2,-6,-10,-14),each=nrow(event1)))
 
-maindata<-subset(get(loadfiles_undist_kinsol[3]),tiefe%in%c(-2,-6,-10,-14))
+maindata<-subset(get(loadfiles_undist[1]),tiefe%in%c(-2,-6,-10,-14))
 
 data1<-get(loadfiles_undist_kinsol[3])
 ohne_warmup<-data1$t_min[!is.na(data1$rain_mm_h)][which(diff(data1$rain_mm_h[!is.na(data1$rain_mm_h)])>0)[2]]
@@ -154,7 +172,7 @@ SIplt<-ggplot(data=subset(get(loadfiles_undist_kinsol[3]),!is.na(SI)&tiefe%in%c(
 SIplt
 
 ggplot(data=subset(get(loadfiles_undist_kinsol[3]),!is.na(P_0)))+geom_line(aes(date,P_2_korr,col="3"))+geom_line(aes(date,P_4_korr,col="4"))+geom_line(aes(date,cvTop,col="1"))+geom_line(aes(date,vProd,col="2"))+
-  geom_rect(data=event,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+theme_classic()+
+  geom_rect(data=event1,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+theme_classic()+
   labs(x="",y=expression("CO"[2]*" [ml  cm"^-2*" min"^-1*"]"),col="")+scale_color_discrete(labels=c("Flux 0 cm",paste("Prod <",c(0,-2,-4),"cm")))+
   theme_classic()+
   scale_fill_manual(name="Beregnung",values="blue")+
@@ -175,7 +193,7 @@ co2plt+
   facet_wrap(~as.factor(-tiefe),labeller = as_labeller(name_tiefe),ncol = 1,scales = "free")+
   labs(title="ungestörte Probe",x="Zeit [Tage]",y=expression("CO"[2]*" [ppm]"),col="mod",linetype="obs")+
   theme_classic()+
-  scale_fill_manual(name="Beregnung",values="blue")+
+  scale_fill_manual(name="Beregnung",values="blue")+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
   ggsave(paste0(plotpfad,"co2_mod_undist.pdf"),width=7,height = 9)
 
 bfplt+
@@ -183,14 +201,14 @@ bfplt+
   facet_wrap(~as.factor(-tiefe),labeller = as_labeller(name_tiefe),ncol = 1,scales = "free")+
   labs(title="ungestörte Probe",x="Zeit [Tage]",y=expression("CO"[2]*" [ppm]"),col="mod",linetype="obs")+
   theme_classic()+
-  scale_fill_manual(name="Beregnung",values="blue")+
+  scale_fill_manual(name="Beregnung",values="blue")+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
   ggsave(paste0(plotpfad,"bf_mod_undist.pdf"),width=7,height = 9)
 
 qplt+
-  geom_rect(data=event,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
+  geom_rect(data=event1,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
   labs(title="ungestörte Probe",x="Zeit [Tage]",y=expression("CO"[2]*" [ppm]"),col="mod",linetype="obs")+
   theme_classic()+
-  scale_fill_manual(name="Beregnung",values="blue")+
+  scale_fill_manual(name="Beregnung",values="blue")+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
   ggsave(paste0(plotpfad,"q_mod_undist.pdf"),width=7,height = 9)
 
 #######################
@@ -201,12 +219,10 @@ runname<-str_extract(loadfiles_dist,"-.+")
 runname<-substr(runname,2,nchar(runname)) 
 runname<-gsub("_"," ",runname)
 
-#events laden
-events<-event()
 
 #zeitspanne ausschneiden
-event<-subset(events,start>=min(alldist_s$date)&stop<=max(alldist_s$date))
-event2<-data.frame(start=rep(event$start,4),stop=rep(event$stop,4),tiefe=rep(c(-2,-6,-10,-14),each=nrow(event)))
+event1<-subset(events,start>=min(alldist_s$date)&stop<=max(alldist_s$date))
+event2<-data.frame(start=rep(event1$start,4),stop=rep(event1$stop,4),tiefe=rep(c(-2,-6,-10,-14),each=nrow(event1)))
 
 maindata<-subset(get(loadfiles_dist[1]),tiefe%in%c(-2,-6,-10,-14))
 
@@ -226,7 +242,7 @@ co2plt+
   facet_wrap(~as.factor(-tiefe),labeller = as_labeller(name_tiefe),ncol = 1,scales = "free")+
   labs(title="gestörte Probe",x="Zeit [Tage]",y=expression("CO"[2]*" [ppm]"),col="mod",linetype="obs")+
   theme_classic()+
-  scale_fill_manual(name="Beregnung",values="blue")+
+  scale_fill_manual(name="Beregnung",values="blue")+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
   ggsave(paste0(plotpfad,"co2_mod_dist.pdf"),width=7,height = 9)
 
 bfplt+
@@ -234,38 +250,59 @@ bfplt+
   facet_wrap(~as.factor(-tiefe),labeller = as_labeller(name_tiefe),ncol = 1,scales = "free")+
   labs(title="ungestörte Probe",x="Zeit [Tage]",y=expression("CO"[2]*" [ppm]"),col="mod",linetype="obs")+
   theme_classic()+
-  scale_fill_manual(name="Beregnung",values="blue")+
+  scale_fill_manual(name="Beregnung",values="blue")+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
   ggsave(paste0(plotpfad,"bf_mod_dist.pdf"),width=7,height = 9)
 
 qplt+
-  geom_rect(data=event,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
+  geom_rect(data=event1,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
   labs(title="ungestörte Probe",x="Zeit [Tage]",y=expression("CO"[2]*" [ppm]"),col="mod",linetype="obs")+
   theme_classic()+
-  scale_fill_manual(name="Beregnung",values="blue")+
+  scale_fill_manual(name="Beregnung",values="blue")+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
   ggsave(paste0(plotpfad,"q_mod_dist.pdf"),width=7,height = 9)
 
 ######################################################################
 
 
-loadfile<-"mc_60000-realistic"
-load(file = paste0(mcpfad,loadfile,".R"))
+#########################
+#plot modellläufe zusammen calcium
+##########################
 
-par<-mc[[2]]
-rmse<-mc[[1]]
-fix_pars<-cbind(par[which.min(rmse),],fixedca,fixed_co2)
+runname<-str_extract(loadfiles_ca,"_-.+")
+loadfiles_ca2<-ifelse(str_detect(loadfiles_ca,"^m.+kinsol"),paste0("kinsol-",loadfiles_ca),loadfiles_ca)
+runname<-sub("kinsol","",runname)
+runname<-substr(runname,3,nchar(runname)) 
+runname<-gsub("_"," ",runname)
 
-mc_out(fixed=fix_pars,loadfile = "mc_90000-ca_realistic" ,dtmax = 1,fit.ca = T,kin_sol = T,Nboot = 100)
 
-mc_out(fixed=fix_pars,loadfile = "mc_36000-ca_realistic_free_ks_kinsol_F" ,dtmax = 10,fit.ca = T,ndottys = 30000)
+#zeitspanne ausschneiden
+event1<-subset(events,start>=min(all_s$date)&stop<=max(all_s$date))
 
-mc_out(fixed=fix_pars,loadfile = "mc_36000-ca_realistic_free_ks_kinsol" ,dtmax = 10,fit.ca = T,kin_sol = T,ndottys = 10000)
+caplt<-ggplot(data=subset(get(loadfiles_ca2[1]),tiefe==-17))+geom_line(aes(date,ca_conc,linetype=""),col=1)
+
+for(i in 1:length(loadfiles_ca2)){
+  data<-get(loadfiles_ca2[i])
+  data$run<-runname[i]
+  data$date2<-data$date[data$t_min==0&data$tiefe==-17]+data$t_min*60
+  caplt<-caplt+geom_line(data=subset(data,tiefe==-17),aes(date2,Ca_mod,col=run))
+  
+}
+caplt+
+  geom_rect(data=event1,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
+  labs(title="ungestörte Probe",x="Zeit [Tage]",y=expression("Ca"^{2+""}*" [mg/l]"),col="mod",linetype="obs")+
+  theme_classic()+
+  scale_fill_manual(name="Beregnung",values="blue")+scale_y_continuous(limits = c(40,NA))+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
+  ggsave(paste0(plotpfad,"ca_mod_undist.pdf"),width=7,height = 4)
+
+#############################################
+#
+
+
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-ca_realistic_free_ks_kinsol" ,dtmax = 10,kin_sol = T,ndottys = 10000,plot = T)
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_120000-free_ranges",dtmax = 1)
-source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/mc_out_function.R")
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_ca_co2_free",dtmax = 10)
 
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-free_ca_co2",dtmax = 10,plot = T)
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-realistic_free_ks_ca_co2_kinsol",dtmax = 10,kin_sol = T,plot = T)
+
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000_-fit_ca_realistic_free_ks_kinsol",dtmax = 10,kin_sol = F,plot = T)
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_59995_realistic_fix_p_dis",dtmax = 0.01,Nboot = 0)
 
@@ -277,24 +314,6 @@ mc_out(fixed=cbind(fixed_dist,fixed_co2),loadfile = "mc_120000-free_dist",dtmax 
 
 
 
-#######################
-#caplot
-
-capath<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/ca/"
-load(file=paste0(capath,"cafm.R"))
-
-out$tiefe<-as.numeric(out$tiefe)
-library(ggplot2)
-legendtitle<-expression("Intensität [mm*h"^{-1}*"]")
-ggplot()+
-  geom_point(data=subset(ic,!is.na(rain_mm_h)),aes(ca,tiefe,col=as.factor(round(rain_mm_h)),shape=as.factor(round(rain_mm_h))))+
-  geom_point(data=subset(out,tiefe%in%tiefenstufen&!is.na(Ca_mod)),aes(Ca_mod,tiefe))+
-  labs(x=expression("Ca"^{"2+"}*"  [mg * l"^{-1}*"]"),y="tiefe [cm]",col=legendtitle,shape=legendtitle)+theme_classic()
-
-  ggplot()+geom_point(data=subset(out,tiefe%in%tiefenstufen&!is.na(Ca_mod)),aes(Ca_mod,tiefe))
-
-
-  
 ######################
 #EE outpput from Matlab function
 #######################

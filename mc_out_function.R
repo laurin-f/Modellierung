@@ -24,6 +24,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
                  Probe="undist",#wurde die gestörte oder die ungestörte Probe benutzt
                  kin_sol=F,
                  Nboot=100,
+                 traintime=4500,
                  plot=F){#Anzahl an Bootstrapping-Läufen
   
   #definieren der Pfade
@@ -89,7 +90,8 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
               dtmax = dtmax,
               obs=obs,
               min_nrows=100,
-              kin_sol=kin_sol)
+              kin_sol=kin_sol,
+              traintime=traintime)
   
   #tiefe von factor in numeric
   out$tiefe<-as.numeric(out$tiefe)
@@ -222,6 +224,17 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   
   #Dottyplots erstellen  
   print("saving dotty plots")
+  library(scales)
+  colnames(dotty_rmse)
+  poptt<-ggplot(dotty_rmse)+geom_point(aes(p_opt,rmsegood,col=ks2),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))
+  poptt
+  ks2<-ggplot(dotty_rmse)+geom_point(aes(ks2,rmsegood,col=n2),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))
+  ks2
+  n_plt<-ggplot(dotty_rmse)+geom_point(aes(n,rmsegood,col=alpha),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))
+  n_plt
+  n2_plt<-ggplot(dotty_rmse)+geom_point(aes(n2,rmsegood,col=ks2),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))
+  n2_plt
+  gridExtra::grid.arrange(poptt,ks2,n_plt,n2_plt)
   
   ggplot()+
     geom_point(data=dotty_melt,aes(value,rmsegood),size=0.5)+
@@ -259,7 +272,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   realistic_range$label<-factor(realistic_range$variable,levels = sort(as.character(realistic_range$variable)),labels = lbls2)
   #Plotten
   print("saving dotty plots best 4")
-  
+
   ggplot()+
     geom_point(data=dotty_melt,aes(value,rmsegood),size=0.5)+
     geom_point(data=subset(dotty_melt,rmsegood==min(rmsegood)),aes(value,rmsegood),col=2)+
@@ -291,7 +304,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     geom_point(data=dotty_melt,aes(value,nsegood),size=0.5)+
     geom_point(data=subset(dotty_melt,nsegood==max(nsegood)),aes(value,nsegood),col=2)+
     geom_rect(data=realistic_range,aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
-    facet_wrap(~variable,scales = "free",labeller = as_labeller(named_best4))+
+    facet_wrap(~variable,scales = "free",labeller = as_labeller(named))+
     ggsave(paste0(plotpfad,"dottyplots/NSE/dotty_",loadfile,".pdf"),height = 8,width = 10)
   
   
