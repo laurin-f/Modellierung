@@ -1,8 +1,8 @@
 
-loadfile<-"mc_120000-free_ranges"
+loadfile<-"mc_60000-realistic_free_ks"
 fixed=cbind(fixed,fixed_co2)
 
-ndottys=1000
+ndottys=10000
 
 fit.ca=F
 dtmax=1
@@ -225,16 +225,66 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   #Dottyplots erstellen  
   print("saving dotty plots")
   library(scales)
-  colnames(dotty_rmse)
-  poptt<-ggplot(dotty_rmse)+geom_point(aes(p_opt,rmsegood,col=ks2),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))
-  poptt
-  ks2<-ggplot(dotty_rmse)+geom_point(aes(ks2,rmsegood,col=n2),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))
-  ks2
-  n_plt<-ggplot(dotty_rmse)+geom_point(aes(n,rmsegood,col=alpha),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))
-  n_plt
-  n2_plt<-ggplot(dotty_rmse)+geom_point(aes(n2,rmsegood,col=ks2),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))
-  n2_plt
+
+  if(loadfile=="mc_120000-free_ranges"){ 
+  poptt<-ggplot(dotty_rmse)+
+    geom_rect(data=subset(realistic_range,variable=="p_opt"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
+    geom_point(aes(p_opt,rmsegood,col=ks2),size=0.5)+
+    scale_color_gradientn(colors=c("blue","yellow","red"))+
+    theme_classic()+
+    labs(x=expression(P[opt]),y="RMSE",col=expression(K[S*2]))
+
+  ks2<-ggplot(dotty_rmse)+
+    geom_rect(data=subset(realistic_range,variable=="ks2"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
+    geom_point(aes(ks2,rmsegood,col=n2),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))+
+    theme_classic()+
+    labs(x=expression(K[S*2]),y="",col=expression(n[2]))
+
+  n_plt<-ggplot(dotty_rmse)+
+    geom_rect(data=subset(realistic_range,variable=="n"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
+    geom_point(aes(n,rmsegood,col=alpha),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))+
+    theme_classic()+
+    labs(x=expression(n[1]),y="RMSE",col=expression(alpha[1]))
+
+  n2_plt<-ggplot(dotty_rmse)+
+    geom_rect(data=subset(realistic_range,variable=="n2"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
+    geom_point(aes(n2,rmsegood,col=ks2),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))+
+    theme_classic()+
+    labs(x=expression(n[2]),y="",col=expression(K[S*2]))
+
+  pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 6,width = 9)
   gridExtra::grid.arrange(poptt,ks2,n_plt,n2_plt)
+  dev.off()
+  }
+  if(loadfile=="mc_60000-realistic_free_ks"){ 
+    pdistr<-ggplot(dotty_rmse)+
+      geom_point(aes(p_distr,rmsegood,col=p_opt),size=0.5)+
+      scale_color_gradientn(colors=c("blue","yellow","red"),labels=scales::scientific)+
+      theme_classic()+
+      labs(x=expression(P[distr]),y="RMSE",col=expression(P[opt]))
+
+    DispA<-ggplot(dotty_rmse)+
+      geom_rect(data=subset(realistic_range,variable=="DispA"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
+      geom_point(aes(DispA,rmsegood,col=p_distr),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))+
+      theme_classic()+
+      labs(x=expression(D[A]),y="",col=expression(P[distr]))
+
+    n2_plt<-ggplot(dotty_rmse)+
+      geom_rect(data=subset(realistic_range,variable=="n2"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
+      geom_point(aes(n2,rmsegood,col=p_distr),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))+
+      theme_classic()+
+      labs(x=expression(n[2]),y="RMSE",col=expression(P[distr]))
+
+    ks2<-ggplot(dotty_rmse)+
+      geom_rect(data=subset(realistic_range,variable=="ks2"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
+      geom_point(aes(ks2,rmsegood,col=n2),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))+
+      theme_classic()+
+      labs(x=expression(K[S*2]),y="",col=expression(n[2]))
+
+    pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 6,width = 9)
+    gridExtra::grid.arrange(pdistr,DispA,n2_plt,ks2)
+    dev.off()
+  }
   
   ggplot()+
     geom_point(data=dotty_melt,aes(value,rmsegood),size=0.5)+
