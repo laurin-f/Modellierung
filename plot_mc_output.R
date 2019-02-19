@@ -135,23 +135,25 @@ data<-subset(data1,t_min>=ohne_warmup)
 data$CO2_q<-data$CO2_mod*data$q_mod
 data$SI_q<-data$SI*data$q_mod
 
+data$CO2_obs_q<-data$CO2_raw*data$q_mod
+
+
 data$CO2_theta<-data$CO2_mod*data$theta_mod
 data$SI_theta<-data$SI*data$theta_mod
 
-aggs<-aggregate(data.frame(q=data$q_mod,CO2=data$CO2_mod,CO2_q=data$CO2_q,SI=data$SI,SI_q=data$SI_q,theta=data$theta_mod,CO2_theta=data$CO2_theta,SI_theta=data$SI_theta),list(treatment=data$treatment),function(x) mean(x,na.rm=T))
-SI_q_mean<-aggregate(data.frame(q=data$q_mod[data$tiefe==-17],SI=data$SI[data$tiefe==-17],SI_q=data$SI_q[data$tiefe==-17],SI_theta=data$SI_theta[data$tiefe==-17],theta=data$theta_mod[data$tiefe==-17]),list(treatment=data$treatment[data$tiefe==-17]),function(x) mean(x,na.rm=T))
-SI_q_mean$SI_q<-SI_q_mean$SI_q/SI_q_mean$q
-SI_q_mean$SI_theta<-SI_q_mean$SI_theta/SI_q_mean$theta
+aggs<-aggregate(data.frame(q=data$q_mod,CO2=data$CO2_mod,CO2_q=data$CO2_q,SI=data$SI,SI_q=data$SI_q,ca_mod=data$Ca_mod,CO2_obs=data$CO2_raw,CO2_obs_q=data$CO2_obs_q,ca_obs=data$ca_conc),list(treatment=data$treatment),function(x) mean(x,na.rm=T))
 
 ca_we_sum<-aggregate(data$Ca_weather,list(data$treatment),function(x) sum(x,na.rm=T))
 
 aggs$CO2_q<-aggs$CO2_q/aggs$q
+aggs$CO2_obs_q<-aggs$CO2_obs_q/aggs$q
 aggs$SI_q<-aggs$SI_q/aggs$q
-aggs$CO2_theta<-aggs$CO2_theta/aggs$theta
-aggs$SI_theta<-aggs$SI_theta/aggs$theta
-aggs$ca_verwitterung<-ca_we_sum$x#meq/kg
 
-print(xtable::xtable(aggs[,-c(2,5)]),include.rownames = F)
+aggs$ca_verwitterung<-ca_we_sum$x#meq/kg
+plot(data$CO2_raw)
+
+print(xtable::xtable(aggs[,-c(2,5,8:10)]),include.rownames = F)
+print(xtable::xtable(aggs[,c(1,8:10)]),include.rownames = F)
 
 
 name_tiefe<-setNames(c("Tiefe = -2 cm","-6 cm","-10 cm","-14 cm"),c(2,6,10,14))
@@ -297,7 +299,7 @@ caplt+
 #
 
 
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-ca_realistic_free_ks_kinsol" ,dtmax = 10,kin_sol = T,ndottys = 10000,plot = T)
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_120000-both_realistic_free_ks_kinsol" ,dtmax = 10,kin_sol = T,ndottys = 10000,plot = T)
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_120000-free_ranges",dtmax = 1)
 

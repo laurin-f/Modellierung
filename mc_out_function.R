@@ -231,6 +231,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     geom_rect(data=subset(realistic_range,variable=="p_opt"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
     geom_point(aes(p_opt,rmsegood,col=ks2),size=0.5)+
     scale_color_gradientn(colors=c("blue","yellow","red"))+
+    scale_x_continuous(labels = scales::scientific,breaks = c(0,0.0001,0.0002))+
     theme_classic()+
     labs(x=expression(P[opt]),y="RMSE",col=expression(K[S*2]))
 
@@ -252,7 +253,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     theme_classic()+
     labs(x=expression(n[2]),y="",col=expression(K[S*2]))
 
-  pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 6,width = 9)
+  pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 4,width = 7)
   gridExtra::grid.arrange(poptt,ks2,n_plt,n2_plt)
   dev.off()
   }
@@ -281,7 +282,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
       theme_classic()+
       labs(x=expression(K[S*2]),y="",col=expression(n[2]))
 
-    pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 6,width = 9)
+    pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 4,width = 7)
     gridExtra::grid.arrange(pdistr,DispA,n2_plt,ks2)
     dev.off()
   }
@@ -292,7 +293,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     geom_rect(data=realistic_range,aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
     facet_wrap(~variable,scales = "free",ncol = 3,labeller = as_labeller(named))+
     theme_bw()+labs(x="Value",y="RMSE")+
-    ggsave(paste0(plotpfad,"dottyplots/RMSE/dotty_",loadfile,".pdf"),height = 8,width = 8)
+    ggsave(paste0(plotpfad,"dottyplots/RMSE/dotty_",loadfile,".pdf"),height = 4,width = 6)
   
 
   ##################################
@@ -330,7 +331,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     facet_wrap(~label,scales = "free",ncol = 2,labeller = label_parsed)+
     theme_bw()+
     labs(x="Value",y="RMSE")+
-    ggsave(paste0(plotpfad,"dottyplots/RMSE/best4_",loadfile,".pdf"),height = 5,width = 7)
+    ggsave(paste0(plotpfad,"dottyplots/RMSE/best4_",loadfile,".pdf"),height = 4,width = 6)
   
   ##################################
   #export dottyplots for NSE
