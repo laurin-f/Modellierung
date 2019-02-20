@@ -78,6 +78,7 @@ loadfiles<-loadfiles[-grep("_-fit",loadfiles)]
 
 loadfiles_undist<-loadfiles[-grep("dist",loadfiles)]
 loadfiles_dist<-loadfiles[grep("dist",loadfiles)]
+loadfiles_undist_kinsol<-paste0("kinsol-",loadfiles_undist)
 
 
 for(i in 1:length(loadfiles_undist)){
@@ -92,6 +93,9 @@ for(i in 1:length(loadfiles_dist)){
   mc_out(fixed=cbind(fixed_dist,fixed_co2),loadfile = loadfiles_dist[i],dtmax = 10,obs=alldist_s,Probe = "dist",Nboot = 100,plot = F,traintime = c(8000,8000,4500))
 }
 
+########################
+#tabelle rmse norms
+########################
 rmse_norms<-matrix(NA,3,length(loadfiles_ca))
 colnames(rmse_norms)<-str_extract(loadfiles_ca,"-.+")
 for(i in 1:length(loadfiles_ca)){
@@ -107,10 +111,91 @@ rmse_norms2<-rmse_norms[,order(colnames(rmse_norms),fit)]
 fit2<-fit[order(colnames(rmse_norms),fit)]
 
 xtable::xtable(rmse_norms2)
+
+################
+#tabelle co2mean
+#Output des MC-Laufs laden
+load(file = paste0(mcpfad,"mc_60000-realistic_free_ks",".R"))
+  #der Output ist in die Liste mc geschrieben
+  #die einzelnen listenelemente auspacken
+  par<-mc[[2]]
+  rmse<-mc[[1]]
+  nse<-mc[[3]]
+  pars<-cbind(par[which.min(rmse),],fixed,fixed_co2)
+  
+  #mit function das Modell ausführen und output laden
+  out<-hydrus(params = pars,
+              UNSC=T,
+              sleep = 8,
+              treat = "all",
+              taskkill=F,
+              free_drain=T,
+              print_times = 2000,
+              dtmax = 10,
+              obs=all,
+              min_nrows=100,
+              kin_sol=T,
+              traintime=traintime)
+data1<-out
+data1_s<-get(loadfiles_undist_kinsol[3])
+ohne_warmup<-data1$t_min[!is.na(data1$rain_mm_h)][which(diff(data1$rain_mm_h[!is.na(data1$rain_mm_h)])>0)[2]]
+ohne_warmup_s<-data1_s$t_min[!is.na(data1_s$rain_mm_h)][which(diff(data1_s$rain_mm_h[!is.na(data1_s$rain_mm_h)])>0)[2]]
+pars$p_opt
+pars$p_distr
+max(out$vProd,na.rm = T)
+
+pars$p_distr<-0.2
+#testen ob mit hohem p_dist die höchsten Prod-werte im modell näher an p_opt dran sind
+
+out<-hydrus(params = pars,
+            UNSC=T,
+            sleep = 8,
+            treat = "all",
+            taskkill=F,
+            free_drain=T,
+            print_times = 2000,
+            dtmax = 10,
+            obs=all,
+            min_nrows=100,
+            kin_sol=T,
+            traintime=traintime)
+#ja 
+pars$p_opt
+pars$p_distr
+max(out$vProd,na.rm = T)
+
+plot(data$vProd)
+#subset des outputs ohne warm-up-event
+data<-subset(data1,t_min>=ohne_warmup&tiefe%in%c(-2,-6,-10,-14,-17))
+data_s<-subset(data1_s,t_min>=ohne_warmup_s)
+
+data$CO2_q<-data$CO2_mod*data$q_mod
+data$SI_q<-data$SI*data$q_mod
+
+data$CO2_obs_q<-data$CO2_raw*data$q_mod
+
+
+data$CO2_theta<-data$CO2_mod*data$theta_mod
+data$SI_theta<-data$SI*data$theta_mod
+
+aggs<-aggregate(data.frame(q=data$q_mod,CO2=data$CO2_mod,CO2_q=data$CO2_q,SI=data$SI,SI_q=data$SI_q,ca_mod=data$Ca_mod,CO2_obs=data$CO2_raw,CO2_obs_q=data$CO2_obs_q,ca_obs=data$ca_conc,q2=ifelse(is.na(data$CO2_raw),NA,data$q_mod)),list(treatment=data$treatment),function(x) mean(x,na.rm=T))
+
+ca_we_sum<-aggregate(data_s$Ca_weather,list(data_s$treatment),function(x) sum(x,na.rm=T))
+
+aggs$CO2_q<-aggs$CO2_q/aggs$q
+aggs$CO2_obs_q<-aggs$CO2_obs_q/aggs$q2
+aggs$SI_q<-aggs$SI_q/aggs$q
+
+aggs$ca_verwitterung<-ca_we_sum$x#meq/kg
+
+print(xtable::xtable(aggs[,-c(2,5,8:10)]),include.rownames = F)
+print(xtable::xtable(aggs[,c(1,8:10)]),include.rownames = F)
+
+
 #########################
 #plot modellläufe zusammen undist
 ##########################
-loadfiles_undist_kinsol<-paste0("kinsol-",loadfiles_undist)
+
 
 runname<-str_extract(loadfiles_undist,"-.+")
 runname<-substr(runname,2,nchar(runname)) 
@@ -124,37 +209,6 @@ event1<-subset(events,start>=min(all_s$date)&stop<=max(all_s$date))
 event2<-data.frame(start=rep(event1$start,4),stop=rep(event1$stop,4),tiefe=rep(c(-2,-6,-10,-14),each=nrow(event1)))
 
 maindata<-subset(get(loadfiles_undist[1]),tiefe%in%c(-2,-6,-10,-14))
-
-data1<-get(loadfiles_undist_kinsol[3])
-ohne_warmup<-data1$t_min[!is.na(data1$rain_mm_h)][which(diff(data1$rain_mm_h[!is.na(data1$rain_mm_h)])>0)[2]]
-
-#subset des outputs ohne warm-up-event
-data<-subset(data1,t_min>=ohne_warmup)
-
-
-data$CO2_q<-data$CO2_mod*data$q_mod
-data$SI_q<-data$SI*data$q_mod
-
-data$CO2_obs_q<-data$CO2_raw*data$q_mod
-
-
-data$CO2_theta<-data$CO2_mod*data$theta_mod
-data$SI_theta<-data$SI*data$theta_mod
-
-aggs<-aggregate(data.frame(q=data$q_mod,CO2=data$CO2_mod,CO2_q=data$CO2_q,SI=data$SI,SI_q=data$SI_q,ca_mod=data$Ca_mod,CO2_obs=data$CO2_raw,CO2_obs_q=data$CO2_obs_q,ca_obs=data$ca_conc),list(treatment=data$treatment),function(x) mean(x,na.rm=T))
-
-ca_we_sum<-aggregate(data$Ca_weather,list(data$treatment),function(x) sum(x,na.rm=T))
-
-aggs$CO2_q<-aggs$CO2_q/aggs$q
-aggs$CO2_obs_q<-aggs$CO2_obs_q/aggs$q
-aggs$SI_q<-aggs$SI_q/aggs$q
-
-aggs$ca_verwitterung<-ca_we_sum$x#meq/kg
-plot(data$CO2_raw)
-
-print(xtable::xtable(aggs[,-c(2,5,8:10)]),include.rownames = F)
-print(xtable::xtable(aggs[,c(1,8:10)]),include.rownames = F)
-
 
 name_tiefe<-setNames(c("Tiefe = -2 cm","-6 cm","-10 cm","-14 cm"),c(2,6,10,14))
 
