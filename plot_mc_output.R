@@ -112,6 +112,9 @@ fit2<-fit[order(colnames(rmse_norms),fit)]
 
 xtable::xtable(rmse_norms2)
 
+(0.28+2.92)/2
+(0.55+2.7)/2
+
 ################
 #tabelle co2mean
 #Output des MC-Laufs laden
@@ -353,7 +356,7 @@ caplt+
 #
 
 
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_120000-both_realistic_free_ks_kinsol" ,dtmax = 10,kin_sol = T,ndottys = 10000,plot = T)
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-both_realistic_free_ks_kinsol" ,dtmax = 10,kin_sol = T,ndottys = 10000,plot = T)
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_120000-free_ranges",dtmax = 1)
 
@@ -375,10 +378,14 @@ mc_out(fixed=cbind(fixed_dist,fixed_co2),loadfile = "mc_120000-free_dist",dtmax 
 #######################
   
 misi<-list.files(mcpfad,pattern = "mi|si.*.csv")
-mc_types1<-stringr::str_replace(loadfiles,"mc_\\d+(_|-)","")
-mc_types1<-mc_types1[-5]
-mc_types<-paste0("_-",mc_types1,"\\.")
-mc_name<-gsub("_"," ",mc_types1)
+mc_types1<-misi[grep("_-",misi)]
+mc_types<-unique(stringr::str_replace(mc_types1,"^[a-z]+_*[a-z]+",""))
+mc_types<-unique(stringr::str_replace(mc_types,".csv",""))
+mc_types2<-unique(stringr::str_replace(mc_types,"_-",""))
+mc_types2[-grep("dist",mc_types2)]<-paste0("0-",mc_types2[-grep("dist",mc_types2)])
+mc_types2[grep("dist",mc_types2)]<-paste0("0_",mc_types2[grep("dist",mc_types2)])
+
+mc_name<-gsub("_|-|(.csv)"," ",mc_types)
 
 for (j in 1:length(mc_types)){
 tempfile<-misi[grep(mc_types[j],misi)]
@@ -388,7 +395,8 @@ for (i in 1:length(tempfile)){
 
 misi_val[,i]<-t(read.csv(paste0(mcpfad,tempfile[i]),header = F))
 }
-
+j<-2
+loadfile<-loadfiles[grep(mc_types2[j],loadfiles)]
 load(file = paste0(mcpfad,loadfiles[j],".R"))
   par<-mc[[2]]
   
