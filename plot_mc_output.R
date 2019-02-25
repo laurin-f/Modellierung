@@ -219,7 +219,14 @@ co2plt<-ggplot(data=maindata)+geom_line(aes(date,CO2_raw,linetype=""),col=1)
 bfplt<-ggplot(data=maindata)+geom_line(aes(date,theta,linetype=""),col=1)
 qplt<-ggplot(data=subset(get(loadfiles_undist[1]),tiefe==-17))+geom_line(aes(date,q_interpol*5,linetype=""),col=1)
 
-alkplt<-ggplot(data=subset(get(loadfiles_undist[2])))+geom_line(aes(t_min,Alk_mod,linetype="",col=as.factor(tiefe)))
+alkdata<-get(loadfiles_undist_kinsol[3])
+peak<-which.max(alkdata$Alk_mod[12000>alkdata$t_min&alkdata$t_min>11500])
+t_minpeak<-alkdata$t_min[13000>alkdata$t_min&alkdata$t_min>11500][peak]
+alkplt<-ggplot(data=alkdata)+geom_line(aes(t_min,Alk_mod,linetype="",col=as.factor(tiefe)))+scale_x_continuous(limits = c(10000,20000))+geom_vline(aes(xintercept=t_minpeak))
+co2plt<-ggplot(data=alkdata)+geom_line(aes(t_min,CO2_mod,linetype="",col=as.factor(tiefe)))+scale_x_continuous(limits = c(10000,20000))+geom_vline(aes(xintercept=t_minpeak))
+caplt<-ggplot(data=alkdata)+geom_line(aes(t_min,Ca_mod,linetype="",col=as.factor(tiefe)))+scale_x_continuous(limits = c(10000,20000))+geom_vline(aes(xintercept=t_minpeak))
+caplt
+co2plt
 alkplt
 
 pHplt<-ggplot(data=subset(get(loadfiles_undist_kinsol[3]),!is.na(pH)))+geom_line(aes(t_min,pH,linetype="",col=tiefe))
@@ -357,6 +364,8 @@ caplt+
 
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-both_realistic_free_ks_kinsol" ,dtmax = 10,kin_sol = T,ndottys = 10000,plot = T)
+
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-realistic_free_ks_fix_pdis_kinsol" ,dtmax = 10,kin_sol = T,ndottys = 10000,plot = T)
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_120000-free_ranges",dtmax = 1)
 
