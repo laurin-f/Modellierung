@@ -34,15 +34,20 @@ muafit<-function(data,alpha=NULL,n=NULL){
   return(list(data.frame(psi,th_mod=fit),c(alpha,n)))}
 
 ###############################
-#Parameter für Ah1 fitten
+#Horizont Ah1
+#Bodenfeuchte (th), Sättigungswassergehalt (ths) und residualer Wassergehalt (thr)
+#sowie theta norm
+#der unterschiedlichen Proben bestimmen
 #############################
+
 #alle Proben aus Ah1 auswählen sheet 2
+#sheet 2 ist der datensatz im long format
 Ah1<-subset(soil.xls2,Horizon=="Ah1"&pf!=7)
 
 #alle Proben aus Ah1 auswählen sheet 3
-ths_Ah1<-subset(soil.xls,Horizon=="Ah1")
+Ah1_sheet3<-subset(soil.xls,Horizon=="Ah1")
 #ths entspricht dem gesamten Porenvolumen
-ths_Ah1$ths<-ths_Ah1$PV/100
+Ah1_sheet3$ths<-Ah1_sheet3$PV/100
 
 #theta ist der soil Water content (swc) /100
 Ah1$th<-Ah1$swc/100
@@ -54,239 +59,323 @@ colnames(thr_Ah1)<-c("MG_ID","thr")
 #thr an den Datensatz anfügen
 Ah1<-merge(Ah1,thr_Ah1)
 
-#ths an den dAtensatz anfügen
-Ah1<-merge(Ah1,ths_Ah1[,c(1,42)])
+#ths an den Datensatz anfügen
+Ah1<-merge(Ah1,Ah1_sheet3[,c(1,42)])
 
-sat_Ah1<-data.frame(th=ths_Ah1$ths,ths=ths_Ah1$ths,MG_ID=ths_Ah1$MG_ID,pf=0,thr=ths_Ah1$swc_15000hPa/100)
+#Da keine Messungen für den Wassergesättigten boden vorliegen werden spalten mit th=ths bei pf=0 angefügt
+sat_Ah1<-data.frame(th=Ah1_sheet3$ths,ths=Ah1_sheet3$ths,MG_ID=Ah1_sheet3$MG_ID,pf=0,thr=Ah1_sheet3$swc_15000hPa/100)
+#NAs ausschneiden
 sat_Ah1<-sat_Ah1[!is.na(sat_Ah1$thr),]
+#die Werte für pf=0 werden dem Datensatz angefügt
 Ah1<-merge(Ah1,sat_Ah1,all=T)
 
+#th_norm wird berechnet
 Ah1$th_norm<-(Ah1$th-Ah1$thr)/(Ah1$ths-Ah1$thr)
+
+#pf ist der negative dekadische log der saugspannung psi
+#psi berechnen
 Ah1$psi<--10^Ah1$pf
 
-fit_Ah1_list<-vector("list",length(unique(Ah1$MG_ID)))
-coef_Ah1_list<-vector("list",length(unique(Ah1$MG_ID)))
+########################################
+#Paramter alpha und n für Ah1 fitten
+#######################################
 
-for (i in 1:length(unique(Ah1$MG_ID))){
-  
-fit_Ah1_list[[i]]<-muafit(subset(Ah1,MG_ID==unique(Ah1$MG_ID)[i]))[[1]]
-colnames(fit_Ah1_list[[i]])<-c("psi",unique(Ah1$MG_ID)[i])
-coef_Ah1_list[[i]]<-muafit(subset(Ah1,MG_ID==unique(Ah1$MG_ID)[i]))[[2]]
-}
-
-coef_Ah1<-do.call("rbind",coef_Ah1_list)
-fit_Ah1<-Reduce(merge,fit_Ah1_list)
-fit_Ah1<-data.table::melt(fit_Ah1,id=1)
-colnames(fit_Ah1)<-c("psi","MG_ID","th_mod")
-
-ranges_Ah1<-apply(coef_Ah1,2,range)
-
+#RMSE funktion erstellen
 RMSE<-function(obs,mod){
   rmse<-sqrt(mean((obs-mod)^2))
   return(rmse)
 }
 
+#aufsteigende sequenz der psi-werte 
 psi<-sort(unique(Ah1$psi))
 
+#mittelwerte von th_norm für jedes psi berechnen
 th_norm<-tapply(Ah1$th_norm,Ah1$psi,mean)
+
+#länge der Sequenz für alpha und n
 n_parseq<-300
+#aufsteigende sequenz von alpha und n werten
+#dabei wird die alpha sequenz werte 300-mal wiederholt
+#und bei der n sequenz jeder wert 300-mal wiederholt
+#sodass alle kombinationen der Parameter vorkommen
 alpha<-rep(seq(0.05,4,len=n_parseq),n_parseq)
 n<-rep(seq(1.1,2,len=n_parseq),each=n_parseq)
+
+#leere matrix für RMSE-Werte der unterschiedlichen Rententionskurve
 fit<-matrix(NA,length(n),length(psi))
+#schleife um matrix zu füllen
 for (i in 1:length(psi)){
+  #Berechnung der van Genuchten Gleichung für i-ten Psi-Wert
 fit[,i]<-(1+(-alpha*psi[i])^n)^-(1-1/n)
 }
 
+#berechnung des RMSE für jeden Parametersatz
 rmse<-apply(fit,1,function(x) RMSE(obs=th_norm,mod=x))
 
+#critischer RMSE wert auf dem der realistische Wertebereich der Parameter begrenzt wird
 crit<-0.085
+#alle RMSE-Werte die besser sind als crit
 rmsegood<-which(rmse<=crit)
+#bester RMSE
 bestrmse<-which.min(rmse)
 
-
+#Parameterranges für Ah1 bestimmen
 alpha_range_Ah1<-range(alpha[rmsegood])
 n_range_Ah1<-range(n[rmsegood])
 
+############################################
+#plot der Retentionskurve für Ah1
+############################################
+
+#die Retentionskurve beim Grenzwert für realistische alpha und n Werte mit 
+#für höher aufgelöstes psi berechnen damit die Kurve im Plot schön glat ist
 fit_min<-muafit(Ah1,alpha = min(alpha[rmsegood]),n=min(n[rmsegood]))[[1]]
 fit_max<-muafit(Ah1,alpha = max(alpha[rmsegood]),n=max(n[rmsegood]))[[1]]
+#die Retentionskurve des besten fits
 fit_best<-muafit(Ah1,alpha = max(alpha[bestrmse]),n=max(n[bestrmse]))[[1]]
 
+#um ein Polygon zu plotten wird fit_max rückwärts an fit_min gehängt
+#dann wird jeweils das obere und das untere Ende der Linien richtig verbunden
 fit_range<-rbind(fit_min,fit_max[order(fit_max$psi,decreasing = T),])
 
-Ah1_agr<-aggregate(Ah1$th_norm,list(Ah1$pf),mean)
-colnames(Ah1_agr)<-c("pf","th_norm")
-
+#plot der gemessenen Retentionskurven un der gefitteten Kurve 
 Ah1plot<-ggplot()+
   geom_polygon(data=fit_range,aes(th_mod,log10(-psi),fill=""),alpha=0.5)+
   geom_path(data=Ah1,aes(th_norm,pf,col="obs",linetype=MG_ID),show.legend = F)+
   geom_line(data=fit_best,aes(th_mod,log10(-psi),col="best fit"),size=1.4)+
   labs(x=expression(S[e]),y="pF")+theme_classic()+
   scale_colour_manual(name="",values = c("red",rep(grey(0.3),11)),labels=c("best fit",rep("obs",11)))+scale_fill_manual(name=paste0("RMSE<",crit),values = "grey")+scale_linetype_manual(values=rep(1,11))+annotate("text",x=0.8,y=c(3.15,3,2.85),label=c("best fit",paste(c("alpha","n")," = ",signif(c(alpha[bestrmse],n[bestrmse]),2))))
-Ah1plot
 
-
+#plot speichern
 Ah1plot+ggsave(paste0(plotpfad,"muafit.pdf"),width=6,height=4.5)
 
-########################################
-#paramter für Ah2 fitten
-#######################################
+###############################
+#Horizont Ah2
+#Bodenfeuchte (th), Sättigungswassergehalt (ths) und residualer Wassergehalt (thr)
+#sowie theta norm
+#der unterschiedlichen Proben bestimmen
+#############################
+
+#alle Proben aus Ah1 auswählen sheet 2
+#sheet 2 ist der datensatz im long format
 Ah2<-subset(soil.xls2,Horizon=="Ah2"&pf!=7)
+#sheet 3
 ths_Ah2<-subset(soil.xls,Horizon=="Ah2")
+
+#theta_s ist das Porenvolumen/100
 ths_Ah2$ths<-ths_Ah2$PV/100
 
+#theta ist der soilwatercontent/100
 Ah2$th<-Ah2$swc/100
-thr_Ah2<-Ah2[Ah2$pf==4.2,c(8,10)]
-colnames(thr_Ah2)<-c("MG_ID","thr")
-Ah2<-merge(Ah2,thr_Ah2)
 
+#theta_r ist theta bei pf 4.2
+thr_Ah2<-Ah2[Ah2$pf==4.2,c(8,10)]
+#spaltenname setzen
+colnames(thr_Ah2)<-c("MG_ID","thr")
+#theta_r an Datensatz anfügen
+Ah2<-merge(Ah2,thr_Ah2)
+#theta_s an Datensatz anfügen
 Ah2<-merge(Ah2,ths_Ah2[,c(1,42)])
+
+#Da keine Messungen für den Wassergesättigten boden vorliegen werden spalten mit th=ths bei pf=0 angefügt
 sat_Ah2<-data.frame(th=ths_Ah2$ths,ths=ths_Ah2$ths,MG_ID=ths_Ah2$MG_ID,pf=0,thr=ths_Ah2$swc_15000hPa/100)
+#NAs ausschneiden
 sat_Ah2<-sat_Ah2[!is.na(sat_Ah2$thr),]
+#die Werte für pf=0 werden dem Datensatz angefügt
 Ah2<-merge(Ah2,sat_Ah2,all=T)
 
+#Berechnung von theta_norm
 Ah2$th_norm<-(Ah2$th-Ah2$thr)/(Ah2$ths-Ah2$thr)
+#Berechnung von psi
 Ah2$psi<--10^Ah2$pf
 
-fit_Ah2_list<-vector("list",length(unique(Ah2$MG_ID)))
-coef_Ah2_list<-vector("list",length(unique(Ah2$MG_ID)))
+########################################
+#Paramter alpha und n für Ah1 fitten
+#######################################
 
-for (i in 1:length(unique(Ah2$MG_ID))){
-  
-  fit_Ah2_list[[i]]<-muafit(subset(Ah2,MG_ID==unique(Ah2$MG_ID)[i]))[[1]]
-  colnames(fit_Ah2_list[[i]])<-c("psi",unique(Ah2$MG_ID)[i])
-  coef_Ah2_list[[i]]<-muafit(subset(Ah2,MG_ID==unique(Ah2$MG_ID)[i]))[[2]]
-}
-
-coef_Ah2<-do.call("rbind",coef_Ah2_list)
-fit_Ah2<-Reduce(merge,fit_Ah2_list)
-fit_Ah2<-data.table::melt(fit_Ah2,id=1)
-colnames(fit_Ah2)<-c("psi","MG_ID","th_mod")
-
-ranges_Ah2<-apply(coef_Ah2,2,range)
-
+#aufsteigende sequenz von psi
 psi<-sort(unique(Ah2$psi))
 
+#Mittelwerte von theta norm für jedes psi
 th_norm<-tapply(Ah2$th_norm,Ah2$psi,mean)
 
+#sequenzen von alpha und n mit allen Kombinationen wie bei Ah1
 alpha<-rep(seq(0.05,4,len=n_parseq),n_parseq)
 n<-rep(seq(1.1,2,len=n_parseq),each=n_parseq)
+
+#Matrix für Retentionskurven
 fit<-matrix(NA,length(n),length(psi))
+#Schleife um Kurven zu berechnen
 for (i in 1:length(psi)){
+  #Berechnung der Van Genuchten Gleichung für i-ten Psi-Wert
   fit[,i]<-(1+(-alpha*psi[i])^n)^-(1-1/n)
 }
 
+#Berechnung des RMSE
 rmse<-apply(fit,1,function(x) RMSE(obs=th_norm,mod=x))
 
+#RMSE besser als crit auswähen
 rmsegood<-which(rmse<=crit)
+#bester RMSE
 bestrmse<-which.min(rmse)
 
+#realistischer Wertebereich von alpha und n im Ah2
 alpha_range_Ah2<-range(alpha[rmsegood])
-
 n_range_Ah2<-range(n[rmsegood])
 
+############################################
+#plot der Retentionskurve für Ah2
+############################################
+
+#die Retentionskurve beim Grenzwert für realistische alpha und n Werte mit 
+#für höher aufgelöstes psi berechnen damit die Kurve im Plot schön glat ist
 fit_min<-muafit(Ah2,alpha = min(alpha[rmsegood]),n=min(n[rmsegood]))[[1]]
 fit_max<-muafit(Ah2,alpha = max(alpha[rmsegood]),n=max(n[rmsegood]))[[1]]
 fit_best<-muafit(Ah2,alpha = max(alpha[bestrmse]),n=max(n[bestrmse]))[[1]]
 
+#um ein Polygon zu plotten wird fit_max rückwärts an fit_min gehängt
+#dann wird jeweils das obere und das untere Ende der Linien richtig verbunden
 fit_range<-rbind(fit_min,fit_max[order(fit_max$psi,decreasing = T),])
 
+#plot
 Ah2plot<-ggplot()+geom_polygon(data=fit_range,aes(th_mod,log10(-psi)),fill="grey",alpha=0.5)+geom_line(data=Ah2,aes(th_norm,pf,col=MG_ID))+geom_line(data=fit_best,aes(th_mod,log10(-psi)))+labs(x=expression(theta[norm]),y="pF")+theme_classic()
 
 Ah2plot
-gridExtra::grid.arrange(Ah1plot,Ah2plot,ncol=2)
 
+##########################################
+#realistische Wertebereich weiterer Bodenparameter
+##################################
+
+###########
+#theta r und theta s
+#Grenzwerte von thr und ths für Ah1 und Ah2 entspricht dem Wertebereich der Messungen
 thr<-range(Ah1$thr)
 thr2<-range(Ah2$thr)
 ths<-range(Ah1$ths)
 ths2<-range(Ah2$ths)
 
-alpha<-ranges_Ah1[,1]
-alpha2<-ranges_Ah2[,1]
+############
+#Diffusivität
 
-n<-ranges_Ah1[,2]
-n2<-ranges_Ah2[,2]
-
-#The free-air diffusivity of CO2 is 0.152 cm2 s−1
+#Die Diffusivität in freier Luft von  CO2 ist 0.152 cm2 s−1 also 9.12 cm2/min
 D0<-0.152*60
 
+#epsilon als Luftgehalt bei trockenem Boden pf=4.2
 eps<-range(soil.xls$air_15000hPa[soil.xls$Horizon%in%c("Ah1","Ah2")],na.rm = T)/100
 
+#Zusammenhang zwischen epsilon und DS/D0 aus Maier et al. 2012
 DispA<-1.5*eps^2.74*D0
+#In Hydrus heißt Diffusionskoeffizient von CO2 in Luft DispA
+#nicht klar ob effektive Diffusivität im Boden (DS) oder Diffusivität in freier Luft (D0)
+#laut Hilfe funktion aber eher zweiteres demnach:
+DispA<-9.54
 
-#ptf from Moldrup et al.
+#Pedotransferfunktion von Moldrup et al. 2001 für die Berechnung von DS
 ths_dist<-0.45
 Ds_max<-ths_dist^1.5*D0
 
+####################
+#KS Wert
 
-bulks<-t(aggregate(soil.xls$Dichte,list(soil.xls$Horizon),function(x) range(x,na.rm = T))[1:2,][2])
-
-#tabellenwerte für ks matrix cm/min von silt loam bis sandy loam
-#carsel parrish 1988
+#tabellenwerte für ks der Bodenmatrix in cm/min für silt loam bis sandy loam
+#carsel parrish (1988)
 ks_range<-c(0.45/60,4.42/60)
+
+
+##############################################
+#einschätzen ob KS realistisch ist 
+#über den zeitlichen Versatz der Bodenfeuchtepeaks mit der Tiefe
 
 #daten einladen
 load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
 r<-7.5#cm Radius
 A<-pi*r^2#cm2 area
-lapply(all_list,function(x) max(x$q,na.rm=T)/A)#cm3/min
 
+############
+#1. Ansatz
 #zeitdifferenz zwischen der negativsten steigung von theta in tiefe -14 und -10 
 #zur abschätzung der gesättigten wasserleitfähigkeit
 
+#mehrere plots nebeneinander ermöglichen
 par(mfrow=c(2,2))
+#vektor um die Zeitdifferenz zu speichern
+ks_peak_diff<-1:4
+#schleife um Zeitdifferenz für unterschiedliche Events zu berechnen
+#die ersten vier Events haben eine hohen Intensität und eignen sich dafür
  for (i in 1:4){
+   #subset der unteren beiden Tiefenstufen
    x<-subset(all_list[[i]],tiefe%in%c(-10,-14))
-peak14cm<-x$date[x$tiefe==-14][which.min(diff(x$theta[x$tiefe==-14]))-1]
-peak10cm<-x$date[x$tiefe==-10][which.min(diff(x$theta[x$tiefe==-10]))-1]
-plot(x$date,x$theta)
-points(peak10cm,x$theta[x$date==peak10cm&x$tiefe==-10],col=2)
-points(peak14cm,x$theta[x$date==peak14cm&x$tiefe==-14],col=3)}
-par(mfrow=c(1,1))
+   #zeitpunkt der höchsten Steigung in tiefe -14
+   peak14cm<-x$date[x$tiefe==-14][which.min(diff(x$theta[x$tiefe==-14]))-1]
+   #zeitpunkt der höchsten Steigung in tiefe -10
+   peak10cm<-x$date[x$tiefe==-10][which.min(diff(x$theta[x$tiefe==-10]))-1]
+   
+   #Zeitdifferenz zwischen den Peaks bestimmen
+   ks_peak_diff[i]<-4/as.numeric(difftime(peak14cm,peak10cm,units = "min"))
+   #plot von theta
+   plot(x$date,x$theta,xlab=i)
+   #visualisierung der ausgewählten punkte
+   points(peak10cm,x$theta[x$date==peak10cm&x$tiefe==-10],col=2)
+   points(peak14cm,x$theta[x$date==peak14cm&x$tiefe==-14],col=3)}
+#die negativste Steigung eignet sich bei den ersten beiden Events um den Zeitversatz auszuwählen
 
+############
+#2. Ansatz
 #zeitdifferenz zwischen erstem wert mit negativerer steigung als 0.001 der höchstens 
 #0.1 kleiner ist als der peak
+
+#vektor um die Zeitdifferenz zu speichern
 ks_peak_diff2<-1:4
-par(mfrow=c(2,2))
+
+#schleife um Zeitdifferenz mit dem zweiten Ansatz zu berechnen
 for (i in 1:4){
+  #subset der unteren beiden Tiefenstufen
   x<-subset(all_list[[i]],tiefe%in%c(-10,-14)&!is.na(theta))
+  #subsets mit jeweils nur einer tiefenstufe
   x10<-subset(x,tiefe==-10)
   x14<-subset(x,tiefe==-14)
   
+  #Zeitpunkte an dem die voraussetzungen erfüllt sind für -14 cm
   peak14cm<-x14$date[c(0,diff(x14$theta))<(-0.001)&x14$theta-max(x14$theta)>-0.1][1]
+  #und für -10 cm
   peak10cm<-x10$date[c(0,diff(x10$theta))<(-0.001)&x10$theta-max(x10$theta)>-0.1][1]
+  #Zeitdifferenz zwischen den Peaks bestimmen
   ks_peak_diff2[i]<-4/as.numeric(difftime(peak14cm,peak10cm,units = "min"))
-  plot(x$date,x$theta)
+  #visualisieren um zu prüfen ob das auswahlkriterium gut ist
+  plot(x$date,x$theta,xlab=i)
   points(peak10cm,x10$theta[x10$date==peak10cm],col=2)
   points(peak14cm,x14$theta[which(x14$date==peak14cm)],col=3)
-  }
+}
+#auswahl ist bei allen Events recht passend
 par(mfrow=c(1,1))
 
-ks_peak_diff<-lapply(all_list,function(x) 4/as.numeric(difftime(x$date[x$tiefe==-14][which.min(diff(x$theta[x$tiefe==-14]))],x$date[x$tiefe==-10][which.min(diff(x$theta[x$tiefe==-10]))],units="min")))[1:4]
-
-#die ranges sind ungefähr im selben Werte beirech
+#die ranges vom KS aus carsel & Parish sind ungefähr im selben Werte Bereich 
+#wie die über den Peakversatz bestimmten
 range(ks_peak_diff)#cm/min
 range(ks_peak_diff2)#cm/min
-
 ks_range#cm/min
 
+###########################################
+#Datensatz mit realistischen Wertebereichen
+#
+#für den ungestörten Boden
+#Bestimmung von p_opt siehe script respiration.R
+realistic_ranges<-data.frame(alpha=alpha_range_Ah1,alpha2=alpha_range_Ah2,n=n_range_Ah1,n2=n_range_Ah2,p_opt=c(0.00015,0.00022),ks=ks_range,ks2=ks_range)
 
-realistic_bulk<-data.frame(bulk=bulks[,1],bulk2=bulks[,2],cec=c(100,500))
-#colnames(realistic_bulk)<-c("bulk","bulk2")
 
+#und für den gestörten Boden
+realistic_ranges_dist<-data.frame(alpha=c(0.02,0.075),alpha2=c(0.02,0.075),n=c(1.41,1.89),n2=c(1.41,1.89),p_opt=c(0.00019,0.00026),ks=ks_range,ks2=ks_range)
+#DispA=c(0.5,Ds_max)
 
-
-realistic_ranges<-data.frame(alpha=alpha_range_Ah1,alpha2=alpha_range_Ah2,n=n_range_Ah1,n2=n_range_Ah2,p_opt=c(0.00015,0.00022),DispA,ks=ks_range,ks2=ks_range)
-
-
-#tabellenwerte für ks matrix cm/min von silt loam bis sandy loam
-#carsel parrish 1988
-realistic_ranges_dist<-data.frame(alpha=c(0.02,0.075),alpha2=c(0.02,0.075),n=c(1.41,1.89),n2=c(1.41,1.89),p_opt=c(0.00019,0.00026),ks=ks_range,ks2=ks_range,DispA=c(0.5,Ds_max))
-
+#speichern des Datensatzes
 save(realistic_ranges,realistic_bulk,realistic_ranges_dist,file=paste0(soilpfad,"ranges.R"))
 
+#tabelle für LATEX erstellen
 library(xtable)
-tabelle1<-cbind(0.75,0.11,realistic_ranges[c(1,4,7,8,9)],realistic_bulk$bulk)
-tabelle2<-cbind(0.64,0.13,realistic_ranges[c(2,5,7,8,9)],realistic_bulk$bulk2)
-print(xtable((tabelle1)),include.rownames = F)
-print(xtable((tabelle2)),include.rownames = F)
-xtable(realistic_bulk)
+tabelleAh1<-cbind(th2=0.75,thr=0.11,realistic_ranges[,c(1,3,5:7)])
+tabelleAh2<-cbind(ths=0.64,thr=0.13,realistic_ranges[,c(2,4:7)])
+tabelle_dist<-cbind(ths=0.45,thr=0.067,realistic_ranges_dist[,c(1,3,5:6)])
+
+print(xtable((tabelleAh1)),include.rownames = F)
+print(xtable((tabelleAh2)),include.rownames = F)
+print(xtable((tabelle_dist)),include.rownames = F)

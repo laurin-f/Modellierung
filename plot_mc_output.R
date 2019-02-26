@@ -362,6 +362,16 @@ caplt+
 #############################################
 #
 
+loadfile<-"mc_60000-realistic_free_ks"
+load(file = paste0(mcpfad,loadfile,".R"))
+par<-mc[[2]]
+rmse<-mc[[1]]
+pars<-par[which.min(rmse),]
+pars$DispA<-9.54
+pars$p_distr<-0.2
+par[which.min(rmse),]<-pars
+mc[[2]]<-par
+save(mc,file=paste0(mcpfad,loadfile,"_DA.R"))
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-both_realistic_free_ks_kinsol" ,dtmax = 10,kin_sol = T,ndottys = 10000,plot = T)
 
@@ -374,7 +384,8 @@ mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000_-fit_ca_realistic_free_
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_59995_realistic_fix_p_dis",dtmax = 0.01,Nboot = 0)
 
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-realistic_free_ks",dtmax = 10,kin_sol = T,plot = T)
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-realistic_free_ks_DA",dtmax = 10,kin_sol = T,plot = T)
+rmse_co2
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-fitca_realistic_free_ks",dtmax = 10,plot=T)
 

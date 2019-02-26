@@ -5,22 +5,16 @@
 hydrus.exe<-function(file="undisturbed",#auf welche datei soll hydrus zugreifen
                      #pfad zum powershell script in dem auf die .exe zugegriffen wird
                      scriptpath="C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/",
-                     #pause zwischen programm starten und schließen
-                     sleep=3,
                      #wenn UNSC=T wird das modul UNSATCHEM zur modellierung von CO2 
                      #und Hauptionen verwendet
                      UNSC=T,
                      #wenn taskkill=T dann wird das fenster von hydrus nicht geöffnet 
-                     #und das modell wird nach der gesetzten sleeptime abgebrochen, 
+                     #das modell läuft dann im hintergrund
                      #wichtig für Monte Carlo
                      taskkill=F,  
-                     #pfade definieren
-                     #hydruspfad="C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/",
+                     #programmpfad von hydrus definieren
                      programmpfad="C:/Users/ThinkPad/Documents/Masterarbeit/programme/Hydrus-1D_4/",
-                     #wenn Inverse=T wird die inverse Parameterschätzung verwendet 
-                     #funktioniert nicht so gut)
-                     Inverse=F,
-                     wait=T){
+                     wait=F){
 
 
   
@@ -37,11 +31,16 @@ hydrus.exe<-function(file="undisturbed",#auf welche datei soll hydrus zugreifen
   #wenn taskkill==T wird das Powershellscript mit dem eingebauten taskkill befehl verwendet
   if(taskkill==T){
     #.txt mit vorlage für Powershell-Code lesen
+    #darin steht:
+    #cd "programmpfad"
+    #start H1D_UNSC.EXE
     script<-readLines(paste0(scriptpath,"hydrus_exe.txt"))  
-    #im Powershell-Code wird die gewünschte sleeptime eingefügt
-    script<-sub("secs",sleep,script) 
+
   }else{
     #wenn kein taskkill gewünscht dann wird die .txt ohne taskkill genommen
+    #darin steht:
+    #cd "programmpfad"
+    #start H1D_UNSC.EXE  -WindowStyle Hidden
     script<-readLines(paste0(scriptpath,"hydrus_exe2.txt"))
   }
 
@@ -52,10 +51,6 @@ hydrus.exe<-function(file="undisturbed",#auf welche datei soll hydrus zugreifen
     #wird im Code UNSC durch CALC ersetzt 
     #da die .exe dateien von Hydrus UNSC.EXE und CALC.EXE heißen
     script<-sub("UNSC","CALC",script)}
-  if(Inverse==T){
-    #für Inverse Solution wird CALC durch CLCI ersetzt (CALCInverse)
-    script<-sub("CALC","CLCI",script)
-  }
   
   scriptname<-ifelse(UNSC==T,"hydrus_UNSC_exe.ps1","hydrus_CALC_exe.ps1")
   #der Powershell-Code wird in einer scriptdatei .ps1 gespeichert
@@ -65,20 +60,17 @@ hydrus.exe<-function(file="undisturbed",#auf welche datei soll hydrus zugreifen
   #über  shell wird der Commandline übergeben, dass powershell das script ausführen soll
   #-executionpoloicy bypass wird verwendet, 
   #da im powershell im default keine scripte ausführen darf
-  shell(paste0("powershell.exe -noprofile -executionpolicy bypass -file ",programmpfad,scriptname),wait=wait)}#ende function
+  system(paste0("powershell.exe -noprofile -executionpolicy bypass -file ",programmpfad,scriptname),wait=wait,show.output.on.console=F)}#ende function
 
 
 ######################################
 #function to set atmospheric input
 
-atmos.in<-function(int=0,#Niederschlagsintensität in mm/h
-                   event=0,#länge des Events in min 
-                   total_t=4000,#zu simulierender Gesamtzeitraum in min
-                   alle=F,#wenn alle = T dann werden alle Events verwendet
+atmos.in<-function(total_t=4000,#zu simulierender Gesamtzeitraum in min
                    obs=all,#messungen um eventzeitraum festzulegen
-                   projektpfad=projektpfad1){#pfad zum hydrus projekt
-  #wenn alle ==T...
-  if(alle==T){
+                   projektpfad=projektpfad1,#pfad zum hydrus projekt
+                   mainpath="C:/Users/ThinkPad/Documents/Masterarbeit/"){
+
     #einlesen der von hydrus erstellten Armospären Input Datei
     lines<-readLines(paste0(projektpfad,"ATMOSPH.IN"))
     
@@ -107,7 +99,7 @@ atmos.in<-function(int=0,#Niederschlagsintensität in mm/h
 
     
     #Verdunstung wird aus der .csv mit den Messungen ermittelt und als konstant angenommen
-    evaps<-read.csv("C:/Users/ThinkPad/Documents/Masterarbeit/daten/events/verdunstung.csv",sep=";")
+    evaps<-read.csv(paste0(mainpath,"daten/events/verdunstung.csv"),sep=";")
     #radius des Messbechers der für die Messung verwendet wurde
     radius<-9/2
     #der Verdunstung ausgesetzte Fläche
@@ -126,22 +118,6 @@ atmos.in<-function(int=0,#Niederschlagsintensität in mm/h
     
     #Anfang Werte und Ende des Inputs werden wieder zusammengefügt
     lines<-c(head,vals,tail)
-    
-    }else{#wenn alle==F...
-  
-  #die übergeben intensität in cm/min umrechnen
-  int_cm_min<-int/10/60
-  
-  #die Vorlage für die Input datei wird eingelesen
-  lines<-readLines("C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/ATMOSPHtemp.IN")
-  #an der Stelle event wird die Länge des Events eingetragen
-  lines<-sub("event",event,lines)
-  #stop ist eine minute nach dem Event
-  lines<-sub("stop",event+1,lines)
-  #der Gesamtzeitraum wird eingefügt
-  lines<-sub("total_t",total_t,lines)
-  #die Intensität wird übergeben
-  lines<-gsub("int",int_cm_min,lines)}#ende if else Schleife "alle"
   
   #die Inputdatei wird in den Ordner der Projektes geschrieben
   writeLines(lines,paste0(projektpfad,"ATMOSPH.IN"))}
@@ -156,7 +132,7 @@ selector.in<-function(params,#Boden parameter als data.frame mit Parameternamen 
                       tmax=4000,#Gesamtzeitraum
                       print_times=100,#anzahl an ausgaben der Calcium conc.
                       #soll als lower Boundary Free Drain oder Seepage Face verwendet werden
-                      free_drain=F,
+                      free_drain=T,
                       kin_sol=F,
                       dtmin=0.0001,#kleinster Zeitschritt
                       dtmax=10){#größter Zeitschritt
@@ -371,7 +347,6 @@ NSE<-function(obs,mod){
 
 
 read_hydrus.out<-function(obs=all,#Messungen
-                          treat=17,#Regenintensität oder "all"
                           projektpfad=projektpfad1,
                           UNSC=T,#wurde UNSATCHEM benutzt oder nicht
                           #Tiefen die Benutzt werden um objective Function zu ermitteln
@@ -441,23 +416,17 @@ read_hydrus.out<-function(obs=all,#Messungen
       #Spaltennamen anpassen
       colnames(vals_mod)<-c("t_min","tiefe","theta_mod")
     }
+    
     #die Modellierten Werte werden auch mit den Abflusswerten zusammengeführt
     vals_mod<-merge(vals_mod,q_mod,all=T)
     
-    #wenn alle Events verwendet werden
-    if(treat=="all"){
-      #relevante spalten des Datensatzes der Messungen werden ausgeschnitten
-      sub<-obs[,c(1:3,6,11,15,17)]
+    #relevante spalten des Datensatzes der Messungen werden ausgeschnitten
+    sub<-obs[,c(1:3,6,11,15,17)]
       
       
-      #t_min als Zeit nach Event 1 in Minuten
-      event1<-min(which(sub$rain_mm_h>0))
-      sub$t_min<-as.numeric(difftime(sub$date,sub$date[event1],units = "min"))
-      
-      
-    }else{#wenn treat nicht "all" ist
-      #wird die Messungen mit der gewünschten Niederschlagsintensität verwendet
-      sub<-subset(obs,treatment==treat&tiefe%in%tiefenstufen)}
+    #t_min als Zeit nach Event 1 in Minuten
+    event1<-min(which(sub$rain_mm_h>0))
+    sub$t_min<-as.numeric(difftime(sub$date,sub$date[event1],units = "min"))
     
     #Zeitintervall auf 10 minuten Werte kürzen um rechenzeit zu sparen
     sub<-sub[sub$t_min%%10==0,]
@@ -618,17 +587,22 @@ read_Nod_inf.out<-function(projektpfad=projektpfad1,
   pIAPc<-as.numeric(substr(Equil.out[pos_vals2],87,92))
   
   #dassselbe für die gewünschten anderen Variablen
+  #pH-wert
   substr(Equil.out[pos_vals2-3][1],55,62)
   pH<-as.numeric(substr(Equil.out[pos_vals2],58,61))
   
+  #Calcium in der festphase
   substr(solid.out[pos_vals3-2][1],17,24)
   Ca_solid<-as.numeric(substr(solid.out[pos_vals3],17,24))
-
+  
+  #calcium an oberflächen
   substr(solid.out[pos_vals3-2][1],70,80)
   Ca_surf<-as.numeric(substr(solid.out[pos_vals3],71,78))
     
+  #tiefenstufen
   tiefe<-na.omit(as.numeric(substr(lines[pos_vals],8,10)))
   
+  #CO2 Produktion
   chars<-nchar(lines[pos_vals])[1]
   P_mod<-na.omit(as.numeric(substr(lines[pos_vals],chars-9,chars)))
   
@@ -638,8 +612,9 @@ read_Nod_inf.out<-function(projektpfad=projektpfad1,
   #Sättigungsindex berechnen
   #das Sättigungsprodukt von calcium beträgt 10^-845
   SI<-log10(IAP/10^-8.453)
-  #ein paar ausreißer die  zu NAs 
+  #ein paar ausreißer am anfang als NAs überschreiben 
   SI[SI>2]<-NA
+  
   #die Variablen in einen Dataframe zusammenfügen
   #da jede variable für jeden zeitschritt in 9 tiefen ausgegeben wird 
   #wird jeder zeitschritt 9-mal in den Datensatz geschrieben
@@ -680,39 +655,25 @@ read_Nod_inf.out<-function(projektpfad=projektpfad1,
 
 
 hydrus<-function(params,
-                 treat="all",#intensität oder "all"
                  UNSC=T,#UNSATCHEM modul an/aus
                  obs=all,#Messwerte
-                 sleep=3,#sleeptime für die .exe
                  read=T,#soll der output gelesen werden
                  free_drain=T,#soll free drainage lower boundary condition sein
-                 taskkill = F,
-                 inverse=F,#soll Inverse Solution verwendet werden dann =T
-                 dtmin=0.0001,
-                 dtmax=10,
-                 n_nodes=9,
-                 Mat=c(rep(1,3),rep(2,5),3),
-                 print_times = 2000,
-                 kin_sol=F,
-                 min_nrows=2200,
-                 traintime=4500){
-  #wenn treat ="all"
-  if(treat=="all"){
+                 taskkill = F,#soll das hydrus fenster offen sein
+                 dtmin=0.0001,#minimaler zeitschritt
+                 dtmax=10,#maximaler zeitschritt
+                 n_nodes=9,#knoten im modell
+                 Mat=c(rep(1,3),rep(2,5),3),#verteilung der horizonte
+                 print_times = 2000,#zeiten zu denen output ausgegeben wird
+                 kin_sol=F,#soll kinetic solution angewendet werden
+                 min_nrows=100,#mindestanzahl reihen im output
+                 traintime=4500){#länge der warm-up-period
+
     #wird für tmax  die zeitdifferenz vom ersten zum letzten Messwert in minuten verwendet
     tmax<-as.numeric(difftime(max(obs$date),min(obs$date),units = "min"))
-    #t_event wird dann nicht gebraucht
-    t_event<-NULL
-    #alle auf TRUE gesetzt
-    alle<-T
+
+
     
-  }else{#wenn treat nicht "all" ist
-    #berechnung von t_event
-    t_event<-round(50/treat*60)
-    #tmax wird gesetzt
-    tmax<-6000
-    #alle auf FALSE gesetzt
-    alle<-F
-  }
   
   #projektpfad wird abhängig von UNSC == T/F gewählt
   pfad<-ifelse(UNSC==T,"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/undisturbed/","C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/undisturbed2/")
@@ -722,7 +683,7 @@ hydrus<-function(params,
   
   #atmos.in funktion ausführen
   #hydruspfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/"
-  atmos.in(int=treat,event = t_event,total_t = tmax,alle=alle,projektpfad = pfad,obs=obs)
+  atmos.in(total_t = tmax,projektpfad = pfad,obs=obs)
   
   #selector.in funktion ausführen
   selector.in(params=params,
@@ -739,13 +700,11 @@ hydrus<-function(params,
   file<-ifelse(UNSC==T,"undisturbed","undisturbed2")
   
   #hydrus.exe ausführen
-  hydrus.exe(file = file,UNSC=UNSC,sleep = sleep,Inverse = inverse,taskkill = taskkill)
+  hydrus.exe(file = file,UNSC=UNSC,taskkill = taskkill)
   
-  #wenn kein Taskkill verwendet werden soll
-  if(taskkill==F){
     Sys.sleep(3)
     #funktion um CPU auslastung von hydrus zu bestimmen
-  check_CPU<-function(){
+  check_CPU2<-function(){
     #liste abfragen in der der Name und die CPU aller laufender Prozesse steht
     tasklist<-system("wmic path Win32_PerfFormattedData_PerfProc_Process get Name,PercentProcessorTime",intern=T)
     #die strings in der liste bei mindestens zwei leerzeichen auseinanderschneiden
@@ -767,26 +726,42 @@ hydrus<-function(params,
       }#ende if length H1D >0
   }#ende check_CPU funktion
   
-  check_CPU()
-  Sys.sleep(1)
+  #CPU checken
+  check_CPU2()
+  #kurz warten
+  #Sys.sleep(1)
+  #hydrus schließen
   system("taskkill /IM H1D_UNSC.EXE",show.output.on.console=F)
-  
-}#ende if taskkill==F
+
   #wenn read  = TRUE den output einlesen ...
   if(read==T){
-  co2_out<-read_hydrus.out(treat = treat,projektpfad = pfad,UNSC=UNSC,obs=obs,min_nrows=min_nrows,traintime = traintime)
+  #output für co2 q und theta mit read_hydrus.out einlesen
+  co2_out<-read_hydrus.out(projektpfad = pfad,UNSC=UNSC,obs=obs,min_nrows=min_nrows,traintime = traintime)
+  #das erste listenelement enthält die Ganglinien
   out<-co2_out[[1]]
+  #das zweite Listenelement enthält den RMSE
+  #durch teilen durch den sd wird RMSE norm bestimmt
   rmse_co2<-co2_out[[2]]/sd(out$CO2_raw,na.rm = T)
+  
+  #ca output mit read_conc.out einlesen
   ca_out<-read_conc.out(projektpfad = pfad,obs=obs)
+  #das erste listenelement enthält die Ganglinien
   out_ca<-ca_out[[1]]
+  #das zweite Listenelement enthält den RMSE
+  #durch teilen durch den sd wird RMSE norm bestimmt
   rmse_ca<-ca_out[[2]]/sd(out_ca$ca_conc,na.rm = T)
+  #der mittelwerte von RMSE_co2 und RMSE_ca ist RMSE_both
   rmse_both<-(rmse_co2+rmse_ca)/2
   
+  #die RMSE-werte in die Globale Environment speichern 
   assign("rmse_co2",rmse_co2,envir = .GlobalEnv)
   assign("rmse_ca",rmse_ca,envir = .GlobalEnv)
   assign("rmse_both",rmse_both,envir = .GlobalEnv)
   
+  #co2-Produktion und flux sowie calcit Lösung mit read_Nod_inf.out einlesen
   out_P<-read_Nod_inf.out(projektpfad = pfad,obs=obs)
+  
+  #Datensätz mit messungen und modellierten Werten zusammenführen
   out2<-merge(out,out_ca,all=T)
   out2<-merge(out2,out_P,all=T)
   #und ausgeben

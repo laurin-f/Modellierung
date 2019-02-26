@@ -18,7 +18,6 @@ obs=all_s
 mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
                  loadfile,#Dateiname des MC-Laufs ihne ".R" Endung
                  ndottys=10000,#die wieviel besten Modellläufe sollen bei den Dottyplots gezeigt werden
-                 fit.ca=F,#wurde an calcium output gefittet
                  dtmax=10,#maximaler zeitschritt
                  obs=all_s,#Messung mit der das Modell verglichen wird
                  Probe="undist",#wurde die gestörte oder die ungestörte Probe benutzt
@@ -50,11 +49,6 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   #datensatz mit realistischen Grenzwerten der Parameter laden
   load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/bodenparameter/ranges.R")
   
-  #falls nach calcium gefittet wurde werden andere Parameter verwendet
-  if(fit.ca==T){
-    realistic_ranges<-realistic_bulk 
-  }
-  
   #wenn der Datensatz für den gestörten Boden verwendet wird 
   #werden die Parameter Grenzwerte für den gestörten Boden verwendet
   if(nrow(obs)==nrow(alldist_s)){
@@ -82,8 +76,6 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   #mit function das Modell ausführen und output laden
   out<-hydrus(params = pars,
               UNSC=T,
-              sleep = 8,
-              treat = "all",
               taskkill=F,
               free_drain=T,
               print_times = 2000,
@@ -145,7 +137,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     mat<-str_extract(colnames(par),"2|3")
     #überall wo keine tiefe angegeben ist wird 1 eingetragen
     EET$Mat<-ifelse(is.na(mat),"1",mat)
-    if(fit.ca==F){
+
     #Farben für die  Parameter angeben
     colors<-factor(EET$par,labels = setNames(c(2:6,"orange","darkgreen"),unique(EET$par)))
     colors<-as.character(colors)
@@ -157,16 +149,6 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
 
     #Namen der Parameter als Expression
     names<-c(expression(alpha[1],alpha[2],D[a],h[opt],K[S1],K[S2],K[S3],n[1],n[2],P[distr],P[opt]))
-    }else{
-      #Farben für die  Parameter angeben
-      colors<-factor(EET$par,labels = setNames(c(2:6,"orange","darkgreen"),unique(EET$par)))
-      colors<-as.character(colors)
-      
-      #shapes für  die Tiefenstufen angeben  
-      shapes<-factor(EET$Mat,labels = setNames(c(16,17),unique(EET$Mat)))
-      shapes<-as.numeric(as.character(shapes))
-    names<-sort(colnames(par))
-    }
 
     
     if(Nboot==1){    
