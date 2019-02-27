@@ -35,6 +35,24 @@ fixed<-data.frame(thr=0.11,
                   CaAds=500,
                   CaPrec=500)
 
+fixed_da<-data.frame(thr=0.11,
+                  ths=0.75,
+                  thr2=0.13,
+                  ths2=0.64,
+                  thr3=0.13,
+                  ths3=0.64,
+                  hseep=0,
+                  l=0.5,
+                  bulk=0.7561984,
+                  bulk2=1.1480438,
+                  difuz=0,
+                  disperl=1.7,
+                  cec=140,#aus scheffer schachtschabel tabelle parabraunerde KAKeff
+                  calcit=0.2,
+                  CaAds=500,
+                  CaPrec=500,
+                  DispA=9.54)
+
 fixed_dist<-data.frame(thr=0.067,
                        ths=0.45,
                        thr2=0.067,
@@ -85,7 +103,7 @@ for(i in 1:length(loadfiles_undist)){
   mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = c(1,10,10)[i],Nboot = 100,kin_sol = T,plot=T,ndottys = 10000)
 }
 for(i in 1:length(loadfiles_undist)){
-  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = c(1,10,10)[i],Nboot = 100,kin_sol = F,plot=F)
+  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = c(1,10,10)[i],Nboot = 100,kin_sol = F,plot=T)
 }
 
 
@@ -387,6 +405,10 @@ mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_59995_realistic_fix_p_dis",dt
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-realistic_free_ks_DA",dtmax = 10,kin_sol = T,plot = T)
 rmse_co2
 
+mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_temp",dtmax = 10,kin_sol = F,plot = T,Mat = c(rep(1,4),rep(2,4),3))
+
+mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_5500-free_ranges_DA",dtmax = 10,kin_sol = F,plot = T,Mat = c(rep(1,4),rep(2,4),3),ndottys = 1000)
+
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-fitca_realistic_free_ks",dtmax = 10,plot=T)
 
 mc_out(fixed=cbind(fixed_dist,fixed_co2),loadfile = "mc_120000-free_dist",dtmax = 10,obs=alldist_s)
@@ -470,4 +492,3 @@ rownames(pars)<-stringr::str_replace_all(rownames(pars),"_"," ")
 pars<-pars[order(rownames(pars)),]
 pars<-pars[,order(colnames(pars))]
 xtable::xtable(t(pars))
-

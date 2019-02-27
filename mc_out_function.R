@@ -24,7 +24,8 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
                  kin_sol=F,
                  Nboot=100,
                  traintime=4500,
-                 plot=F){#Anzahl an Bootstrapping-Läufen
+                 plot=F,
+                 Mat=c(rep(1,3),rep(2,5),3)){#Anzahl an Bootstrapping-Läufen
   
   #definieren der Pfade
   mcpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/"
@@ -83,7 +84,8 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
               obs=obs,
               min_nrows=100,
               kin_sol=kin_sol,
-              traintime=traintime)
+              traintime=traintime,
+              Mat=Mat)
   
   #tiefe von factor in numeric
   out$tiefe<-as.numeric(out$tiefe)
@@ -115,9 +117,9 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   mc_type<-stringr::str_replace(loadfile,"mc_\\d+(_|-)","")
   
   #X, Y und range als .csv abspeichern um die EE-Funktion auch in Matlab zu testen
-  write.table(X,paste0(mcpfad,"X",mc_type,".csv"),row.names = F,col.names = F,sep=",")
-  write.table(Y,paste0(mcpfad,"Y",mc_type,".csv"),row.names = F,col.names = F,sep=",")
-  write.table(range,paste0(mcpfad,"range",mc_type,".csv"),row.names = F,col.names = F,sep=",")
+  #write.table(X,paste0(mcpfad,"X",mc_type,".csv"),row.names = F,col.names = F,sep=",")
+  #write.table(Y,paste0(mcpfad,"Y",mc_type,".csv"),row.names = F,col.names = F,sep=",")
+  #write.table(range,paste0(mcpfad,"range",mc_type,".csv"),row.names = F,col.names = F,sep=",")
   
   #wenn kein Bootstrapping gemacht wird
 
@@ -139,7 +141,8 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     EET$Mat<-ifelse(is.na(mat),"1",mat)
 
     #Farben für die  Parameter angeben
-    colors<-factor(EET$par,labels = setNames(c(2:6,"orange","darkgreen"),unique(EET$par)))
+    colorscale<-c(2:6,"orange","darkgreen")[1:length(unique(EET$par))]
+    colors<-factor(EET$par,labels = setNames(colorscale,unique(EET$par)))
     colors<-as.character(colors)
     
     #shapes für  die Tiefenstufen angeben  
@@ -149,7 +152,9 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
 
     #Namen der Parameter als Expression
     names<-c(expression(alpha[1],alpha[2],D[a],h[opt],K[S1],K[S2],K[S3],n[1],n[2],P[distr],P[opt]))
-
+    if(length(names)!=ncol(par)){
+      names<-names[-3]
+    }
     
     if(Nboot==1){    
       #Ergebnisse plotten
@@ -247,10 +252,10 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
       labs(x=expression(P[distr]),y="RMSE",col=expression(P[opt]))
 
     DispA<-ggplot(dotty_rmse)+
-      geom_rect(data=subset(realistic_range,variable=="DispA"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
       geom_point(aes(DispA,rmsegood,col=p_distr),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))+
       theme_classic()+
-      labs(x=expression(D[A]),y="",col=expression(P[distr]))
+      labs(x=expression(D[A]),y="",col=expression(P[distr]))#+
+      #geom_rect(data=subset(realistic_range,variable=="DispA"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")
 
     n2_plt<-ggplot(dotty_rmse)+
       geom_rect(data=subset(realistic_range,variable=="n2"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
@@ -292,9 +297,9 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   
   #Labels erstellen
   #lbls<-sort(paste(colnames(pargood),"best =",signif(pargood[which.min(rmsegood),],2)))
-  parnames<-expression(alpha[1],alpha[2],D[A],h[opt],K[S1],K[S2],K[S3],n[1],n[2],P[distr],P[opt])
-  lbls<-parnames[pmatch(sort(colnames(pargood)),sort(colnames(par)))]
-  lbls2<-parnames[pmatch(sort(colnames(realistic_ranges)),sort(colnames(par)))]
+  parnames<-names#expression(alpha[1],alpha[2],D[A],h[opt],K[S1],K[S2],K[S3],n[1],n[2],P[distr],P[opt])
+  lbls<-names[pmatch(sort(colnames(pargood)),sort(colnames(par)))]
+  lbls2<-names[pmatch(sort(colnames(realistic_ranges)),sort(colnames(par)))]
   #Datensatz ins long-format bringen
   dotty_melt<-data.table::melt(dotty_rmse,id=1)
   dotty_melt$variable<-as.character(dotty_melt$variable)

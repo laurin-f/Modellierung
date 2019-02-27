@@ -475,12 +475,17 @@ read_hydrus.out<-function(obs=all,#Messungen
 #function to set read Hydrus concentration outputfile
 
 read_conc.out<-function(projektpfad=projektpfad1,
-                           obs=all_s){
+                           obs=all_s,min_nrows=100){
   #Anzahl Felder im Output zählen
   fields<-count.fields(paste0(projektpfad,"Obs_Node_Ch.out"),blank.lines.skip = F,skip=5)
   #die letzte Reihe die Eingelesen werden soll ist die letzte die 51 Elemente hat 
   #-2 weil auch eine Reihe beim Header draufgeht 
-  nrows<-which(fields!=51)-2
+  #wenn Spaltenzahl teilweise von der erwarteten abweicht ist 
+  #nrows die Reihe mit der ersten Abweichung von ncols -2
+  #sonst entspricht nrow der Reihenzahl der .out datei 
+  ncols<-51
+  nrows<-ifelse(length(which(fields!=ncols))!=0,which(fields!=ncols)[1]-2,length(fields))
+  if(nrows>min_nrows){
   #Obs_Node_Ch.out datei einlesen
   obs_node_ch<-read.table(paste0(projektpfad,"Obs_Node_Ch.out"),nrows = nrows,skip=5,header = T)
   
@@ -528,6 +533,13 @@ read_conc.out<-function(projektpfad=projektpfad1,
   RMSE<-sqrt(mean((out$ca_conc-out$Ca_mod)^2,na.rm = T))
   #NSE bestimmen
   nse<-NSE(obs=out$ca_conc,out$Ca_mod)
+  }else{#wenn nrows kleiner ist als min_nrows
+    #alles NA
+    out<-NA
+    RMSE<-NA
+    nse<-NA
+  }#ende if else nrows
+  
   #ausgabe der Werte
   return(list(out,RMSE,nse))
   }#Ende
