@@ -145,7 +145,9 @@ Ah1plot<-ggplot()+
   geom_line(data=fit_best,aes(th_mod,log10(-psi),col="best fit"),size=1.4)+
   labs(x=expression(S[e]),y="pF")+theme_classic()+
   scale_colour_manual(name="",values = c("red",rep(grey(0.3),11)),labels=c("best fit",rep("obs",11)))+scale_fill_manual(name=paste0("RMSE<",crit),values = "grey")+scale_linetype_manual(values=rep(1,11))+annotate("text",x=0.8,y=c(3.15,3,2.85),label=c("best fit",paste(c("alpha","n")," = ",signif(c(alpha[bestrmse],n[bestrmse]),2))))
-
+#porengrößenverteilung
+ggplot(Ah1)+geom_point(aes(th_norm_dpf,pf))
+Ah1$th_norm_dpf<-c(Ah1$th_norm[1:(nrow(Ah1)-1)]-Ah1$th_norm[2:nrow(Ah1)]/(Ah1$psi[1:(nrow(Ah1)-1)]-Ah1$psi[2:nrow(Ah1)]),NA)
 #plot speichern
 Ah1plot+ggsave(paste0(plotpfad,"muafit.pdf"),width=6,height=4.5)
 

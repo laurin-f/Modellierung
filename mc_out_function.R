@@ -1,5 +1,5 @@
 
-loadfile<-"mc_60000-realistic_free_ks"
+loadfile<-"mc_temp"
 fixed=cbind(fixed,fixed_co2)
 
 ndottys=10000
@@ -22,10 +22,11 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
                  obs=all_s,#Messung mit der das Modell verglichen wird
                  Probe="undist",#wurde die gestörte oder die ungestörte Probe benutzt
                  kin_sol=F,
-                 Nboot=100,
+                 Nboot=100,#Anzahl an Bootstrapping-Läufen
                  traintime=4500,
                  plot=F,
-                 Mat=c(rep(1,3),rep(2,5),3)){#Anzahl an Bootstrapping-Läufen
+                 Mat=c(rep(1,3),rep(2,5),3),
+                 rmse_pos=1){
   
   #definieren der Pfade
   mcpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/"
@@ -35,13 +36,23 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     }
   #Output des MC-Laufs laden
   load(file = paste0(mcpfad,loadfile,".R"))
-  if(!exists("rmse")){
+  if(exists("rmse")){
+  mc<-list(rmse,par,nse,rmse_ca,rmse_both)
+  }
+  #if(!exists("rmse")){
   #der Output ist in die Liste mc geschrieben
   #die einzelnen listenelemente auspacken
   par<-mc[[2]]
-  rmse<-mc[[1]]
-  nse<-mc[[3]]}
-
+  if(rmse_pos<6){
+  rmse<-mc[[rmse_pos]]}
+  nse<-mc[[3]]
+  #}#ende if exists
+  if(rmse_pos==6){
+    rmse_ca<-(mc[[4]]-mean(mc[[4]],na.rm = T))/sd(mc[[4]],na.rm = T)
+    rmse_co2<-(mc[[1]]-mean(mc[[1 ]],na.rm = T))/sd(mc[[1]],na.rm = T)
+    rmse<-(rmse_ca+rmse_co2)/2
+  }
+  loadfile<-paste0(c("fit_co2-_","","","fit_ca-_","fit_both-_","fit_both2-_")[rmse_pos],loadfile)
   #packages laden
   library(ggplot2)
   library(stringr)

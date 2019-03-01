@@ -403,17 +403,23 @@ mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000_-fit_ca_realistic_free_
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_59995_realistic_fix_p_dis",dtmax = 0.01,Nboot = 0)
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-realistic_free_ks_DA",dtmax = 10,kin_sol = T,plot = T)
+mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-realistic_free_ks",dtmax = 10,kin_sol = F,plot = T)
 rmse_co2
 
-mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_temp",dtmax = 10,kin_sol = F,plot = T,Mat = c(rep(1,4),rep(2,4),3))
+for (i in c(1,4,5)){
+mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_55000-free_ranges_DA",dtmax = 10,kin_sol = T,plot = T,Mat = c(rep(1,3),rep(2,5),3),rmse_pos = i,Nboot = 100,ndottys = 1000)
+}
+
+
+for (i in c(1,4,5)){
+  mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_550-dist_free",dtmax = 10,kin_sol = T,plot = T,Mat = c(rep(1,3),rep(2,5),3),rmse_pos = i,Nboot = 1,ndottys = 100,obs=alldist_s)
+}
 
 mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_5500-free_ranges_DA",dtmax = 10,kin_sol = F,plot = T,Mat = c(rep(1,4),rep(2,4),3),ndottys = 1000)
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-fitca_realistic_free_ks",dtmax = 10,plot=T)
 
 mc_out(fixed=cbind(fixed_dist,fixed_co2),loadfile = "mc_120000-free_dist",dtmax = 10,obs=alldist_s)
-
-
 
 ######################
 #EE outpput from Matlab function
