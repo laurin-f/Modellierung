@@ -28,7 +28,7 @@ muafit<-function(data,alpha=NULL,n=NULL){
   alpha<-coef(mua)[1]
   n<-coef(mua)[2]}
   #psi sequenz um gefittete Werte zu berechnen
-  psi<-seq(min(data$psi),0,by=1)
+  psi<-seq(min(round(data$psi)),-1,by=1)
   #mit gefitteten Alpha und n theta_werte berechnen
   fit<-(1+(-alpha*psi)^n)^-(1-1/n)
   return(list(data.frame(psi,th_mod=fit),c(alpha,n)))}
@@ -88,9 +88,12 @@ RMSE<-function(obs,mod){
 
 #aufsteigende sequenz der psi-werte 
 psi<-sort(unique(Ah1$psi))
-
+pf<-log10(-psi)
 #mittelwerte von th_norm für jedes psi berechnen
 th_norm<-tapply(Ah1$th_norm,Ah1$psi,mean)
+th_norm_dpf<-c(0,-diff(th_norm)/diff(pf),0)
+dpf<-c(4.2,pf[1:length(pf)-1]+diff(pf)/2,0)
+pore_distr<-data.frame(dpf=dpf,th_norm_dpf=th_norm_dpf)
 
 #länge der Sequenz für alpha und n
 n_parseq<-300
@@ -144,10 +147,18 @@ Ah1plot<-ggplot()+
   geom_path(data=Ah1,aes(th_norm,pf,col="obs",linetype=MG_ID),show.legend = F)+
   geom_line(data=fit_best,aes(th_mod,log10(-psi),col="best fit"),size=1.4)+
   labs(x=expression(S[e]),y="pF")+theme_classic()+
-  scale_colour_manual(name="",values = c("red",rep(grey(0.3),11)),labels=c("best fit",rep("obs",11)))+scale_fill_manual(name=paste0("RMSE<",crit),values = "grey")+scale_linetype_manual(values=rep(1,11))+annotate("text",x=0.8,y=c(3.15,3,2.85),label=c("best fit",paste(c("alpha","n")," = ",signif(c(alpha[bestrmse],n[bestrmse]),2))))
+  scale_colour_manual(name="",values = c("red",rep(grey(0.3),11)),labels=c("best fit",rep("obs",11)))+scale_fill_manual(name=paste0("RMSE<",crit),values = "grey")+scale_linetype_manual(values=rep(1,11))+annotate("text",x=0.8,y=c(3.15,3,2.85),label=c("best fit",paste(c("alpha","n")," = ",signif(c(alpha[bestrmse],n[bestrmse]),2))))+scale_y_continuous(limits = c(0,4.2))
+summary(fit_range)
+range(log10(-fit_range$psi))
+fit_best$pf<-log10(-fit_best$psi)
+th_mod_dpf<--diff(fit_best$th_mod)/diff(fit_best$pf)
+dpf_mod<-fit_best$pf[1:length(fit_best$pf)-1]+diff(fit_best$pf)/2
+pore_distr_mod<-data.frame(th_mod_dpf=th_mod_dpf,dpf_mod=dpf_mod)
 #porengrößenverteilung
-ggplot(Ah1)+geom_point(aes(th_norm_dpf,pf))
-Ah1$th_norm_dpf<-c(Ah1$th_norm[1:(nrow(Ah1)-1)]-Ah1$th_norm[2:nrow(Ah1)]/(Ah1$psi[1:(nrow(Ah1)-1)]-Ah1$psi[2:nrow(Ah1)]),NA)
+pore_plt<-ggplot(pore_distr)+geom_path(aes(th_norm_dpf,dpf),col=grey(0.3),size=1)+geom_path(data=pore_distr_mod,aes(th_mod_dpf,dpf_mod),col="red",size=1.1)+theme_classic()+scale_y_continuous(limits = c(0,4.2))+labs(x="Porengrößenverteilung [dSe/dpF]",y="pF")
+pdf(paste0(plotpfad,"muafit_poresize.pdf"),width=8,height=4.5)
+gridExtra::grid.arrange(pore_plt,Ah1plot,layout_matrix=rbind(c(1,rep(2,2))))
+dev.off()
 #plot speichern
 Ah1plot+ggsave(paste0(plotpfad,"muafit.pdf"),width=6,height=4.5)
 
