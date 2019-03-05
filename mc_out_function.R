@@ -259,7 +259,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   # gridExtra::grid.arrange(poptt,ks2,n_plt,n2_plt)
   # dev.off()
   # }
-  if(grep("mc_17000_free",loadfile)==1){ 
+  if(grep("mc_55000_free",loadfile)==1){ 
     n2plt<-ggplot(dotty_rmse)+
       geom_rect(data=subset(realistic_range,variable=="n2"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
       geom_point(aes(n2,rmsegood,col=p_opt),size=0.5)+
@@ -280,6 +280,28 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
 
     pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 3.5,width = 8)
     gridExtra::grid.arrange(n2plt,poptplt,ncol=2)
+    dev.off()
+  }
+  
+  if(grep("mc_55000_realistic",loadfile)==1){ 
+    pdistrplt<-ggplot(dotty_rmse)+
+      geom_point(aes(p_distr,rmsegood,col=p_opt),size=1)+
+      scale_color_gradientn(colors=c("blue","yellow","red"))+
+      theme_classic()+
+      labs(x=expression(P[distr]),y="RMSE",col=expression(P[opt]))
+    pdistrplt
+    
+    
+    ks2plt<-ggplot(dotty_rmse)+
+      geom_point(aes(ks2,rmsegood,col=p_distr),size=1)+
+      scale_color_gradientn(colors=c("blue","yellow","red"))+
+      theme_classic()+
+      labs(x=expression(K[S2]),y="",col=expression(P[distr]))
+    ks2plt
+    
+    
+    pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 3.5,width = 8)
+    gridExtra::grid.arrange(pdistrplt,ks2plt,ncol=2)
     dev.off()
   }
   # if(loadfile=="mc_60000-realistic_free_ks"){ 

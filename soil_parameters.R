@@ -94,7 +94,8 @@ th_norm<-tapply(Ah1$th_norm,Ah1$psi,mean)
 
 #porengrößenverteilung als Ableitung von th_norm nach pF
 #also unterscheid von aggregiertem th_norm geteilt durch pF schritt 
-th_norm_dpf<-c(0,-diff(th_norm)/diff(pf),0)
+th_norm_dpf<--diff(th_norm)/diff(pf)
+th_norm_dpf<-c(th_norm_dpf[1],th_norm_dpf,tail(th_norm_dpf,1))
 #pF mittelpunkte der pF Schritte da hier die Steignung vorliegt
 dpf<-c(4.2,pf[1:length(pf)-1]+diff(pf)/2,0)
 #porengrößenverteilung in Datensatz

@@ -414,7 +414,7 @@ for (i in c(1,4,5)){
 mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_55000-free",dtmax = 10,kin_sol = T,plot = T,rmse_pos = i,Nboot = 100,ndottys = 10000)
 }
 
-mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_123_realistic",dtmax = 10,kin_sol = T,plot = F,rmse_pos = 1,Nboot = 100,ndottys = 10000)
+mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_1234_realistic",dtmax = 10,kin_sol = T,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 9000)
 mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_55000-free",dtmax = 10,kin_sol = T,plot = F,rmse_pos = 1,Nboot = 100,ndottys = 10000)
 for (i in c(1,4,5)){
   mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_550-dist_free",dtmax = 10,kin_sol = T,plot = T,Mat = c(rep(1,3),rep(2,5),3),rmse_pos = i,Nboot = 1,ndottys = 100,obs=alldist_s)
