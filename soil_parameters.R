@@ -91,8 +91,13 @@ psi<-sort(unique(Ah1$psi))
 pf<-log10(-psi)
 #mittelwerte von th_norm für jedes psi berechnen
 th_norm<-tapply(Ah1$th_norm,Ah1$psi,mean)
+
+#porengrößenverteilung als Ableitung von th_norm nach pF
+#also unterscheid von aggregiertem th_norm geteilt durch pF schritt 
 th_norm_dpf<-c(0,-diff(th_norm)/diff(pf),0)
+#pF mittelpunkte der pF Schritte da hier die Steignung vorliegt
 dpf<-c(4.2,pf[1:length(pf)-1]+diff(pf)/2,0)
+#porengrößenverteilung in Datensatz
 pore_distr<-data.frame(dpf=dpf,th_norm_dpf=th_norm_dpf)
 
 #länge der Sequenz für alpha und n
@@ -137,6 +142,16 @@ fit_max<-muafit(Ah1,alpha = max(alpha[rmsegood]),n=max(n[rmsegood]))[[1]]
 #die Retentionskurve des besten fits
 fit_best<-muafit(Ah1,alpha = max(alpha[bestrmse]),n=max(n[bestrmse]))[[1]]
 
+#modellierte porengrößenverteilung bestimmen
+#berechnung pF wert als log zehn vom negativen psi
+fit_best$pf<-log10(-fit_best$psi)
+#ableitung als Unterschied th_mod pro pF-schritt
+th_mod_dpf<--diff(fit_best$th_mod)/diff(fit_best$pf)
+#mitte der pF schritt
+dpf_mod<-fit_best$pf[1:length(fit_best$pf)-1]+diff(fit_best$pf)/2
+#alles in einen Data-frame
+pore_distr_mod<-data.frame(th_mod_dpf=th_mod_dpf,dpf_mod=dpf_mod)
+
 #um ein Polygon zu plotten wird fit_max rückwärts an fit_min gehängt
 #dann wird jeweils das obere und das untere Ende der Linien richtig verbunden
 fit_range<-rbind(fit_min,fit_max[order(fit_max$psi,decreasing = T),])
@@ -148,14 +163,15 @@ Ah1plot<-ggplot()+
   geom_line(data=fit_best,aes(th_mod,log10(-psi),col="best fit"),size=1.4)+
   labs(x=expression(S[e]),y="pF")+theme_classic()+
   scale_colour_manual(name="",values = c("red",rep(grey(0.3),11)),labels=c("best fit",rep("obs",11)))+scale_fill_manual(name=paste0("RMSE<",crit),values = "grey")+scale_linetype_manual(values=rep(1,11))+annotate("text",x=0.8,y=c(3.15,3,2.85),label=c("best fit",paste(c("alpha","n")," = ",signif(c(alpha[bestrmse],n[bestrmse]),2))))+scale_y_continuous(limits = c(0,4.2))
-summary(fit_range)
-range(log10(-fit_range$psi))
-fit_best$pf<-log10(-fit_best$psi)
-th_mod_dpf<--diff(fit_best$th_mod)/diff(fit_best$pf)
-dpf_mod<-fit_best$pf[1:length(fit_best$pf)-1]+diff(fit_best$pf)/2
-pore_distr_mod<-data.frame(th_mod_dpf=th_mod_dpf,dpf_mod=dpf_mod)
+
 #porengrößenverteilung
-pore_plt<-ggplot(pore_distr)+geom_path(aes(th_norm_dpf,dpf),col=grey(0.3),size=1)+geom_path(data=pore_distr_mod,aes(th_mod_dpf,dpf_mod),col="red",size=1.1)+theme_classic()+scale_y_continuous(limits = c(0,4.2))+labs(x="Porengrößenverteilung [dSe/dpF]",y="pF")
+pore_plt<-ggplot(pore_distr)+geom_path(aes(th_norm_dpf,dpf),col=grey(0.3),size=1)+
+  geom_path(data=pore_distr_mod,aes(th_mod_dpf,dpf_mod),col="red",size=1.1)+
+  theme_classic()+
+  scale_y_continuous(limits = c(0,4.2))+
+  labs(x="Porengrößenverteilung [dSe/dpF]",y="pF")
+
+#beide plots zusammen speichern
 pdf(paste0(plotpfad,"muafit_poresize.pdf"),width=8,height=4.5)
 gridExtra::grid.arrange(pore_plt,Ah1plot,layout_matrix=rbind(c(1,rep(2,2))))
 dev.off()
