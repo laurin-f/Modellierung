@@ -52,7 +52,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     rmse_co2<-(mc[[1]]-mean(mc[[1 ]],na.rm = T))/sd(mc[[1]],na.rm = T)
     rmse<-(rmse_ca+rmse_co2)/2
   }
-  rmse_ca<-mc[[4]]
+  
   print(paste(length(which(!is.na(rmse))),"Models succesfully calculated"))
   loadfile<-paste0(c("fit_co2-_","","","fit_ca-_","fit_both-_","fit_both2-_")[rmse_pos],loadfile)
   #packages laden
@@ -206,10 +206,9 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   pargood<-par[rmse<best.100&!is.na(rmse),]
   #und alle RMSE-Werte die Besser sind auswählen
   rmsegood<-rmse[rmse<best.100&!is.na(rmse)]
-  rmse_ca_good<-rmse_ca[rmse<best.100&!is.na(rmse)]
-  rmse_ca_good[rmse_ca_good>100]<-NA
+
   #Paramterwerte und RMSE zusammenfügen
-  dotty_rmse<-cbind(rmsegood,pargood,rmse_ca_good)
+  dotty_rmse<-cbind(rmsegood,pargood)
   
   #Vector mit Labels für den Plot
   lbls<-sort(paste(colnames(pargood),"best =",signif(pargood[which.min(rmsegood),],2)))
@@ -259,7 +258,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   # gridExtra::grid.arrange(poptt,ks2,n_plt,n2_plt)
   # dev.off()
   # }
-  if(grep("mc_55000_free",loadfile)==1){ 
+  if(length(grep("mc_55000-free",loadfile))==1){ 
     n2plt<-ggplot(dotty_rmse)+
       geom_rect(data=subset(realistic_range,variable=="n2"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
       geom_point(aes(n2,rmsegood,col=p_opt),size=0.5)+
@@ -283,7 +282,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     dev.off()
   }
   
-  if(grep("mc_55000_realistic",loadfile)==1){ 
+  if(length(grep("mc_55000-realistic",loadfile))==1){ 
     pdistrplt<-ggplot(dotty_rmse)+
       geom_point(aes(p_distr,rmsegood,col=p_opt),size=1)+
       scale_color_gradientn(colors=c("blue","yellow","red"))+
@@ -576,7 +575,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   }#ende SI tiefenprofil
   }#ende plot schleife
   #den Modelloutput mit namen der geladenen MC-Datei in die global environment schreiben
-  assign(paste0(ifelse(kin_sol==T,"kinsol-",""),loadfile),out,envir = .GlobalEnv)
+  assign(loadfile,out,envir = .GlobalEnv)
   print(paste(loadfile,"best RMSE:",min(rmse,na.rm = T)))
   print(paste(loadfile,"best NSE:",max(nse,na.rm = T)))
 }#ende 

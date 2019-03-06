@@ -88,77 +88,95 @@ fixedca<-data.frame(thr=0.11,
 #co2 with changing water paramters
 ###############################################################
 
-loadfiles<-list.files(mcpfad,pattern = ".R")
-loadfiles<-loadfiles[loadfiles!="mc_temp.R"]
-loadfiles<-substr(loadfiles,1,nchar(loadfiles)-2)
-loadfiles_ca<-loadfiles[grep("_-fit",loadfiles)]
-loadfiles<-loadfiles[-grep("_-fit",loadfiles)]
+# loadfiles<-list.files(mcpfad,pattern = ".R")
+# loadfiles<-loadfiles[loadfiles!="mc_temp.R"]
+# loadfiles<-substr(loadfiles,1,nchar(loadfiles)-2)
+# loadfiles_ca<-loadfiles[grep("_-fit",loadfiles)]
+# loadfiles<-loadfiles[-grep("_-fit",loadfiles)]
+# 
+# loadfiles_undist<-loadfiles[-grep("dist",loadfiles)]
+# loadfiles_dist<-loadfiles[grep("dist",loadfiles)]
+# loadfiles_undist_kinsol<-paste0("kinsol-",loadfiles_undist)
 
-loadfiles_undist<-loadfiles[-grep("dist",loadfiles)]
-loadfiles_dist<-loadfiles[grep("dist",loadfiles)]
-loadfiles_undist_kinsol<-paste0("kinsol-",loadfiles_undist)
-
-
-for(i in 1:length(loadfiles_undist)){
-  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = c(1,10,10)[i],Nboot = 100,kin_sol = T,plot=T,ndottys = 10000)
-}
-for(i in 1:length(loadfiles_undist)){
-  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = c(1,10,10)[i],Nboot = 100,kin_sol = F,plot=T)
-}
-
-
-for(i in 1:length(loadfiles_dist)){
-  mc_out(fixed=cbind(fixed_dist,fixed_co2),loadfile = loadfiles_dist[i],dtmax = 10,obs=alldist_s,Probe = "dist",Nboot = 100,plot = F,traintime = c(8000,8000,4500))
-}
+loadfiles<-c("mc_55000-free","mc_55000-realistic")
+loadfiles_undist<-paste0(c("fit_co2-_","fit_ca-_","fit_both-_"),rep(loadfiles,each=3))
+rmse_norms<-matrix(NA,3,length(loadfiles_undist))
+colnames(rmse_norms)<-gsub("-_mc_55000-|_"," ",loadfiles_undist)
+for (i in 1:3){
+  for (j in 1:length(loadfiles)){
+  mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = loadfiles[j],dtmax = 10,kin_sol = T,plot = T,rmse_pos = c(1,4,5)[i],Nboot = 100,ndottys = 10000)
+    rmse_norms[,i+3*(j-1)]<-c(get("rmse_co2"),get("rmse_ca"),get("rmse_both"))
+}}
 
 ########################
 #tabelle rmse norms
 ########################
-rmse_norms<-matrix(NA,3,length(loadfiles_ca))
-colnames(rmse_norms)<-str_extract(loadfiles_ca,"-.+")
-for(i in 1:length(loadfiles_ca)){
-  print(loadfiles_ca[i])
-  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_ca[i],kin_sol = stringr::str_detect(loadfiles_ca,"kinsol")[i],dtmax = c(1,rep(10,5))[i],Nboot = 100,plot = F)
-  rmse_norms[,i]<-c(get("rmse_co2"),get("rmse_ca"),get("rmse_both"))
-}
 rownames(rmse_norms)<-c("rmse co2","rmse ca","rmse both")
-fit<-str_extract(colnames(rmse_norms),"fit_(both|co2|ca)")
-colnames(rmse_norms)<-gsub("_|-|(kinsol)|fit_(both|co2|ca)"," ",colnames(rmse_norms))
-colnames(rmse_norms)<-gsub("(^\\s+)|(\\s+$)","",colnames(rmse_norms))
-rmse_norms2<-rmse_norms[,order(colnames(rmse_norms),fit)]
+fit<-str_extract(colnames(rmse_norms),"fit (both|co2|ca)")
+colnames_rmse_norms<-gsub("fit (both|co2|ca)","",colnames(rmse_norms))
+colnames_rmse_norms<-gsub("(^\\s+)|(\\s+$)","",colnames_rmse_norms)
+rmse_norms2<-rmse_norms[,order(colnames_rmse_norms,fit)]
 fit2<-fit[order(colnames(rmse_norms),fit)]
 
 xtable::xtable(rmse_norms2)
 
-(0.28+2.92)/2
-(0.55+2.7)/2
+
+
+# for(i in 1:length(loadfiles_undist)){
+#   mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = c(1,10,10)[i],Nboot = 100,kin_sol = T,plot=T,ndottys = 10000)
+# }
+# for(i in 1:length(loadfiles_undist)){
+#   mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = c(1,10,10)[i],Nboot = 100,kin_sol = F,plot=T)
+# }
+# 
+# 
+# for(i in 1:length(loadfiles_dist)){
+#   mc_out(fixed=cbind(fixed_dist,fixed_co2),loadfile = loadfiles_dist[i],dtmax = 10,obs=alldist_s,Probe = "dist",Nboot = 100,plot = F,traintime = c(8000,8000,4500))
+# }
+
+########################
+#tabelle rmse norms
+########################
+# rmse_norms<-matrix(NA,3,length(loadfiles_ca))
+# colnames(rmse_norms)<-str_extract(loadfiles_ca,"-.+")
+# for(i in 1:length(loadfiles_ca)){
+#   print(loadfiles_ca[i])
+#   mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_ca[i],kin_sol = stringr::str_detect(loadfiles_ca,"kinsol")[i],dtmax = c(1,rep(10,5))[i],Nboot = 100,plot = F)
+#   rmse_norms[,i]<-c(get("rmse_co2"),get("rmse_ca"),get("rmse_both"))
+# }
+# rownames(rmse_norms)<-c("rmse co2","rmse ca","rmse both")
+# fit<-str_extract(colnames(rmse_norms),"fit_(both|co2|ca)")
+# colnames(rmse_norms)<-gsub("_|-|(kinsol)|fit_(both|co2|ca)"," ",colnames(rmse_norms))
+# colnames(rmse_norms)<-gsub("(^\\s+)|(\\s+$)","",colnames(rmse_norms))
+# rmse_norms2<-rmse_norms[,order(colnames(rmse_norms),fit)]
+# fit2<-fit[order(colnames(rmse_norms),fit)]
+# 
+# xtable::xtable(rmse_norms2)
+
 
 ################
 #tabelle co2mean
 #Output des MC-Laufs laden
-load(file = paste0(mcpfad,"mc_60000-realistic_free_ks",".R"))
+load(file = paste0(mcpfad,"mc_55000-realistic",".R"))
   #der Output ist in die Liste mc geschrieben
   #die einzelnen listenelemente auspacken
   par<-mc[[2]]
   rmse<-mc[[1]]
   nse<-mc[[3]]
-  pars<-cbind(par[which.min(rmse),],fixed,fixed_co2)
+  pars<-cbind(par[which.min(rmse),],fixed_da,fixed_co2)
   
   #mit function das Modell ausführen und output laden
   out<-hydrus(params = pars,
               UNSC=T,
-              sleep = 8,
-              treat = "all",
               taskkill=F,
               free_drain=T,
               print_times = 2000,
               dtmax = 10,
               obs=all,
               min_nrows=100,
-              kin_sol=T,
-              traintime=traintime)
+              kin_sol=T)
 data1<-out
-data1_s<-get(loadfiles_undist_kinsol[3])
+data1_s<-get(loadfiles_undist[4])
 ohne_warmup<-data1$t_min[!is.na(data1$rain_mm_h)][which(diff(data1$rain_mm_h[!is.na(data1$rain_mm_h)])>0)[2]]
 ohne_warmup_s<-data1_s$t_min[!is.na(data1_s$rain_mm_h)][which(diff(data1_s$rain_mm_h[!is.na(data1_s$rain_mm_h)])>0)[2]]
 pars$p_opt
@@ -170,22 +188,19 @@ pars$p_distr<-0.2
 
 out<-hydrus(params = pars,
             UNSC=T,
-            sleep = 8,
-            treat = "all",
             taskkill=F,
             free_drain=T,
             print_times = 2000,
             dtmax = 10,
             obs=all,
             min_nrows=100,
-            kin_sol=T,
-            traintime=traintime)
+            kin_sol=T)
 #ja 
 pars$p_opt
 pars$p_distr
 max(out$vProd,na.rm = T)
 
-plot(data$vProd)
+plot(data1$vProd)
 #subset des outputs ohne warm-up-event
 data<-subset(data1,t_min>=ohne_warmup&tiefe%in%c(-2,-6,-10,-14,-17))
 data_s<-subset(data1_s,t_min>=ohne_warmup_s)
@@ -209,7 +224,7 @@ aggs$SI_q<-aggs$SI_q/aggs$q
 
 aggs$ca_verwitterung<-ca_we_sum$x#meq/kg
 
-print(xtable::xtable(aggs[,-c(2,5,8:10)]),include.rownames = F)
+print(xtable::xtable(aggs[,-c(2,5,8:11)]),include.rownames = F)
 print(xtable::xtable(aggs[,c(1,8:10)]),include.rownames = F)
 
 
@@ -218,9 +233,11 @@ print(xtable::xtable(aggs[,c(1,8:10)]),include.rownames = F)
 ##########################
 
 
-runname<-str_extract(loadfiles_undist,"-.+")
-runname<-substr(runname,2,nchar(runname)) 
-runname<-gsub("_"," ",runname)
+#runname<-str_extract(loadfiles_undist,"-.+")
+#runname<-substr(runname,2,nchar(runname)) 
+#runname<-gsub("_"," ",runname)
+runname<-gsub("-_mc_55000-|_"," ",loadfiles_undist)
+
 
 #events laden
 events<-event()
@@ -237,25 +254,15 @@ co2plt<-ggplot(data=maindata)+geom_line(aes(date,CO2_raw,linetype=""),col=1)
 bfplt<-ggplot(data=maindata)+geom_line(aes(date,theta,linetype=""),col=1)
 qplt<-ggplot(data=subset(get(loadfiles_undist[1]),tiefe==-17))+geom_line(aes(date,q_interpol*5,linetype=""),col=1)
 
-alkdata<-get(loadfiles_undist_kinsol[3])
-peak<-which.max(alkdata$Alk_mod[12000>alkdata$t_min&alkdata$t_min>11500])
-t_minpeak<-alkdata$t_min[13000>alkdata$t_min&alkdata$t_min>11500][peak]
-alkplt<-ggplot(data=alkdata)+geom_line(aes(t_min,Alk_mod,linetype="",col=as.factor(tiefe)))+scale_x_continuous(limits = c(10000,20000))+geom_vline(aes(xintercept=t_minpeak))
-co2plt<-ggplot(data=alkdata)+geom_line(aes(t_min,CO2_mod,linetype="",col=as.factor(tiefe)))+scale_x_continuous(limits = c(10000,20000))+geom_vline(aes(xintercept=t_minpeak))
-caplt<-ggplot(data=alkdata)+geom_line(aes(t_min,Ca_mod,linetype="",col=as.factor(tiefe)))+scale_x_continuous(limits = c(10000,20000))+geom_vline(aes(xintercept=t_minpeak))
-caplt
-co2plt
-alkplt
-
-pHplt<-ggplot(data=subset(get(loadfiles_undist_kinsol[3]),!is.na(pH)))+geom_line(aes(t_min,pH,linetype="",col=tiefe))
+pHplt<-ggplot(data=subset(get(loadfiles_undist[4]),!is.na(pH)))+geom_line(aes(t_min,pH,linetype="",col=tiefe))
 pHplt
-caplt<-ggplot(data=subset(get(loadfiles_undist_kinsol[3])))+geom_line(aes(t_min,Ca_mod,col=as.factor(tiefe)))
+caplt<-ggplot(data=subset(get(loadfiles_undist[4])))+geom_line(aes(t_min,Ca_mod,col=as.factor(tiefe)))
 caplt
 
-SIplt<-ggplot(data=subset(get(loadfiles_undist_kinsol[3]),!is.na(SI)&tiefe%in%c(-2,-6,-10,-14,-17)))+geom_line(aes(t_min,SI,col=as.factor(tiefe)))
+SIplt<-ggplot(data=subset(get(loadfiles_undist[4]),!is.na(SI)&tiefe%in%c(-2,-6,-10,-14,-17)))+geom_line(aes(t_min,SI,col=as.factor(tiefe)))
 SIplt
 
-ggplot(data=subset(get(loadfiles_undist_kinsol[3]),!is.na(P_0)))+geom_line(aes(date,P_2_korr,col="3"))+geom_line(aes(date,P_4_korr,col="4"))+geom_line(aes(date,cvTop,col="1"))+geom_line(aes(date,vProd,col="2"))+
+ggplot(data=subset(get(loadfiles_undist[4]),!is.na(P_0)))+geom_line(aes(date,P_2_korr,col="3"))+geom_line(aes(date,P_4_korr,col="4"))+geom_line(aes(date,cvTop,col="1"))+geom_line(aes(date,vProd,col="2"))+
   geom_rect(data=event1,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+theme_classic()+
   labs(x="",y=expression("CO"[2]*" [ml  cm"^-2*" min"^-1*"]"),col="")+scale_color_discrete(labels=c("Flux 0 cm",paste("Prod <",c(0,-2,-4),"cm")))+
   theme_classic()+
@@ -263,8 +270,7 @@ ggplot(data=subset(get(loadfiles_undist_kinsol[3]),!is.na(P_0)))+geom_line(aes(d
   ggsave(paste0(plotpfad,"CO2_Prod_flux.pdf"),width=7,height = 4)
 
 
-
-for(i in 1:length(loadfiles_undist)){
+for(i in (1:length(loadfiles_undist))[-grep("fit_ca",loadfiles_undist)]){
   data<-get(loadfiles_undist[i])
   data$run<-runname[i]
 co2plt<-co2plt+geom_line(data=subset(data,tiefe%in%c(-2,-6,-10,-14)),aes(date,CO2_mod,col=run))
@@ -414,8 +420,8 @@ for (i in c(1,4,5)){
 mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_55000-free",dtmax = 10,kin_sol = T,plot = T,rmse_pos = i,Nboot = 100,ndottys = 10000)
 }
 
-mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_1234_realistic",dtmax = 10,kin_sol = T,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 9000)
-mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_55000-free",dtmax = 10,kin_sol = T,plot = F,rmse_pos = 1,Nboot = 100,ndottys = 10000)
+mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_123_realistic",dtmax = 10,kin_sol = T,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000)
+mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_55000-free",dtmax = 10,kin_sol = T,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000)
 for (i in c(1,4,5)){
   mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_550-dist_free",dtmax = 10,kin_sol = T,plot = T,Mat = c(rep(1,3),rep(2,5),3),rmse_pos = i,Nboot = 1,ndottys = 100,obs=alldist_s)
 }
