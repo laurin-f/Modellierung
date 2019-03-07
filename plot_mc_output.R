@@ -53,6 +53,24 @@ fixed_da<-data.frame(thr=0.11,
                   CaPrec=500,
                   DispA=9.54)
 
+fixed_dist_da<-data.frame(thr=0.067,
+                       ths=0.45,
+                       thr2=0.067,
+                       ths2=0.45,
+                       thr3=0.067,
+                       ths3=0.45,
+                       hseep=0,
+                       l=0.5,
+                       bulk=0.7561984,
+                       bulk2=1.1480438,
+                       difuz=0,
+                       disperl=1.7,
+                       cec=140,
+                       calcit=0.2,
+                       CaAds=500,
+                       CaPrec=500,
+                       DispA=9.54)
+
 fixed_dist<-data.frame(thr=0.067,
                        ths=0.45,
                        thr2=0.067,
@@ -76,14 +94,14 @@ fixed_co2<-data.frame(act_en=6677,
                       DispW=0.00106181,
                       Disper=5)
 
-fixedca<-data.frame(thr=0.11,
-                    ths=0.75,
-                    thr2=0.13,
-                    ths2=0.64,
-                    thr3=0.13,
-                    ths3=0.64,
-                    hseep=0,
-                    l=0.5)
+# fixedca<-data.frame(thr=0.11,
+#                     ths=0.75,
+#                     thr2=0.13,
+#                     ths2=0.64,
+#                     thr3=0.13,
+#                     ths3=0.64,
+#                     hseep=0,
+#                     l=0.5)
 ###############################################################
 #co2 with changing water paramters
 ###############################################################
@@ -98,28 +116,75 @@ fixedca<-data.frame(thr=0.11,
 # loadfiles_dist<-loadfiles[grep("dist",loadfiles)]
 # loadfiles_undist_kinsol<-paste0("kinsol-",loadfiles_undist)
 
-loadfiles<-c("mc_55000-free","mc_55000-realistic")
-loadfiles_undist<-paste0(c("fit_co2-_","fit_ca-_","fit_both-_"),rep(loadfiles,each=3))
+loadfiles<-c("mc_55000-free_ranges","mc_55000-realistic_ranges")
+loadfiles_undist<-paste0(c("fit_CO2-_","fit_Ca-_","fit_both-_"),rep(loadfiles,each=3))
+
+
 rmse_norms<-matrix(NA,3,length(loadfiles_undist))
+pars_tab<-matrix(NA,11,length(loadfiles_undist))
+std_tab<-matrix(NA,11,length(loadfiles_undist))
+
 colnames(rmse_norms)<-gsub("-_mc_55000-|_"," ",loadfiles_undist)
+colnames(pars_tab)<-colnames(rmse_norms)
+colnames(std_tab)<-colnames(rmse_norms)
+
 for (i in 1:3){
   for (j in 1:length(loadfiles)){
-  mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = loadfiles[j],dtmax = 10,kin_sol = T,plot = T,rmse_pos = c(1,4,5)[i],Nboot = 100,ndottys = 10000)
-    rmse_norms[,i+3*(j-1)]<-c(get("rmse_co2"),get("rmse_ca"),get("rmse_both"))
+  mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = loadfiles[j],dtmax = 10,kin_sol = T,plot = T,rmse_pos = c(1,4,5)[i],Nboot = 100,ndottys = 10000,taskkill = T)
+    rmse_norms[,i+3*(j-1)]<-c(rmse_co2,rmse_ca,rmse_both)
+    
+    std_tab[1:10,i+3*(j-1)]<-std
+    pars_tab[11,i+3*(j-1)]<-c(rmse_co2,rmse_ca,rmse_both)[i]
+    pars_tab[1:10,i+3*(j-1)]<-t(pars_opt)
 }}
 
 ########################
 #tabelle rmse norms
 ########################
-rownames(rmse_norms)<-c("rmse co2","rmse ca","rmse both")
-fit<-str_extract(colnames(rmse_norms),"fit (both|co2|ca)")
-colnames_rmse_norms<-gsub("fit (both|co2|ca)","",colnames(rmse_norms))
+rownames(rmse_norms)<-c("rmse CO2","rmse Ca","rmse both")
+fit<-str_extract(colnames(rmse_norms),"fit (both|CO2|Ca)")
+colnames_rmse_norms<-gsub("fit (both|CO2|Ca)","",colnames(rmse_norms))
 colnames_rmse_norms<-gsub("(^\\s+)|(\\s+$)","",colnames_rmse_norms)
 rmse_norms2<-rmse_norms[,order(colnames_rmse_norms,fit)]
 fit2<-fit[order(colnames(rmse_norms),fit)]
 
 xtable::xtable(rmse_norms2)
 
+##############################
+#tabelle parameter
+###############################
+
+par_opt_tab<-matrix(NA,11,12)
+colnames(par_opt_tab)<-paste(rep(colnames(pars_tab),each=2),c("","sd"))
+rownames(par_opt_tab)<-c(colnames_par,"RMSE")
+rownames(pars_tab)<-rownames(par_opt_tab)
+rownames(std_tab)<-rownames(par_opt_tab)
+par_opt_tab[,seq(1,11,2)]<-pars_tab
+par_opt_tab[,seq(2,12,2)]<-std_tab
+par_opt_tab<-par_opt_tab[,-grep("Ca",colnames(par_opt_tab))]
+par_opt_tab<-par_opt_tab[,order(colnames(par_opt_tab))]
+
+par_opt_tab2<-t(apply(par_opt_tab,1,function(x)as.character(signif(x,2))))
+colnames(par_opt_tab2)<-colnames(par_opt_tab)
+xtable::xtable(par_opt_tab2)
+#############################
+#EE plots für  Ergebnisse
+EE_co2_free<-get(paste0(loadfiles_undist[1],"EET_plt"))+theme(legend.position = "none")+labs(title=expression("fit CO"[2]),subtitle="free ranges")
+EE_co2_real<-get(paste0(loadfiles_undist[4],"EET_plt"))+labs(y="",title="",subtitle="realistic ranges")
+
+EE_both_free<-get(paste0(loadfiles_undist[3],"EET_plt"))+theme(legend.position = "none")+labs(title="fit both",subtitle="free ranges")
+EE_both_real<-get(paste0(loadfiles_undist[6],"EET_plt"))+labs(y="",title="",subtitle="realistic ranges")
+layout.mat<-matrix(2,60,20)
+layout.mat[1,]<-3
+layout.mat[,1:9]<-1
+
+pdf(paste0(plotpfad,"EE_fit_both.pdf"),height = 4,width = 7)
+gridExtra::grid.arrange(EE_both_free,EE_both_real,ncol=2,layout_matrix=layout.mat)
+dev.off()
+
+pdf(paste0(plotpfad,"EE_fit_CO2.pdf"),height = 4,width = 7)
+gridExtra::grid.arrange(EE_co2_free,EE_co2_real,ncol=2,layout_matrix=layout.mat)
+dev.off()
 
 
 # for(i in 1:length(loadfiles_undist)){
@@ -255,12 +320,12 @@ bfplt<-ggplot(data=maindata)+geom_line(aes(date,theta,linetype=""),col=1)
 qplt<-ggplot(data=subset(get(loadfiles_undist[1]),tiefe==-17))+geom_line(aes(date,q_interpol*5,linetype=""),col=1)
 
 pHplt<-ggplot(data=subset(get(loadfiles_undist[4]),!is.na(pH)))+geom_line(aes(t_min,pH,linetype="",col=tiefe))
-pHplt
+
 caplt<-ggplot(data=subset(get(loadfiles_undist[4])))+geom_line(aes(t_min,Ca_mod,col=as.factor(tiefe)))
-caplt
+
 
 SIplt<-ggplot(data=subset(get(loadfiles_undist[4]),!is.na(SI)&tiefe%in%c(-2,-6,-10,-14,-17)))+geom_line(aes(t_min,SI,col=as.factor(tiefe)))
-SIplt
+
 
 ggplot(data=subset(get(loadfiles_undist[4]),!is.na(P_0)))+geom_line(aes(date,P_2_korr,col="3"))+geom_line(aes(date,P_4_korr,col="4"))+geom_line(aes(date,cvTop,col="1"))+geom_line(aes(date,vProd,col="2"))+
   geom_rect(data=event1,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+theme_classic()+
@@ -270,7 +335,7 @@ ggplot(data=subset(get(loadfiles_undist[4]),!is.na(P_0)))+geom_line(aes(date,P_2
   ggsave(paste0(plotpfad,"CO2_Prod_flux.pdf"),width=7,height = 4)
 
 
-for(i in (1:length(loadfiles_undist))[-grep("fit_ca",loadfiles_undist)]){
+for(i in (1:length(loadfiles_undist))[-grep("fit_Ca",loadfiles_undist)]){
   data<-get(loadfiles_undist[i])
   data$run<-runname[i]
 co2plt<-co2plt+geom_line(data=subset(data,tiefe%in%c(-2,-6,-10,-14)),aes(date,CO2_mod,col=run))
@@ -357,20 +422,20 @@ qplt+
 #plot modellläufe zusammen calcium
 ##########################
 
-runname<-str_extract(loadfiles_ca,"_-.+")
-loadfiles_ca2<-ifelse(str_detect(loadfiles_ca,"^m.+kinsol"),paste0("kinsol-",loadfiles_ca),loadfiles_ca)
-runname<-sub("kinsol","",runname)
-runname<-substr(runname,3,nchar(runname)) 
-runname<-gsub("_"," ",runname)
-
+# runname<-str_extract(loadfiles_ca,"_-.+")
+# loadfiles_ca2<-ifelse(str_detect(loadfiles_ca,"^m.+kinsol"),paste0("kinsol-",loadfiles_ca),loadfiles_ca)
+# runname<-sub("kinsol","",runname)
+# runname<-substr(runname,3,nchar(runname)) 
+# runname<-gsub("_"," ",runname)
+runname<-gsub("-_mc_55000-|_"," ",loadfiles_undist)
 
 #zeitspanne ausschneiden
 event1<-subset(events,start>=min(all_s$date)&stop<=max(all_s$date))
 
-caplt<-ggplot(data=subset(get(loadfiles_ca2[1]),tiefe==-17))+geom_line(aes(date,ca_conc,linetype=""),col=1)
+caplt<-ggplot(data=subset(get(loadfiles_undist[1]),tiefe==-17))+geom_line(aes(date,ca_conc,linetype=""),col=1)
 
-for(i in 1:length(loadfiles_ca2)){
-  data<-get(loadfiles_ca2[i])
+for(i in (1:length(loadfiles_undist))[-grep("CO.+realistic|bo.+realistic",loadfiles_undist)]){
+  data<-get(loadfiles_undist[i])
   data$run<-runname[i]
   data$date2<-data$date[data$t_min==0&data$tiefe==-17]+data$t_min*60
   caplt<-caplt+geom_line(data=subset(data,tiefe==-17),aes(date2,Ca_mod,col=run))
@@ -420,8 +485,12 @@ for (i in c(1,4,5)){
 mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_55000-free",dtmax = 10,kin_sol = T,plot = T,rmse_pos = i,Nboot = 100,ndottys = 10000)
 }
 
-mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_123_realistic",dtmax = 10,kin_sol = T,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000)
+mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_55000-realistic_ranges",dtmax = 10,kin_sol = T,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = T)
 mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_55000-free",dtmax = 10,kin_sol = T,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000)
+
+mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_temp",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = T,obs=alldist_s,traintime = 8000,Probe = "dist")
+
+
 for (i in c(1,4,5)){
   mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_550-dist_free",dtmax = 10,kin_sol = T,plot = T,Mat = c(rep(1,3),rep(2,5),3),rmse_pos = i,Nboot = 1,ndottys = 100,obs=alldist_s)
 }
@@ -495,14 +564,22 @@ ggplot(EET_oct)+
 #Tabelle der Parametersätze
 ####################################
 
-pars<-vector("list",length(loadfiles))
+pars<-matrix(NA,10,length(loadfiles_undist))
+std<-matrix(NA,10,length(loadfiles_undist))
 for (i in 1:length(loadfiles)){
 load(file = paste0(mcpfad,loadfiles[i],".R"))
 par<-mc[[2]]
-rmse<-mc[[1]]
-pars[[i]]<-par[which.min(rmse),]
+for (j in 1:3){
+rmse<-mc[[c(1,4,5)[j]]]
+pars[,i]<-t(par[which.min(rmse),])
+}
+##################################
+#standardabweichung als Unsicherheit der Parameter berechnen
+######################################
+best.5perc<-order(rmse)[1:round(length(rmse)/100*5)]
+std[,i]<-apply(par[best.5perc,],2,sd)
   }
-pars<-do.call("rbind",pars)
+
 rownames(pars)<-stringr::str_replace(loadfiles,"mc_\\d+(_|-)","")
 rownames(pars)<-stringr::str_replace_all(rownames(pars),"_"," ")
 

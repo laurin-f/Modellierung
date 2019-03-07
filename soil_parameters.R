@@ -390,7 +390,7 @@ ks_range#cm/min
 #
 #für den ungestörten Boden
 #Bestimmung von p_opt siehe script respiration.R
-realistic_ranges<-data.frame(alpha=alpha_range_Ah1,alpha2=alpha_range_Ah2,n=n_range_Ah1,n2=n_range_Ah2,p_opt=c(0.00015,0.00022),ks=ks_range,ks2=ks_range)
+realistic_ranges<-data.frame(alpha=alpha_range_Ah1,alpha2=alpha_range_Ah2,n=n_range_Ah1,n2=n_range_Ah2,p_opt=c(0.00015,0.00022))
 
 
 #und für den gestörten Boden

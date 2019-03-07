@@ -10,7 +10,7 @@ kin_sol=F
 Nboot=100
 Probe="undist"
 obs=all_s
-
+rmse_pos=4
 ###############################
 #mc out function
 #Funktion um die Ergebnisse der Monte Carlo Runs zu Plotten
@@ -26,7 +26,9 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
                  traintime=4500,
                  plot=F,
                  Mat=c(rep(1,3),rep(2,5),3),
-                 rmse_pos=1){
+                 rmse_pos=1,
+                 crit_perc=5
+                 taskkill=F){
   
   #definieren der Pfade
   mcpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/"
@@ -44,7 +46,8 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   #die einzelnen listenelemente auspacken
   par<-mc[[2]]
   if(rmse_pos<6){
-  rmse<-mc[[rmse_pos]]}
+  rmse<-mc[[rmse_pos]]
+  }
   nse<-mc[[3]]
   #}#ende if exists
   if(rmse_pos==6){
@@ -54,7 +57,8 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   }
   
   print(paste(length(which(!is.na(rmse))),"Models succesfully calculated"))
-  loadfile<-paste0(c("fit_co2-_","","","fit_ca-_","fit_both-_","fit_both2-_")[rmse_pos],loadfile)
+  loadfile<-paste0(c("fit_CO2-_","","","fit_Ca-_","fit_both-_","fit_both2-_")[rmse_pos],loadfile)
+  runname<-gsub("-_mc_55000-|_"," ",loadfile)
   #packages laden
   library(ggplot2)
   library(stringr)
@@ -86,11 +90,13 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   
   #Den Besten Parametersatz des MC-Laufs auswählen
   pars<-cbind(par[which.min(rmse),],fixed)
-  
+  pars_opt<-par[which.min(rmse),][order(colnames(par))]
+  assign("pars_opt",pars_opt,envir = .GlobalEnv)
+  assign("colnames_par",colnames(par)[order(colnames(par))],envir = .GlobalEnv)
   #mit function das Modell ausführen und output laden
   out<-hydrus(params = pars,
               UNSC=T,
-              taskkill=F,
+              taskkill=taskkill,
               free_drain=T,
               print_times = 2000,
               dtmax = dtmax,
@@ -184,17 +190,27 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     #Ergebnisse plotten
     print("saving GSA Boot plot")
     
-    ggplot(EET)+
+    EET_plt<-ggplot(EET)+
       geom_rect(aes(xmin=mi_lb,xmax=mi_ub,ymin=sigma_lb,ymax=sigma_ub,fill=id),col=0,alpha=0.15,show.legend = F)+
       geom_point(aes(mi,sigma,col=id,shape=id),size=2)+
       theme_classic()+
       scale_shape_manual(name="Parameter",labels=names,values = shapes[order(colnames(par))])+
       scale_color_manual(name="Parameter",labels=names,values = colors[order(colnames(par))])+
       scale_fill_manual(name="",labels=names,values = colors[order(colnames(par))])+
-      ggsave(paste0(plotpfad,"EE/EE_boot",loadfile,".pdf"),height = 4,width = 7)
-
+      labs(title=runname,x=expression(S[i]),y="sigma")#+
+      #ggsave(paste0(plotpfad,"EE/EE_boot",loadfile,".pdf"),height = 4,width = 7)
+    assign(paste0(loadfile,"EET_plt"),EET_plt,envir = .GlobalEnv)
   }#Ende EE Plots
   }
+    
+  ##################################
+  #standardabweichung als Unsicherheit der Parameter berechnen
+  ######################################
+  best.5perc<-order(rmse)[1:round(length(rmse)/100*crit_perc)]
+  std<-apply(par[best.5perc,order(colnames(par))],2,sd)
+  #die RMSE-werte in die Globale Environment speichern 
+  assign("std",std,envir = .GlobalEnv)
+
   ##################################
   #export dottyplots for RMSE
   ##################################
@@ -227,37 +243,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   print("saving dotty plots")
   library(scales)
 
-  # if(loadfile=="mc_120000-free_ranges"){ 
-  # poptt<-ggplot(dotty_rmse)+
-  #   geom_rect(data=subset(realistic_range,variable=="p_opt"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
-  #   geom_point(aes(p_opt,rmsegood,col=ks2),size=0.5)+
-  #   scale_color_gradientn(colors=c("blue","yellow","red"))+
-  #   scale_x_continuous(labels = scales::scientific,breaks = c(0,0.0001,0.0002))+
-  #   theme_classic()+
-  #   labs(x=expression(P[opt]),y="RMSE",col=expression(K[S*2]))
-  # 
-  # ks2<-ggplot(dotty_rmse)+
-  #   geom_rect(data=subset(realistic_range,variable=="ks2"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
-  #   geom_point(aes(ks2,rmsegood,col=n2),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))+
-  #   theme_classic()+
-  #   labs(x=expression(K[S*2]),y="",col=expression(n[2]))
-  # 
-  # n_plt<-ggplot(dotty_rmse)+
-  #   geom_rect(data=subset(realistic_range,variable=="n"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
-  #   geom_point(aes(n,rmsegood,col=alpha),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))+
-  #   theme_classic()+
-  #   labs(x=expression(n[1]),y="RMSE",col=expression(alpha[1]))
-  # 
-  # n2_plt<-ggplot(dotty_rmse)+
-  #   geom_rect(data=subset(realistic_range,variable=="n2"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
-  #   geom_point(aes(n2,rmsegood,col=ks2),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))+
-  #   theme_classic()+
-  #   labs(x=expression(n[2]),y="",col=expression(K[S*2]))
-  # 
-  # pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 4,width = 7)
-  # gridExtra::grid.arrange(poptt,ks2,n_plt,n2_plt)
-  # dev.off()
-  # }
+
   if(length(grep("mc_55000-free",loadfile))==1){ 
     n2plt<-ggplot(dotty_rmse)+
       geom_rect(data=subset(realistic_range,variable=="n2"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
@@ -265,7 +251,6 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
       scale_color_gradientn(colors=c("blue","yellow","red"))+
       theme_classic()+
       labs(x=expression(n[2]),y="RMSE",col=expression(P[opt]))
-    n2plt
 
     
     poptplt<-ggplot(dotty_rmse)+
@@ -274,72 +259,42 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
       scale_color_gradientn(colors=c("blue","yellow","red"))+
       theme_classic()+
       labs(x=expression(P[opt]),y="",col=expression(n[2]))
-    poptplt
     
 
-    pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 3.5,width = 8)
+    pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 3,width = 8)
     gridExtra::grid.arrange(n2plt,poptplt,ncol=2)
     dev.off()
   }
   
   if(length(grep("mc_55000-realistic",loadfile))==1){ 
     pdistrplt<-ggplot(dotty_rmse)+
-      geom_point(aes(p_distr,rmsegood,col=p_opt),size=1)+
+      geom_point(aes(p_distr,rmsegood,col=p_opt),size=0.5)+
       scale_color_gradientn(colors=c("blue","yellow","red"))+
       theme_classic()+
       labs(x=expression(P[distr]),y="RMSE",col=expression(P[opt]))
-    pdistrplt
     
     
     ks2plt<-ggplot(dotty_rmse)+
-      geom_point(aes(ks2,rmsegood,col=p_distr),size=1)+
+      geom_point(aes(ks2,rmsegood,col=p_distr),size=0.5)+
       scale_color_gradientn(colors=c("blue","yellow","red"))+
       theme_classic()+
       labs(x=expression(K[S2]),y="",col=expression(P[distr]))
     ks2plt
     
     
-    pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 3.5,width = 8)
+    pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 3,width = 8)
     gridExtra::grid.arrange(pdistrplt,ks2plt,ncol=2)
     dev.off()
   }
-  # if(loadfile=="mc_60000-realistic_free_ks"){ 
-  #   pdistr<-ggplot(dotty_rmse)+
-  #     geom_point(aes(p_distr,rmsegood,col=p_opt),size=0.5)+
-  #     scale_color_gradientn(colors=c("blue","yellow","red"),labels=scales::scientific)+
-  #     theme_classic()+
-  #     labs(x=expression(P[distr]),y="RMSE",col=expression(P[opt]))
-  # 
-  #   DispA<-ggplot(dotty_rmse)+
-  #     geom_point(aes(DispA,rmsegood,col=p_distr),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))+
-  #     theme_classic()+
-  #     labs(x=expression(D[A]),y="",col=expression(P[distr]))#+
-  #     #geom_rect(data=subset(realistic_range,variable=="DispA"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")
-  # 
-  #   n2_plt<-ggplot(dotty_rmse)+
-  #     geom_rect(data=subset(realistic_range,variable=="n2"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
-  #     geom_point(aes(n2,rmsegood,col=p_distr),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))+
-  #     theme_classic()+
-  #     labs(x=expression(n[2]),y="RMSE",col=expression(P[distr]))
-  # 
-  #   ks2<-ggplot(dotty_rmse)+
-  #     geom_rect(data=subset(realistic_range,variable=="ks2"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
-  #     geom_point(aes(ks2,rmsegood,col=n2),size=0.5)+scale_color_gradientn(colors=c("blue","yellow","red"))+
-  #     theme_classic()+
-  #     labs(x=expression(K[S*2]),y="",col=expression(n[2]))
-  # 
-  #   pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 4,width = 7)
-  #   gridExtra::grid.arrange(pdistr,DispA,n2_plt,ks2)
-  #   dev.off()
-  # }
+  
   
   ggplot()+
-    geom_point(data=dotty_melt,aes(value,rmsegood),size=0.5)+
+    geom_point(data=dotty_melt,aes(value,rmsegood),size=0.2)+
     geom_point(data=subset(dotty_melt,rmsegood==min(rmsegood)),aes(value,rmsegood),col=2)+
     geom_rect(data=realistic_range,aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
     facet_wrap(~variable,scales = "free",ncol = 3,labeller = as_labeller(named))+
     theme_bw()+labs(x="Value",y="RMSE")+
-    ggsave(paste0(plotpfad,"dottyplots/RMSE/dotty_",loadfile,".pdf"),height = 4,width = 6)
+    ggsave(paste0(plotpfad,"dottyplots/RMSE/dotty_",loadfile,".pdf"),height = 6,width = 6)
   
 
   ##################################
