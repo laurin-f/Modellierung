@@ -161,12 +161,16 @@ rownames(pars_tab)<-rownames(par_opt_tab)
 rownames(std_tab)<-rownames(par_opt_tab)
 par_opt_tab[,seq(1,11,2)]<-pars_tab
 par_opt_tab[,seq(2,12,2)]<-std_tab
-par_opt_tab<-par_opt_tab[,-grep("Ca",colnames(par_opt_tab))]
+par_opt_tab<-par_opt_tab[,-grep("Ca free|both free",colnames(par_opt_tab))]
 par_opt_tab<-par_opt_tab[,order(colnames(par_opt_tab))]
 
 par_opt_tab2<-t(apply(par_opt_tab,1,function(x)as.character(signif(x,2))))
 colnames(par_opt_tab2)<-colnames(par_opt_tab)
-xtable::xtable(par_opt_tab2)
+rownames(par_opt_tab2)<-c("$\\alpha_1$","$\\alpha_2$","h$_{opt}$","K$_{S1}$","K$_{S2}$","K$_{S3}$","n$_1$","n$_2$","P$_{distr}$","P$_{opt}$","RMSE$_{norm}$")
+par_opt_tab2[1:10,seq(2,ncol(par_opt_tab2),2)]<-paste("\\cellcolor{lightgray}",par_opt_tab2[1:10,seq(2,ncol(par_opt_tab2),2)])
+print(xtable::xtable(par_opt_tab2),sanitize.rownames.function=identity,sanitize.text.function=identity)
+
+
 #############################
 #EE plots für  Ergebnisse
 EE_co2_free<-get(paste0(loadfiles_undist[1],"EET_plt"))+theme(legend.position = "none")+labs(title=expression("fit CO"[2]),subtitle="free ranges")
@@ -346,7 +350,7 @@ qplt<-qplt+geom_line(data=subset(data,tiefe==-17),aes(date,q_mod,col=run))
 co2plt+
   geom_rect(data=event2,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
   facet_wrap(~as.factor(-tiefe),labeller = as_labeller(name_tiefe),ncol = 1,scales = "free")+
-  labs(title="ungestörte Probe",x="Zeit [Tage]",y=expression("CO"[2]*" [ppm]"),col="mod",linetype="obs")+
+  labs(title="ungestörte Probe",x="",y=expression("CO"[2]*" [ppm]"),col="mod",linetype="obs")+
   theme_classic()+
   scale_fill_manual(name="Beregnung",values="blue")+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
   ggsave(paste0(plotpfad,"co2_mod_undist.pdf"),width=7,height = 9)
@@ -354,17 +358,17 @@ co2plt+
 bfplt+
   geom_rect(data=event2,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
   facet_wrap(~as.factor(-tiefe),labeller = as_labeller(name_tiefe),ncol = 1,scales = "free")+
-  labs(title="ungestörte Probe",x="Zeit [Tage]",y=expression("CO"[2]*" [ppm]"),col="mod",linetype="obs")+
+  labs(title="ungestörte Probe",x="",y=expression(theta*" [Vol %]"),col="mod",linetype="obs")+
   theme_classic()+
   scale_fill_manual(name="Beregnung",values="blue")+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
-  ggsave(paste0(plotpfad,"bf_mod_undist.pdf"),width=7,height = 9)
+  ggsave(paste0(plotpfad,"bf_mod_undist.pdf"),width=7,height = 6)
 
 qplt+
   geom_rect(data=event1,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
-  labs(title="ungestörte Probe",x="Zeit [Tage]",y=expression("CO"[2]*" [ppm]"),col="mod",linetype="obs")+
+  labs(title="ungestörte Probe",x="",y=expression("q"*" [ml / min]"),col="mod",linetype="obs * 5")+
   theme_classic()+
   scale_fill_manual(name="Beregnung",values="blue")+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
-  ggsave(paste0(plotpfad,"q_mod_undist.pdf"),width=7,height = 9)
+  ggsave(paste0(plotpfad,"q_mod_undist.pdf"),width=7,height = 3)
 
 #######################
 #modelläufe zusammmen dist
@@ -403,17 +407,17 @@ co2plt+
 bfplt+
   geom_rect(data=event2,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
   facet_wrap(~as.factor(-tiefe),labeller = as_labeller(name_tiefe),ncol = 1,scales = "free")+
-  labs(title="ungestörte Probe",x="Zeit [Tage]",y=expression("CO"[2]*" [ppm]"),col="mod",linetype="obs")+
+  labs(title="ungestörte Probe",x="",y=expression(theta*" [Vol %]"),col="mod",linetype="obs")+
   theme_classic()+
   scale_fill_manual(name="Beregnung",values="blue")+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
-  ggsave(paste0(plotpfad,"bf_mod_dist.pdf"),width=7,height = 9)
+  ggsave(paste0(plotpfad,"bf_mod_dist.pdf"),width=7,height = 6)
 
 qplt+
   geom_rect(data=event1,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
-  labs(title="ungestörte Probe",x="Zeit [Tage]",y=expression("CO"[2]*" [ppm]"),col="mod",linetype="obs")+
+  labs(title="ungestörte Probe",x="",y=expression("q"*" [ml / min]"),col="mod",linetype="obs * 5")+
   theme_classic()+
   scale_fill_manual(name="Beregnung",values="blue")+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
-  ggsave(paste0(plotpfad,"q_mod_dist.pdf"),width=7,height = 9)
+  ggsave(paste0(plotpfad,"q_mod_dist.pdf"),width=7,height = 3)
 
 ######################################################################
 
@@ -443,7 +447,7 @@ for(i in (1:length(loadfiles_undist))[-grep("CO.+realistic|bo.+realistic",loadfi
 }
 caplt+
   geom_rect(data=event1,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
-  labs(title="ungestörte Probe",x="Zeit [Tage]",y=expression("Ca"^{2+""}*" [mg/l]"),col="mod",linetype="obs")+
+  labs(title="ungestörte Probe",x="",y=expression("Ca"^{2+""}*" [mg / l]"),col="mod",linetype="obs")+
   theme_classic()+
   scale_fill_manual(name="Beregnung",values="blue")+scale_y_continuous(limits = c(40,NA))+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
   ggsave(paste0(plotpfad,"ca_mod_undist.pdf"),width=7,height = 4)
@@ -488,7 +492,9 @@ mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_55000-free",dtmax = 10,kin
 mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_55000-realistic_ranges",dtmax = 10,kin_sol = T,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = T)
 mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_55000-free",dtmax = 10,kin_sol = T,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000)
 
-mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_temp",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = T,obs=alldist_s,traintime = 8000,Probe = "dist")
+mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_55000-dist_free",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = T,obs=alldist_s,traintime = 8000,Probe = "dist")
+
+mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_123-dist_realistic",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = T,obs=alldist_s,traintime = 8000,Probe = "dist")
 
 
 for (i in c(1,4,5)){

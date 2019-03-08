@@ -1,6 +1,6 @@
 
 loadfile<-"mc_temp"
-fixed=cbind(fixed,fixed_co2)
+#fixed=cbind(fixed,fixed_co2)
 
 ndottys=10000
 
@@ -27,7 +27,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
                  plot=F,
                  Mat=c(rep(1,3),rep(2,5),3),
                  rmse_pos=1,
-                 crit_perc=5
+                 crit_perc=5,
                  taskkill=F){
   
   #definieren der Pfade
@@ -460,16 +460,6 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   names<-paste("Intensit\xe4t =",unique(ic$treatment),"mm/h")
   names[2:length(unique(ic$treatment))]<-paste(unique(ic$treatment)[2:length(unique(ic$treatment))],"mm/h")
   named<-setNames(names,unique(ic$treatment))
-
-  # #plot erstellen
-  # ca_tiefenplot<-ggplot()+
-  #   geom_path(data=icmean[icmean$treatment%in%unique(ca_mg_sums$treatment),],aes(ca,tiefe,col="mean (obs)",linetype="mean (obs)"))+
-  #   geom_point(data=subset(ic,!is.na(rain_mm_h)&treatment%in%unique(ca_mg_sums$treatment)),aes(ca,tiefe,shape="obs"))+
-  #   geom_path(data=ca_mg_sums,aes(Ca_ml_mod,tiefe,col="mod",linetype="mod"))+labs(x=expression("Ca"^{"2+"}*"  [mg / l]"),y="Tiefe [cm]",col="",shape="",linetype="")+
-  #   scale_linetype_manual(name="",values=2:1)+
-  #   scale_color_manual(name="",values=1:2)+
-  #   theme_bw()+
-  #   facet_wrap(~treatment,labeller = as_labeller(named))
   
   #plot erstellen
   ca_tiefenplot<-ggplot()+
