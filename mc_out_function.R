@@ -30,6 +30,11 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
                  crit_perc=5,
                  taskkill=F){
   
+  #falls Hydrus gerade noch ausgeführt wird dier es jetzt gestoppt, 
+  #da sonst die input dateien nicht bearbeitet werden können
+  system("taskkill /IM H1D_UNSC.EXE",show.output.on.console=F)
+  Sys.sleep(1)
+  
   #definieren der Pfade
   mcpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/"
   plotpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/abbildungen/plots/mc/"
@@ -300,7 +305,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   ##################################
   #export dottyplots for RMSE  for most sensitve Parameters
   ##################################
-  
+  if(Nboot>0){
   #4 Sensitivste Parameter aus EE entnehmen
   best4<-order(EET$mi,decreasing = T)[1:4]
   #die n  besten Modellläufe dieser Parameter auswählen
@@ -333,7 +338,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     theme_bw()+
     labs(x="Value",y="RMSE")+
     ggsave(paste0(plotpfad,"dottyplots/RMSE/best4_",loadfile,".pdf"),height = 4,width = 6)
-  
+  }
   ##################################
   #export dottyplots for NSE
   ##################################

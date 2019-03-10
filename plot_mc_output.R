@@ -94,14 +94,6 @@ fixed_co2<-data.frame(act_en=6677,
                       DispW=0.00106181,
                       Disper=5)
 
-# fixedca<-data.frame(thr=0.11,
-#                     ths=0.75,
-#                     thr2=0.13,
-#                     ths2=0.64,
-#                     thr3=0.13,
-#                     ths3=0.64,
-#                     hseep=0,
-#                     l=0.5)
 ###############################################################
 #co2 with changing water paramters
 ###############################################################
@@ -494,14 +486,16 @@ mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_55000-free",dtmax = 10,kin
 
 mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_55000-dist_free",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = T,obs=alldist_s,traintime = 8000,Probe = "dist")
 
-mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_123-dist_realistic",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = T,obs=alldist_s,traintime = 8000,Probe = "dist")
+mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_55000-dist_realistic2",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = T,obs=alldist_s,traintime = 8000,Probe = "dist")
+
+mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_55000-dist_fit_tiefe_1-2",dtmax = 1,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = F,obs=alldist_s,traintime = 8000,Probe = "dist")
 
 
 for (i in c(1,4,5)){
   mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_550-dist_free",dtmax = 10,kin_sol = T,plot = T,Mat = c(rep(1,3),rep(2,5),3),rmse_pos = i,Nboot = 1,ndottys = 100,obs=alldist_s)
 }
 
-mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_5500-free_ranges_DA",dtmax = 10,kin_sol = F,plot = T,Mat = c(rep(1,4),rep(2,4),3),ndottys = 1000)
+mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_5500-free_ranges_DA",dtmax = 1,kin_sol = F,plot = T,Mat = c(rep(1,4),rep(2,4),3),ndottys = 1000)
 
 mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-fitca_realistic_free_ks",dtmax = 10,plot=T)
 
@@ -592,3 +586,35 @@ rownames(pars)<-stringr::str_replace_all(rownames(pars),"_"," ")
 pars<-pars[order(rownames(pars)),]
 pars<-pars[,order(colnames(pars))]
 xtable::xtable(t(pars))
+
+load(file = paste0(mcpfad,"mc_55000-dist_fit_tiefe_1-22.R"))
+
+#if(!exists("rmse")){
+#der Output ist in die Liste mc geschrieben
+#die einzelnen listenelemente auspacken
+par<-mc[[2]]
+rmse<-mc[[1]]
+nse<-mc[[3]]
+
+rmse[which.min(rmse)]<-NA
+nse[which.min(rmse)]<-NA
+mc<-list(rmse,par,nse)
+save(mc,file=paste0(mcpfad,"mc_55000-dist_fit_tiefe_1-22.R"))
+
+mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_55000-dist_fit_tiefe_1-22",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = F,obs=alldist_s,traintime = 8000,Probe = "dist")
+
+mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_55000_fit_tiefe_1-2",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = F,obs=alldist_s,traintime = 8000,Probe = "dist")
+
+# load(file = paste0(mcpfad,"mc_60000_dist-fit_tiefe_1-2.R"))
+# 
+# #if(!exists("rmse")){
+# #der Output ist in die Liste mc geschrieben
+# #die einzelnen listenelemente auspacken
+# par<-mc[[2]]
+# rmse<-mc[[1]]
+# nse<-mc[[3]]
+# par$DispA<-9.54
+# #par<-par[,-which(colnames(par)=="DispA")]
+# mc<-list(rmse,par,nse)
+# save(mc,file=paste0(mcpfad,"mc_60000_dist-fit_tiefe_1-2_Da.R"))
+mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_60000_dist-fit_tiefe_1-2_Da",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 0,ndottys = 10000,taskkill = F,obs=alldist_s,traintime = 8000,Probe = "dist")
