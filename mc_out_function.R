@@ -28,7 +28,8 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
                  Mat=c(rep(1,3),rep(2,5),3),
                  rmse_pos=1,
                  crit_perc=5,
-                 taskkill=F){
+                 taskkill=F,
+                 n_best=1){
   
   #falls Hydrus gerade noch ausgeführt wird dier es jetzt gestoppt, 
   #da sonst die input dateien nicht bearbeitet werden können
@@ -94,8 +95,8 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   #####################################
   
   #Den Besten Parametersatz des MC-Laufs auswählen
-  pars<-cbind(par[which.min(rmse),],fixed)
-  pars_opt<-par[which.min(rmse),][order(colnames(par))]
+  pars<-cbind(par[order(rmse)[n_best],],fixed)
+  pars_opt<-par[order(rmse)[n_best],][order(colnames(par))]
   assign("pars_opt",pars_opt,envir = .GlobalEnv)
   assign("colnames_par",colnames(par)[order(colnames(par))],envir = .GlobalEnv)
   #mit function das Modell ausführen und output laden
@@ -232,7 +233,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   dotty_rmse<-cbind(rmsegood,pargood)
   
   #Vector mit Labels für den Plot
-  lbls<-sort(paste(colnames(pargood),"best =",signif(pargood[which.min(rmsegood),],2)))
+  lbls<-sort(paste(colnames(pargood),"best =",signif(pargood[order(rmsegood)[n_best],],2)))
   lbls<-sub("Disp","Diff",lbls)
   lbls<-gsub("p_","P_",lbls)
   
@@ -295,7 +296,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   
   ggplot()+
     geom_point(data=dotty_melt,aes(value,rmsegood),size=0.2)+
-    geom_point(data=subset(dotty_melt,rmsegood==min(rmsegood)),aes(value,rmsegood),col=2)+
+    geom_point(data=subset(dotty_melt,rmsegood==(sort(rmsegood)[n_best])),aes(value,rmsegood),col=2)+
     geom_rect(data=realistic_range,aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
     facet_wrap(~variable,scales = "free",ncol = 3,labeller = as_labeller(named))+
     theme_bw()+labs(x="Value",y="RMSE")+

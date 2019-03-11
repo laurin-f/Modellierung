@@ -362,11 +362,18 @@ read_hydrus.out<-function(obs=all,#Messungen
     #wenn Spaltenzahl teilweise von der erwarteten abweicht ist 
     #nrows die Reihe mit der ersten Abweichung von ncols -2
     #sonst entspricht nrow der Reihenzahl der .out datei 
+    wrong_fields<-which(fields!=ncols)      
+    skip_more<-0
+    #end_field<-min(wrong_fields[wrong_fields>10])
+    if(min(wrong_fields)<10&max(wrong_fields)>min_nrows){
+    skip_more<-max(wrong_fields[wrong_fields<10])
+      fields<-count.fields(paste0(projektpfad,"Obs_Node.out"),blank.lines.skip = F,skip=10+skip_more)
+    }
     nrows<-ifelse(length(which(fields!=ncols))!=0,which(fields!=ncols)[1]-2,length(fields))
-    #wenn nrows größer ist als 300...
+    #wenn nrows größer ist als min_nrows...
   if(nrows>min_nrows){
     #wird die .out datei eingelesen
-    obs_node<-read.table(paste0(projektpfad,"Obs_Node.out"),skip=10,nrows = nrows,header = T)
+    obs_node<-read.table(paste0(projektpfad,"Obs_Node.out"),skip=10+skip_more,nrows = nrows,header = T)
     
     #Vektor mit tiefenstufen
     tiefenstufen<-c(-2,-6,-10,-14,-17)

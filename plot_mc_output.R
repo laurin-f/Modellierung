@@ -95,18 +95,8 @@ fixed_co2<-data.frame(act_en=6677,
                       Disper=5)
 
 ###############################################################
-#co2 with changing water paramters
+#mc_out funktion anwenden für undist
 ###############################################################
-
-# loadfiles<-list.files(mcpfad,pattern = ".R")
-# loadfiles<-loadfiles[loadfiles!="mc_temp.R"]
-# loadfiles<-substr(loadfiles,1,nchar(loadfiles)-2)
-# loadfiles_ca<-loadfiles[grep("_-fit",loadfiles)]
-# loadfiles<-loadfiles[-grep("_-fit",loadfiles)]
-# 
-# loadfiles_undist<-loadfiles[-grep("dist",loadfiles)]
-# loadfiles_dist<-loadfiles[grep("dist",loadfiles)]
-# loadfiles_undist_kinsol<-paste0("kinsol-",loadfiles_undist)
 
 loadfiles<-c("mc_55000-free_ranges","mc_55000-realistic_ranges")
 loadfiles_undist<-paste0(c("fit_CO2-_","fit_Ca-_","fit_both-_"),rep(loadfiles,each=3))
@@ -162,6 +152,48 @@ rownames(par_opt_tab2)<-c("$\\alpha_1$","$\\alpha_2$","h$_{opt}$","K$_{S1}$","K$
 par_opt_tab2[1:10,seq(2,ncol(par_opt_tab2),2)]<-paste("\\cellcolor{lightgray}",par_opt_tab2[1:10,seq(2,ncol(par_opt_tab2),2)])
 print(xtable::xtable(par_opt_tab2),sanitize.rownames.function=identity,sanitize.text.function=identity)
 
+###############################################################
+#mc_out funktion anwenden für dist
+###############################################################
+
+loadfiles2<-c("mc_55000-dist_free_ranges","mc_55000-dist_realistic_ranges")
+loadfiles_dist<-paste0("fit_CO2-_",loadfiles2)
+
+par_tab_dist<-matrix(NA,11,length(loadfiles_dist))
+std_tab_dist<-matrix(NA,11,length(loadfiles_dist))
+
+colnames(par_tab_dist)<-gsub("mc_55000-dist_"," ",loadfiles2)
+colnames(std_tab_dist)<-colnames(par_tab_dist)
+
+  for (i in 1:length(loadfiles2)){
+    mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = loadfiles2[i],dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = T,obs=alldist_s,traintime = 8000,Probe = "dist",n_best = c(1,2,1)[i])
+    rmse_norms[,i+3*(j-1)]<-c(rmse_co2,rmse_ca,rmse_both)
+    
+    std_tab_dist[1:10,i]<-std
+    par_tab_dist[11,i]<-rmse_co2
+    par_tab_dist[1:10,i]<-t(pars_opt)
+  }
+
+
+##############################
+#tabelle parameter
+###############################
+
+par_opt_tab_dist<-matrix(NA,11,2*length(loadfiles_dist))
+colnames(par_opt_tab_dist)<-paste(rep(colnames(par_tab_dist),each=2),c("","sd"))
+rownames(par_opt_tab_dist)<-c(colnames_par,"RMSE")
+rownames(par_tab_dist)<-rownames(par_opt_tab_dist)
+rownames(std_tab_dist)<-rownames(par_opt_tab_dist)
+par_opt_tab_dist[,seq(1,ncol(par_opt_tab_dist)-1,2)]<-par_tab_dist
+par_opt_tab_dist[,seq(2,ncol(par_opt_tab_dist),2)]<-std_tab_dist
+par_opt_tab_dist<-par_opt_tab_dist[,order(colnames(par_opt_tab_dist))]
+
+par_opt_tab_dist2<-t(apply(par_opt_tab_dist,1,function(x)as.character(signif(x,2))))
+colnames(par_opt_tab_dist2)<-colnames(par_opt_tab_dist)
+rownames(par_opt_tab_dist2)<-c("$\\alpha_1$","$\\alpha_2$","h$_{opt}$","K$_{S1}$","K$_{S2}$","K$_{S3}$","n$_1$","n$_2$","P$_{distr}$","P$_{opt}$","RMSE$_{norm}$")
+par_opt_tab_dist2[1:10,seq(2,ncol(par_opt_tab_dist2),2)]<-paste("\\cellcolor{lightgray}",par_opt_tab_dist2[1:10,seq(2,ncol(par_opt_tab_dist2),2)])
+print(xtable::xtable(par_opt_tab_dist2),sanitize.rownames.function=identity,sanitize.text.function=identity)
+
 
 #############################
 #EE plots für  Ergebnisse
@@ -174,45 +206,14 @@ layout.mat<-matrix(2,60,20)
 layout.mat[1,]<-3
 layout.mat[,1:9]<-1
 
-pdf(paste0(plotpfad,"EE_fit_both.pdf"),height = 4,width = 7)
+pdf(paste0(plotpfad,"EE_fit_both.pdf"),height = 3.5,width = 7)
 gridExtra::grid.arrange(EE_both_free,EE_both_real,ncol=2,layout_matrix=layout.mat)
 dev.off()
 
-pdf(paste0(plotpfad,"EE_fit_CO2.pdf"),height = 4,width = 7)
+pdf(paste0(plotpfad,"EE_fit_CO2.pdf"),height = 3.5,width = 7)
 gridExtra::grid.arrange(EE_co2_free,EE_co2_real,ncol=2,layout_matrix=layout.mat)
 dev.off()
 
-
-# for(i in 1:length(loadfiles_undist)){
-#   mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = c(1,10,10)[i],Nboot = 100,kin_sol = T,plot=T,ndottys = 10000)
-# }
-# for(i in 1:length(loadfiles_undist)){
-#   mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_undist[i],dtmax = c(1,10,10)[i],Nboot = 100,kin_sol = F,plot=T)
-# }
-# 
-# 
-# for(i in 1:length(loadfiles_dist)){
-#   mc_out(fixed=cbind(fixed_dist,fixed_co2),loadfile = loadfiles_dist[i],dtmax = 10,obs=alldist_s,Probe = "dist",Nboot = 100,plot = F,traintime = c(8000,8000,4500))
-# }
-
-########################
-#tabelle rmse norms
-########################
-# rmse_norms<-matrix(NA,3,length(loadfiles_ca))
-# colnames(rmse_norms)<-str_extract(loadfiles_ca,"-.+")
-# for(i in 1:length(loadfiles_ca)){
-#   print(loadfiles_ca[i])
-#   mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles_ca[i],kin_sol = stringr::str_detect(loadfiles_ca,"kinsol")[i],dtmax = c(1,rep(10,5))[i],Nboot = 100,plot = F)
-#   rmse_norms[,i]<-c(get("rmse_co2"),get("rmse_ca"),get("rmse_both"))
-# }
-# rownames(rmse_norms)<-c("rmse co2","rmse ca","rmse both")
-# fit<-str_extract(colnames(rmse_norms),"fit_(both|co2|ca)")
-# colnames(rmse_norms)<-gsub("_|-|(kinsol)|fit_(both|co2|ca)"," ",colnames(rmse_norms))
-# colnames(rmse_norms)<-gsub("(^\\s+)|(\\s+$)","",colnames(rmse_norms))
-# rmse_norms2<-rmse_norms[,order(colnames(rmse_norms),fit)]
-# fit2<-fit[order(colnames(rmse_norms),fit)]
-# 
-# xtable::xtable(rmse_norms2)
 
 
 ################
@@ -366,11 +367,14 @@ qplt+
 #modelläufe zusammmen dist
 ########################
 
-runname<-str_extract(loadfiles_dist,"-.+")
-runname<-substr(runname,2,nchar(runname)) 
-runname<-gsub("_"," ",runname)
+# runname<-str_extract(loadfiles_dist,"-.+")
+# runname<-substr(runname,2,nchar(runname)) 
+# runname<-gsub("_"," ",runname)
+runname<-gsub("mc_55000-dist_|_"," ",loadfiles2)
 
 
+#events laden
+events<-event()
 #zeitspanne ausschneiden
 event1<-subset(events,start>=min(alldist_s$date)&stop<=max(alldist_s$date))
 event2<-data.frame(start=rep(event1$start,4),stop=rep(event1$stop,4),tiefe=rep(c(-2,-6,-10,-14),each=nrow(event1)))
@@ -391,7 +395,7 @@ for(i in 1:length(loadfiles_dist)){
 co2plt+
   geom_rect(data=event2,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
   facet_wrap(~as.factor(-tiefe),labeller = as_labeller(name_tiefe),ncol = 1,scales = "free")+
-  labs(title="gestörte Probe",x="Zeit [Tage]",y=expression("CO"[2]*" [ppm]"),col="mod",linetype="obs")+
+  labs(title="gestörte Probe",x="",y=expression("CO"[2]*" [ppm]"),col="mod",linetype="obs")+
   theme_classic()+
   scale_fill_manual(name="Beregnung",values="blue")+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
   ggsave(paste0(plotpfad,"co2_mod_dist.pdf"),width=7,height = 9)
@@ -399,14 +403,14 @@ co2plt+
 bfplt+
   geom_rect(data=event2,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
   facet_wrap(~as.factor(-tiefe),labeller = as_labeller(name_tiefe),ncol = 1,scales = "free")+
-  labs(title="ungestörte Probe",x="",y=expression(theta*" [Vol %]"),col="mod",linetype="obs")+
+  labs(title="gestörte Probe",x="",y=expression(theta*" [Vol %]"),col="mod",linetype="obs")+
   theme_classic()+
   scale_fill_manual(name="Beregnung",values="blue")+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
   ggsave(paste0(plotpfad,"bf_mod_dist.pdf"),width=7,height = 6)
 
 qplt+
   geom_rect(data=event1,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
-  labs(title="ungestörte Probe",x="",y=expression("q"*" [ml / min]"),col="mod",linetype="obs * 5")+
+  labs(title="gestörte Probe",x="",y=expression("q"*" [ml / min]"),col="mod",linetype="obs * 5")+
   theme_classic()+
   scale_fill_manual(name="Beregnung",values="blue")+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
   ggsave(paste0(plotpfad,"q_mod_dist.pdf"),width=7,height = 3)
@@ -488,8 +492,11 @@ mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_55000-dist_free",dtma
 
 mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_55000-dist_realistic2",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = T,obs=alldist_s,traintime = 8000,Probe = "dist")
 
+mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_temp",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = T,obs=alldist_s,traintime = 8000,Probe = "dist",n_best = 2)
+
 mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_55000-dist_fit_tiefe_1-2",dtmax = 1,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = F,obs=alldist_s,traintime = 8000,Probe = "dist")
 
+mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_temp_fit_tiefe",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = F,obs=alldist_s,traintime = 8000,Probe = "dist",n_best = 1)
 
 for (i in c(1,4,5)){
   mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_550-dist_free",dtmax = 10,kin_sol = T,plot = T,Mat = c(rep(1,3),rep(2,5),3),rmse_pos = i,Nboot = 1,ndottys = 100,obs=alldist_s)
@@ -587,19 +594,18 @@ pars<-pars[order(rownames(pars)),]
 pars<-pars[,order(colnames(pars))]
 xtable::xtable(t(pars))
 
-load(file = paste0(mcpfad,"mc_55000-dist_fit_tiefe_1-22.R"))
-
-#if(!exists("rmse")){
-#der Output ist in die Liste mc geschrieben
-#die einzelnen listenelemente auspacken
-par<-mc[[2]]
-rmse<-mc[[1]]
-nse<-mc[[3]]
-
-rmse[which.min(rmse)]<-NA
-nse[which.min(rmse)]<-NA
-mc<-list(rmse,par,nse)
-save(mc,file=paste0(mcpfad,"mc_55000-dist_fit_tiefe_1-22.R"))
+# load(file = paste0(mcpfad,"mc_55000-dist_fit_tiefe_1-22.R"))
+# 
+# #if(!exists("rmse")){
+# #der Output ist in die Liste mc geschrieben
+# #die einzelnen listenelemente auspacken
+# par<-mc[[2]]
+# rmse<-mc[[1]]
+# nse<-mc[[3]]
+# 
+# rmse[order(rmse)[1:50]]<-NA
+# mc<-list(rmse,par,nse)
+# save(mc,file=paste0(mcpfad,"mc_55000-dist_fit_tiefe_1-22.R"))
 
 mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_55000-dist_fit_tiefe_1-22",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = F,obs=alldist_s,traintime = 8000,Probe = "dist")
 
