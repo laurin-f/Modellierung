@@ -18,18 +18,19 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
                       n_parallel=20,
                       #pfad=projektpfad1,
                       UNSAT=T,#soll UNSATCHEM verwendet werden
+                      treatm="all",#intensität oder "all"
                       sleep=5,#sleeptime für die .exe
                       #wenn T werden Paramtersätze über das Latin Hypercube Sampling gezogen
                       #Tiefen die Benutzt werden um objective Function zu ermitteln
                       fit.tiefe=c(-2,-6,-10,-14),
                       #soll die lower Boundary free drain verwendet werden oder seepage face
                       free_drain=T,
-                      #soll  die objective Function auch für Ca gefittet werden
-                      fit.calcium=T,
+                      #soll  die objective Function auf CO2 oder Ca gefittet werden
+                      #fit.calcium=F,
                       #anzahl Knoten
                       n_nodes=9,
                       #Verteilung des Bodenmaterials
-                      Mat=c(rep(1,3),rep(2,5),3),
+                      Mat=c(rep(1,4),rep(2,4),3),
                       #anzahl Print times
                       print_times=100,
                       #maximaler zeitschritt
@@ -81,7 +82,7 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
   #falls Hydrus gerade noch ausgeführt wird dier es jetzt gestoppt, 
   #da sonst die input dateien nicht bearbeitet werden können
   system("taskkill /IM H1D_UNSC.EXE",show.output.on.console=F)
-  Sys.sleep(2)
+
   #schleife um inputs für alle parallelisierten Ordner zu schreiben
   for (i in 1:n_parallel){
     #atmos.in funktion ausführen
@@ -152,7 +153,6 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
           tasksplit<-strsplit(tasklist[2:(length(tasklist)-1)]," \\s+")
           tasks<-do.call("rbind",tasksplit)
         }#ende while schleife
-        print(difftime(Sys.time(),startpoint,units = "sec"))
         }#ende if-schleife
     }#ende check CPU-funktion
     
@@ -188,11 +188,7 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
         
 
           #die calcium und die co2 output function anwenden
-        if(fit.calcium==T){
           outca<-read_conc.out(projektpfad = projektpfad[j],obs=obs,min_nrows=min_nrows)
-        }else{
-          outca<-list(NA,NA,NA,NA)
-          }
           out<-read_hydrus.out(projektpfad=projektpfad[j],
                                UNSC=UNSAT,fit.tiefe = fit.tiefe,
                                traintime=traintime,min_nrows=min_nrows,obs=obs)
@@ -232,8 +228,7 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
     #RMSE werte der parallelen modelruns ausgeben
     print(rmse[i:(i+n_parallel-1)])
     #falls später ein Fehler auftritt speichern der Daten
-    mc<-list(rmse,par,nse,rmse_ca,rmse_both)
-    save(mc,file="//FUHYS013/Freiberg/Hydrus/montecarlo/mc_temp.R") 
+    save(rmse,par,nse,rmse_ca,rmse_both,file="//FUHYS013/Freiberg/Hydrus/montecarlo/mc_temp.R") 
     #müllabfuhr
     gc()
   }#ende Monteccarlo Schleife
@@ -318,11 +313,7 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
       if(length(rmse_na)>=(i+j-1)){
 
           #co2 und calcium-werte mittels funktion einlesen 
-        if(fit.calcium==T){
           outca<-read_conc.out(projektpfad = projektpfad[j],obs=obs,min_nrows=min_nrows)
-      }else{
-        outca<-list(NA,NA,NA,NA)
-      }
           out<-read_hydrus.out(projektpfad=projektpfad[j],
                                UNSC=UNSAT,fit.tiefe = fit.tiefe,
                                traintime=traintime,min_nrows=min_nrows,obs=obs)
@@ -347,8 +338,7 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
     #RMSE werte ausgeben
     print(rmse_na[i:(i+n_parallel-1)])
     #falls später ein Fehler auftritt speichern der Daten
-    mc<-list(rmse,par,nse,rmse_ca,rmse_both)
-    save(mc,file="//FUHYS013/Freiberg/Hydrus/montecarlo/mc_temp.R") 
+    save(rmse,par,nse,rmse_ca,rmse_both,file="//FUHYS013/Freiberg/Hydrus/montecarlo/mc_temp.R") 
     }#ende monte carlo NA
     
     #sleep_fac um 2 erhöhen

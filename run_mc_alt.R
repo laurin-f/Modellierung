@@ -77,14 +77,14 @@ mc<-mc_parallel2(nr=55000,sleep=23,ranges=data.frame(alpha=c(0.27,1.89),
                                                n=c(1.17,4.5),
                                                ks=c(0.007,0.8),
                                                alpha2=c(0.19,1.85),
-                                               n2=c(1.05,1.35),
+                                               n2=c(1.16,1.8),
                                                ks2=c(0.007,0.75),
                                                ks3=c(0.0001,0.1),
                                                p_opt=c(0.00001,0.0003),
                                                #DispA=c(0.5,5),
                                                h_opt=c(-80,-10),
-                                               p_distr=c(0.05,0.2)),
-                fixed=cbind(fixed,fixed_co2),
+                                               p_distr=c(0.005,0.2)),
+                fixed=cbind(fixed,fixed_co2),fit.calcium = F,
                 dtmax = 10,
                 n_parallel = 16,obs=all_s,kin_sol = T)
 
@@ -105,38 +105,38 @@ mc<-mc_parallel2(nr=55000,sleep=23,ranges=data.frame(alpha=c(0.27,1.89),
 #                  n_parallel = 16,obs=all_s)
  
 #dist free ranges
-mc<-mc_parallel2(nr=55000,sleep=20,ranges=data.frame(alpha=c(0.005,1.2),
+mc<-mc_parallel2(nr=120000,sleep=11,ranges=data.frame(alpha=c(0.005,1),
                                                       n=c(1,3),
-                                                      ks=c(0.0075,0.8),
-                                                      alpha2=c(0.005,1.2),
-                                                      n2=c(0.8,1.9),
-                                                      ks2=c(0.0075,0.8),
-                                                      ks3=c(0.0001,0.3),
-                                                      p_opt=c(0.000001,0.00026),
-                                                      #DispA=c(0.1,3),
-                                                      h_opt=c(-80,-10),
-                                                      p_distr=c(0.05,0.2)),
-                 fixed=cbind(fixed_dist,fixed_co2),
-                 dtmax = 10,
-                 n_parallel = 16,
-                 traintime = 8000,min_nrows = 2200,obs=alldist_s,kin_sol = F,fit.calcium = F)
-
-#dist free ranges fit.tiefe 1-2
-mc<-mc_parallel2(nr=55000,sleep=11,ranges=data.frame(alpha=c(0.005,1),
-                                                      n=c(1,3),
-                                                      ks=c(0.01,1),
+                                                      ks=c(0.001,0.5),
                                                       alpha2=c(0.005,1),
                                                       n2=c(1,3),
-                                                      ks2=c(0.01,0.8),
-                                                      ks3=c(0.001,0.3),
-                                                      p_opt=c(0.000001,0.00005),
+                                                      ks2=c(0.0001,0.5),
+                                                      ks3=c(0.0001,0.5),
+                                                      p_opt=c(0.000001,0.0003),
                                                       #DispA=c(0.1,3),
                                                       h_opt=c(-80,-10),
                                                       p_distr=c(0.05,0.2)),
                  fixed=cbind(fixed_dist,fixed_co2),fit.calcium = F,
                  dtmax = 10,
                  n_parallel = 16,
-                 traintime = 8000,min_nrows = 2200,obs=alldist_s,fit.tiefe = c(-2,-6),kin_sol = F,recalc = F)
+                 traintime = 8000,min_nrows = 2200,obs=alldist_s)
+
+#dist free ranges fit.tiefe 1-2
+mc<-mc_parallel2(nr=60000,sleep=11,ranges=data.frame(alpha=c(0.005,1),
+                                                      n=c(1,3),
+                                                      ks=c(0.001,0.5),
+                                                      alpha2=c(0.005,1),
+                                                      n2=c(1,3),
+                                                      ks2=c(0.0001,0.5),
+                                                      ks3=c(0.0001,0.5),
+                                                      p_opt=c(0.000001,0.0003),
+                                                      #DispA=c(0.1,3),
+                                                      h_opt=c(-80,-10),
+                                                      p_distr=c(0.05,0.2)),
+                 fixed=cbind(fixed_dist,fixed_co2),fit.calcium = F,
+                 dtmax = 10,
+                 n_parallel = 16,
+                 traintime = 8000,min_nrows = 2200,obs=alldist_s,fit.tiefe = c(-2,-6))
 
 
 ###############################################################
@@ -156,13 +156,13 @@ mc<-mc_parallel2(nr=55000,sleep=11,ranges=ranges,
 #mc dist
 ranges<-cbind(realistic_ranges_dist,data.frame(ks3=c(0.0001,0.1),
                                           h_opt=c(-80,-10),
-                                          p_distr=c(0.000005,0.05)))#,
+                                          p_distr=c(0.0001,0.105)))#,
                                           #DispA=c(0.5,2.75)))
 
 
 mc<-mc_parallel2(nr=55000,sleep=11,ranges=ranges,
                  fixed=cbind(fixed_dist,fixed_co2),min_nrows = 2200,
-                 traintime = 8000,n_parallel = 16,obs=alldist_s,kin_sol = F,fit.calcium = F)
+                 traintime = 8000,n_parallel = 16,obs=alldist_s)
 
 
 ###############################################################
@@ -171,17 +171,26 @@ mc<-mc_parallel2(nr=55000,sleep=11,ranges=ranges,
 
 
 load("//FUHYS013/Freiberg/daten/bodenparameter/ranges.R")
-ranges<-cbind(realistic_ranges,data.frame(ks3=c(0.01,0.1),
+ranges<-cbind(realistic_ranges,data.frame(ks3=c(0.0001,0.1),
                                           h_opt=c(-80,-10),
-                                          p_distr=c(0.00005,0.2)))
+                                          p_distr=c(0.00005,0.02)))
 
-ranges$ks<-c(0.0075,0.8)
+ranges$ks<-c(0.0075,1)
 ranges$ks2<-c(0.0075,0.4)
 
-mc<-mc_parallel2(nr=55000,sleep=20,ranges=ranges,
-                 fixed=cbind(fixed,fixed_co2),n_parallel = 16,kin_sol = T)
+mc<-mc_parallel2(nr=22,sleep=11,ranges=ranges,
+                 fixed=cbind(fixed,fixed_co2),n_parallel = 16)
+
+mc<-mc_parallel2(nr=55000,sleep=23,ranges=ranges,
+                 fixed=cbind(fixed,fixed_co2),n_parallel = 16,fit.calcium = "both",kin_sol = T)
 
 
+mc<-mc_parallel2(nr=55000,sleep=23,ranges=ranges,
+                 fixed=cbind(fixed,fixed_co2),n_parallel = 16,fit.calcium = T,kin_sol = T)
+
+
+mc<-mc_parallel2(nr=55000,sleep=11,ranges=ranges,
+                 fixed=cbind(fixed,fixed_co2),n_parallel = 16,fit.calcium = T)
 
 #fix p_distr
 load("//FUHYS013/Freiberg/daten/bodenparameter/ranges.R")
@@ -196,21 +205,21 @@ mc<-mc_parallel2(nr=55000,sleep=23,ranges=ranges,
                  fixed=cbind(fixed,fixed_co2),n_parallel = 16,kin_sol = T)
 
 #mc dist
-# ranges<-cbind(realistic_ranges_dist,data.frame(ks3=c(0.0001,0.1),
-#                                                h_opt=c(-80,-10),
-#                                                p_distr=c(0.0001,0.2)))
-# 
-# ranges$ks<-c(0.0075,0.8)
-# ranges$ks2<-c(0.0075,0.8)
-# 
-# mc<-mc_parallel2(nr=55000,sleep=11,ranges=ranges,
-#                  fixed=cbind(fixed_dist,fixed_co2),min_nrows = 2200,n_parallel = 16,obs=alldist_s)
-# 
+ranges<-cbind(realistic_ranges_dist,data.frame(ks3=c(0.0001,0.1),
+                                               h_opt=c(-80,-10),
+                                               p_distr=c(0.0001,0.2)))
+
+ranges$ks<-c(0.0075,0.8)
+ranges$ks2<-c(0.0075,0.8)
+
+mc<-mc_parallel2(nr=55000,sleep=11,ranges=ranges,
+                 fixed=cbind(fixed_dist,fixed_co2),min_nrows = 2200,n_parallel = 16,obs=alldist_s)
+
 
 
 ########################
 #
-loadfile<-"mc_55000_fit_tiefe_1-2"
+loadfile<-"mc_60000_dist-realistic"
 obs<-alldist_s
 plot(alldist_s$CO2_raw)
 load(file = paste0(mcpfad,loadfile,".R"))
@@ -236,12 +245,13 @@ selector.in(params = pars,
             kin_sol = F)
 
 atmos.in(obs=obs,
+         int="all",
+         event=NULL,
+         alle=T,
          total_t = tmax,
-         projektpfad = projektpfad[1],mainpath ="//FUHYS013/Freiberg/")
+         projektpfad = projektpfad[1])
 #hydrus ausführen
-hydrus.exe(file = file[1],UNSC=T,taskkill = F,programmpfad = programmpfad[1],wait = T,scriptpath = "//FUHYS013/Freiberg/Hydrus/")
+hydrus.exe(sleep=10,file = file[1],UNSC=T,taskkill = T,programmpfad = programmpfad[1],wait = T)
 out<-read_hydrus.out(projektpfad=projektpfad[1],obs = obs,min_nrows = 100,traintime = 4500)
-out1<-out[[1]]
-plot(out1$t_min,out1$CO2_mod)
 out[[2]]
 min(rmse,na.rm=T)

@@ -409,3 +409,4 @@ tabelle_dist<-cbind(ths=0.45,thr=0.067,realistic_ranges_dist[,c(1,3,5:6)])
 print(xtable((tabelleAh1)),include.rownames = F)
 print(xtable((tabelleAh2)),include.rownames = F)
 print(xtable((tabelle_dist)),include.rownames = F)
+

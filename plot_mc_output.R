@@ -156,22 +156,23 @@ print(xtable::xtable(par_opt_tab2),sanitize.rownames.function=identity,sanitize.
 #mc_out funktion anwenden für dist
 ###############################################################
 
-loadfiles2<-c("mc_55000-dist_free_ranges","mc_55000-dist_realistic_ranges")
+loadfiles2<-c("mc_55000-dist_free_ranges","mc_55000-dist_realistic_ranges","mc_55000-dist_fit_tiefe_1-2")
 loadfiles_dist<-paste0("fit_CO2-_",loadfiles2)
 
 par_tab_dist<-matrix(NA,11,length(loadfiles_dist))
 std_tab_dist<-matrix(NA,11,length(loadfiles_dist))
 
-colnames(par_tab_dist)<-gsub("mc_55000-dist_"," ",loadfiles2)
+colnames(par_tab_dist)<-gsub("mc_..000-dist_"," ",loadfiles2)
 colnames(std_tab_dist)<-colnames(par_tab_dist)
 
   for (i in 1:length(loadfiles2)){
-    mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = loadfiles2[i],dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = T,obs=alldist_s,traintime = 8000,Probe = "dist",n_best = c(1,2,1)[i])
-    rmse_norms[,i+3*(j-1)]<-c(rmse_co2,rmse_ca,rmse_both)
+      
+    fixed_pars<-cbind(fixed_dist_da,fixed_co2)
+    mc_out(fixed=fixed_pars,loadfile = loadfiles2[i],dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = T,obs=alldist_s,traintime = 8000,Probe = "dist",n_best = c(1,2,2,1)[i])
     
-    std_tab_dist[1:10,i]<-std
-    par_tab_dist[11,i]<-rmse_co2
-    par_tab_dist[1:10,i]<-t(pars_opt)
+      std_tab_dist[1:10,i]<-std
+      par_tab_dist[11,i]<-rmse_co2
+      par_tab_dist[1:10,i]<-t(pars_opt)
   }
 
 
@@ -196,7 +197,8 @@ print(xtable::xtable(par_opt_tab_dist2),sanitize.rownames.function=identity,sani
 
 
 #############################
-#EE plots für  Ergebnisse
+#EE plots für  Ergebnisse undist
+###############################
 EE_co2_free<-get(paste0(loadfiles_undist[1],"EET_plt"))+theme(legend.position = "none")+labs(title=expression("fit CO"[2]),subtitle="free ranges")
 EE_co2_real<-get(paste0(loadfiles_undist[4],"EET_plt"))+labs(y="",title="",subtitle="realistic ranges")
 
@@ -214,6 +216,20 @@ pdf(paste0(plotpfad,"EE_fit_CO2.pdf"),height = 3.5,width = 7)
 gridExtra::grid.arrange(EE_co2_free,EE_co2_real,ncol=2,layout_matrix=layout.mat)
 dev.off()
 
+
+#############################
+#EE plots für  Ergebnisse dist
+###############################
+
+EE_co2_free_dist<-get(paste0(loadfiles_dist[1],"EET_plt"))+theme(legend.position = "none")+labs(title="gestörte Probe",subtitle="free ranges")
+EE_co2_real_dist<-get(paste0(loadfiles_dist[2],"EET_plt"))+labs(y="",title="",subtitle="realistic ranges")
+
+
+
+
+pdf(paste0(plotpfad,"EE_fit_CO2_dist.pdf"),height = 3.5,width = 7)
+gridExtra::grid.arrange(EE_co2_free_dist,EE_co2_real_dist,ncol=2,layout_matrix=layout.mat)
+dev.off()
 
 
 ################
@@ -496,7 +512,7 @@ mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_temp",dtmax = 10,kin_
 
 mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_55000-dist_fit_tiefe_1-2",dtmax = 1,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = F,obs=alldist_s,traintime = 8000,Probe = "dist")
 
-mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_temp_fit_tiefe",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = F,obs=alldist_s,traintime = 8000,Probe = "dist",n_best = 1)
+mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_temp_fit_tiefe2",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = F,obs=alldist_s,traintime = 8000,Probe = "dist",n_best = 2)
 
 for (i in c(1,4,5)){
   mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_550-dist_free",dtmax = 10,kin_sol = T,plot = T,Mat = c(rep(1,3),rep(2,5),3),rmse_pos = i,Nboot = 1,ndottys = 100,obs=alldist_s)
@@ -624,3 +640,5 @@ mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_55000_fit_tiefe_1-2",
 # mc<-list(rmse,par,nse)
 # save(mc,file=paste0(mcpfad,"mc_60000_dist-fit_tiefe_1-2_Da.R"))
 mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_60000_dist-fit_tiefe_1-2_Da",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 0,ndottys = 10000,taskkill = F,obs=alldist_s,traintime = 8000,Probe = "dist")
+
+

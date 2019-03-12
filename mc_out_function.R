@@ -64,7 +64,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   
   print(paste(length(which(!is.na(rmse))),"Models succesfully calculated"))
   loadfile<-paste0(c("fit_CO2-_","","","fit_Ca-_","fit_both-_","fit_both2-_")[rmse_pos],loadfile)
-  runname<-gsub("-_mc_55000-|_"," ",loadfile)
+  runname<-gsub("-_mc_..000-|_"," ",loadfile)
   #packages laden
   library(ggplot2)
   library(stringr)
@@ -268,7 +268,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     
 
     pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 3,width = 8)
-    gridExtra::grid.arrange(n2plt,poptplt,ncol=2)
+    gridExtra::grid.arrange(n2plt,poptplt,ncol=2)#,top = textGrob(runname,gp=gpar(fontsize=20,font=3)))
     dev.off()
   }
   
@@ -289,7 +289,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     
     
     pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 3,width = 8)
-    gridExtra::grid.arrange(pdistrplt,ks2plt,ncol=2)
+    gridExtra::grid.arrange(pdistrplt,ks2plt,ncol=2)#,top = textGrob(runname,gp=gpar(fontsize=20,font=3)))
     dev.off()
   }
   
@@ -308,7 +308,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   ##################################
   if(Nboot>0){
   #4 Sensitivste Parameter aus EE entnehmen
-  best4<-order(EET$mi,decreasing = T)[1:4]
+  best4<-order(EET$mi,decreasing = T)[1:2]
   #die n  besten Modellläufe dieser Parameter auswählen
   best.100<-sort(rmse)[ndottys]
   pargood<-par[rmse<best.100&!is.na(rmse),best4]
@@ -333,12 +333,12 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
 
   ggplot()+
     geom_point(data=dotty_melt,aes(value,rmsegood),size=0.5)+
-    geom_point(data=subset(dotty_melt,rmsegood==min(rmsegood)),aes(value,rmsegood),col=2)+
+    #geom_point(data=subset(dotty_melt,rmsegood==min(rmsegood)),aes(value,rmsegood),col=2)+
     geom_rect(data=realistic_range[realistic_range$label%in%lbls,],aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
     facet_wrap(~label,scales = "free",ncol = 2,labeller = label_parsed)+
     theme_bw()+
-    labs(x="Value",y="RMSE")+
-    ggsave(paste0(plotpfad,"dottyplots/RMSE/best4_",loadfile,".pdf"),height = 4,width = 6)
+    labs(x="",y="RMSE")+
+    ggsave(paste0(plotpfad,"dottyplots/RMSE/best2_",loadfile,".pdf"),height = 3,width = 7)
   }
   ##################################
   #export dottyplots for NSE
