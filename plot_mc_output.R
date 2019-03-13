@@ -431,3 +431,88 @@ caplt+
   scale_fill_manual(name="Beregnung",values="blue")+scale_y_continuous(limits = c(40,NA))+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
   ggsave(paste0(plotpfad,"ca_mod_undist.pdf"),width=7,height = 4)
 
+
+######################
+#EE output from Matlab function
+#######################
+
+#Mit der Matlab funktion EET_indices aus dem SAFE package
+#wurde mi und sigma für den MC-Output nochmals zur überprüfung berechnet
+#dazu muss das skript Use_EET.m im Ordner Matlab ausgeführt werden
+#die mi und sigma Werte werden dort als .csv dateien gespeichert
+#namen aller .csv dateien mit mi oder si im namen auslesen
+misi<-list.files(mcpfad,pattern = "mi|si.*.csv")
+
+#namen aller .R dateien die mit mc anfangen
+loadfiles_both<-list.files(mcpfad,pattern = "^mc.+.R")
+
+#am anfang der namen der mi oder sigma dateinamen das mi oder sigma abschneiden
+mc_types<-unique(stringr::str_replace(misi,"^[a-z]+_*[a-z]+",""))
+#die Endung entfernen
+mc_types<-unique(stringr::str_replace(mc_types,".csv",""))
+#außerdem das fit_both oder fit_CO2 am anfang des strings abschneiden
+mc_types2<-stringr::str_replace(mc_types,"_-fit_([a-z]+|[A-Z]+)2*-_","0-")
+
+#_ oder - im namen durch leerzeichen ersetzen
+mc_name<-gsub("_|-"," ",mc_types)
+
+#schleife um EE-Plots für Matlab output zu erstellen
+for (j in 1:length(mc_types)){
+  #für  den j-ten mc_type die enstrechenden mi und sigma files auswählen
+  tempfile<-misi[grep(mc_types[j],misi)]
+  
+  #eine Matrix für die mi und sigma werte anlegen
+  misi_val<-matrix(NA,10,length(tempfile))
+  #mit einer schleife die Werte in die entsprechende Spalte der Matrix schreiben
+  for (i in 1:length(tempfile)){
+    #die i-te mi oder sigma .csv in die i-te spalte
+    misi_val[,i]<-t(read.csv(paste0(mcpfad,tempfile[i]),header = F))
+  }
+  #die R Datei des MC Lauf laden
+  loadfile<-loadfiles_both[grep(mc_types2[j],loadfiles_both)]
+  load(file = paste0(mcpfad,loadfile))
+  #die Parametermatrix aus der R Datei wird für die richtige Zuordnung 
+  #der Parameternamen benötigt da in den mi & sigma dateien 
+  #keine Parameternamen übergeben wurden
+  par<-mc[[2]]
+  
+  library(stringr)
+  #die Matrix der mi und sigam werte zu data.frame umwandeln
+  EET_oct<-as.data.frame(misi_val)
+  #als Spaltennamen die namen der .csv dateien ohne die MC-Endung die nach _- kommt
+  colnames(EET_oct)<-gsub("_-.+","",tempfile)
+  #als id werden die Parameternamen aus der MC.R datei übernommen
+  EET_oct$id<-colnames(par)
+  #als Parameter werden zahlen am ende der Parameternamen entfernt
+  EET_oct$par<-str_replace(colnames(par),"2|3","")
+  #die Horizontzuordnung entspricht den Zahlen nach dem Parameternamen
+  mat<-str_extract(colnames(par),"2|3")
+  #wo keine Zahl steht wird der horizont als 1 gesetzt
+  EET_oct$Mat<-ifelse(is.na(mat),"1",mat)
+  #Farben für die Parameter
+  colors<-factor(EET_oct$par,labels = setNames(c(2,"purple",4:5,"green","orange"),unique(EET_oct$par)))
+  #als Character
+  colors<-as.character(colors)
+  
+  library(dplyr)
+  #Formen für die Horizonte
+  shapes<-factor(EET_oct$Mat,labels = setNames(c(16,17,15),unique(EET_oct$Mat)))
+  #als numeric
+  shapes<-as.numeric(as.character(shapes))
+  #Namen der Parameter als Expression
+  names<-c(expression(alpha[1],alpha[2],h[opt],K[S1],K[S2],K[S3],n[1],n[2],P[distr],P[opt]))
+
+  print("saving GSA plot")
+  
+  library(ggplot2)
+  #Export der Plots
+  ggplot(EET_oct)+
+    geom_rect(aes(xmin=mi_lb,xmax=mi_ub,ymin=sigma_lb,ymax=sigma_ub,fill=id),col=0,alpha=0.15,show.legend = F)+
+    geom_point(aes(mi,sigma,col=id,shape=id),size=2)+
+    theme_classic()+
+    scale_shape_manual(name="Parameter",labels=names,values = shapes[order(colnames(par))])+
+    scale_color_manual(name="Parameter",labels=names,values = colors[order(colnames(par))])+
+    scale_fill_manual(name="",labels=names,values = colors[order(colnames(par))])+
+    labs(title=mc_name[j],x=expression(S[i]),y="sigma")+
+    ggsave(paste0(plotpfad,"/EE/","Matlab_",gsub("(mi_-|.csv)","",tempfile[1]),".pdf"),width=7,height=4)
+}
