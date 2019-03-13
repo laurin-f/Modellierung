@@ -1,3 +1,4 @@
+#funktion aus Package SAFER mit na.rm=T
 EET_na<- function (r, xrange, X, Y, design_type, Nboot = 0, alfa = 0.05) 
 {
   library("assertthat", lib.loc="~/R/win-library/3.3")
@@ -32,6 +33,7 @@ EET_na<- function (r, xrange, X, Y, design_type, Nboot = 0, alfa = 0.05)
   if (Nboot > 1) {
     B <- matrix(sample.int(r, r * Nboot, replace = TRUE), 
                 r, Nboot)
+    #hier wurde na.rm=T eingefügt
     mi_all <- apply(B, 2, function(b) colMeans(EE[b, ],na.rm = T))
     sigma_all <- apply(B, 2, function(b) apply(EE[b, ], 
                                                2, sd,na.rm = T))
@@ -57,6 +59,7 @@ EET_na<- function (r, xrange, X, Y, design_type, Nboot = 0, alfa = 0.05)
   }
   else {
     EE[EE==Inf]<-NA
+    #hier wurde na.rm=T eingefügt
     mi <- colMeans(abs(EE),na.rm = T)
     sigma <- apply(EE, 2, sd,na.rm=T)
     robj <- list(mi = mi, sigma = sigma, EE = EE)

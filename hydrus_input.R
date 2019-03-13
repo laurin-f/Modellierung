@@ -1,6 +1,6 @@
 
 #############################
-#function to execute hydrus
+#Funktion um hydrus auszuführen
 
 hydrus.exe<-function(file="undisturbed",#auf welche datei soll hydrus zugreifen
                      #pfad zum powershell script in dem auf die .exe zugegriffen wird
@@ -8,36 +8,37 @@ hydrus.exe<-function(file="undisturbed",#auf welche datei soll hydrus zugreifen
                      #wenn UNSC=T wird das modul UNSATCHEM zur modellierung von CO2 
                      #und Hauptionen verwendet
                      UNSC=T,
-                     #wenn taskkill=T dann wird das fenster von hydrus nicht geöffnet 
+                     #wenn hide_hydrus=T dann wird das fenster von hydrus nicht geöffnet 
                      #das modell läuft dann im hintergrund
                      #wichtig für Monte Carlo
-                     taskkill=F,  
+                     hide_hydrus=F,  
                      #programmpfad von hydrus definieren
-                     programmpfad="C:/Users/ThinkPad/Documents/Masterarbeit/programme/Hydrus-1D_4/",
+                     programmpfad=
+                       "C:/Users/ThinkPad/Documents/Masterarbeit/programme/Hydrus-1D_4/",
+                     #soll auf den system befehl gewartet werden
                      wait=F){
 
 
-  
-  #wenn die Hydrus.exe von extern ausgeführt wird verwendet si die datei die in der Datei
+  #wenn die Hydrus.exe von extern ausgeführt wird verwendet sie das Projekt das in der Datei
   #LEVEL_01.dir steht
   
   #Level_01.dir einlesen
   level_01<-readLines(paste0(scriptpath,"Level_01.dir"))
-  #filename reinschreiben
+  #Filename reinschreiben
   level_01<-sub("file",file,level_01)
-  #geänderte Datei schreiben
+  #geänderte Datei speichern
   writeLines(level_01,paste0(programmpfad,"Level_01.dir"))
   
-  #wenn taskkill==T wird das Powershellscript mit dem eingebauten taskkill befehl verwendet
-  if(taskkill==T){
-    #.txt mit vorlage für Powershell-Code lesen
+  #wenn hide_hydrus==T wird das Powershellscript mit dem eingebauten hide_hydrus befehl verwendet
+  if(hide_hydrus==T){
+    #hydrus_exe.txt mit vorlage für Powershell-Code lesen
     #darin steht:
     #cd "programmpfad"
     #start H1D_UNSC.EXE
     script<-readLines(paste0(scriptpath,"hydrus_exe.txt"))  
 
   }else{
-    #wenn kein taskkill gewünscht dann wird die .txt ohne taskkill genommen
+    #wenn kein hide_hydrus gewünscht dann wird die .txt ohne hide_hydrus genommen
     #darin steht:
     #cd "programmpfad"
     #start H1D_UNSC.EXE  -WindowStyle Hidden
@@ -60,15 +61,19 @@ hydrus.exe<-function(file="undisturbed",#auf welche datei soll hydrus zugreifen
   #über  shell wird der Commandline übergeben, dass powershell das script ausführen soll
   #-executionpoloicy bypass wird verwendet, 
   #da im powershell im default keine scripte ausführen darf
-  system(paste0("powershell.exe -noprofile -executionpolicy bypass -file ",programmpfad,scriptname),wait=wait,show.output.on.console=F)}#ende function
+  system(paste0("powershell.exe -noprofile -executionpolicy bypass -file ",
+                programmpfad,scriptname),
+         wait=wait,
+         show.output.on.console=F)}#ende function
 
 
 ######################################
-#function to set atmospheric input
+#Function um atmospherischen Input einzustellen
 
 atmos.in<-function(total_t=4000,#zu simulierender Gesamtzeitraum in min
-                   obs=all,#messungen um eventzeitraum festzulegen
+                   obs=all,#Messungen von denen der Niederschlagsinput übernommen wird
                    projektpfad=projektpfad1,#pfad zum hydrus projekt
+                   #Hauptpfad
                    mainpath="C:/Users/ThinkPad/Documents/Masterarbeit/"){
 
     #einlesen der von hydrus erstellten Armospären Input Datei
@@ -86,18 +91,23 @@ atmos.in<-function(total_t=4000,#zu simulierender Gesamtzeitraum in min
     event1<-min(which(obs$rain_mm_h>0))
     obs$t_min<-as.numeric(difftime(obs$date,obs$date[event1],units = "min"))
     
+    #Startpunkte und Endpunkte der Events sind die Zeitpunkte 
+    #bei denen sich die Niederschlagsintensität (rain_mm_h) ändert
     starts<-which(diff(obs$rain_mm_h[!is.na(obs$rain_mm_h)])!=0)
 
+    #Zeitpunkte der Startpunkte und Endpunkte der Events in min nach Event 1
+    #dazu jeweils starts und start+1 da die Intensität 
+    #sich zwischen diesen beiden Punkten ändert
     time<-obs$t_min[!is.na(obs$rain_mm_h)][sort(c(starts,starts+1))]+2
+    #die jeweilige Intensität der Startpunkte und Endpunkte
     int<-obs$rain_mm_h[!is.na(obs$rain_mm_h)][sort(c(starts,starts+1))]
-    # #Intensitäten der Events /600 um von mm/h in cm/min umzurechnen
+    #Intensitäten der Events /600 um von mm/h in cm/min umzurechnen
     int<-int/600
     
     #endzeitpunkt mit niederschlag=0 anhängen
     time<-c(time,total_t)
     int<-c(int,0)
 
-    
     #Verdunstung wird aus der .csv mit den Messungen ermittelt und als konstant angenommen
     evaps<-read.csv(paste0(mainpath,"daten/events/verdunstung.csv"),sep=";")
     #radius des Messbechers der für die Messung verwendet wurde
@@ -106,17 +116,20 @@ atmos.in<-function(total_t=4000,#zu simulierender Gesamtzeitraum in min
     area<-pi*radius^2
     #berechnung des verdunsteten Wassers pro minute
     evap<-mean((evaps$vorher-evaps$nachher)/evaps$t_min)#ml/min = cm3/min
-    #Verdunstung auf die fläche normen
+    #Verdunstung auf die Fläche normen
     evap<-evap/area#cm/min
 
     #die Werte für den Input in einen Vektor mit Nullen für andere Paramter 
     #die in Hydrus möglich sind aber hier nicht verwendet werden
-    vals<-paste("  ",format(time,width=7,digits=2),format(int,width=7,digits=2),format(evap,width = 7,digits = 2),"           0      100000           0           0           0           0           0           0           0           0 ")
+    vals<-paste("  ",format(time,width=7,digits=2),
+                format(int,width=7,digits=2),
+                format(evap,width = 7,digits = 2),
+                "   0  100000    0   0   0   0   0   0    0     0 ")
     
     #im Kopf der Input Datei wird die Anzahl der übergebenen Werte eingetragen 
     head[grep("MaxAL",head)+1]<-format(length(time),width = 7)
     
-    #Anfang Werte und Ende des Inputs werden wieder zusammengefügt
+    #Die Kopfzeilen, die übergebenen Werte und das Ende des Inputs werden wieder zusammengefügt
     lines<-c(head,vals,tail)
   
   #die Inputdatei wird in den Ordner der Projektes geschrieben
@@ -351,7 +364,11 @@ read_hydrus.out<-function(obs=all,#Messungen
                           UNSC=T,#wurde UNSATCHEM benutzt oder nicht
                           #Tiefen die Benutzt werden um objective Function zu ermitteln
                           fit.tiefe=c(-2,-6,-10,-14),
+                          #Länge der Warm up period in Minuten
                           traintime=4500,
+                          #mindestlänge des Modelloutputs wenn der Output kürzer ist 
+                          #wird er als NA angesehen 
+                          #da eventuell nicht alle Intensitäten abgebildent werden
                           min_nrows=2200){
   #überprüfen ob outpufile existiert
   if(file.exists(paste0(projektpfad,"Obs_Node.out"))){
@@ -359,16 +376,23 @@ read_hydrus.out<-function(obs=all,#Messungen
     fields<-count.fields(paste0(projektpfad,"Obs_Node.out"),blank.lines.skip = F,skip=10)
     #erwartete Spaltenzahl für output mit oder ohne UNSATCHEM modul
     ncols<-ifelse(UNSC==T,21,16)
-    #wenn Spaltenzahl teilweise von der erwarteten abweicht ist 
-    #nrows die Reihe mit der ersten Abweichung von ncols -2
-    #sonst entspricht nrow der Reihenzahl der .out datei 
-    wrong_fields<-which(fields!=ncols)      
+    
+    #bestimmen in welchen Zeilen der Datei die Spaltenzahl 
+    #nicht mit der erwarteten übereinstimmt
+    wrong_fields<-which(fields!=ncols)
+    #eventuell müssen am Anfang der Datei einige Zeilen übersprungen werden 
+    #in denen numerische Fehlwerte sind
     skip_more<-0
-    #end_field<-min(wrong_fields[wrong_fields>10])
-    if(min(wrong_fields)<10&max(wrong_fields)>min_nrows){
+    #wenn in den ersten 10 Zeilen falsche Spaltenzahlen vorkommen
+    if(min(wrong_fields)<10){
+      #werden diese Felder übersprungen
     skip_more<-max(wrong_fields[wrong_fields<10])
+    #und es werden von da an erneut die Felder gezählt
       fields<-count.fields(paste0(projektpfad,"Obs_Node.out"),blank.lines.skip = F,skip=10+skip_more)
     }
+    #wenn Spaltenzahl teilweise von der erwarteten abweicht ist 
+    #nrows die Reihe mit der ersten Abweichung von ncols -2
+    #sonst entspricht nrow der Reihenzahl der Obs_Node.out datei 
     nrows<-ifelse(length(which(fields!=ncols))!=0,which(fields!=ncols)[1]-2,length(fields))
     #wenn nrows größer ist als min_nrows...
   if(nrows>min_nrows){
@@ -678,7 +702,7 @@ hydrus<-function(params,
                  obs=all,#Messwerte
                  read=T,#soll der output gelesen werden
                  free_drain=T,#soll free drainage lower boundary condition sein
-                 taskkill = F,#soll das hydrus fenster offen sein
+                 hide_hydrus = F,#soll das hydrus fenster offen sein
                  dtmin=0.0001,#minimaler zeitschritt
                  dtmax=10,#maximaler zeitschritt
                  n_nodes=9,#knoten im modell
@@ -719,7 +743,7 @@ hydrus<-function(params,
   file<-ifelse(UNSC==T,"undisturbed","undisturbed2")
   
   #hydrus.exe ausführen
-  hydrus.exe(file = file,UNSC=UNSC,taskkill = taskkill)
+  hydrus.exe(file = file,UNSC=UNSC,hide_hydrus = hide_hydrus)
   
     Sys.sleep(3)
     #funktion um CPU auslastung von hydrus zu bestimmen

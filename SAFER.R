@@ -1,3 +1,4 @@
+#Installieren des Packages SAFER
 if(!"caTools"%in%installed.packages()){
 install.packages("caTools")}
 if(!"SAFER"%in%installed.packages()){

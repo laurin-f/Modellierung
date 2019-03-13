@@ -1,16 +1,4 @@
 
-loadfile<-"mc_temp"
-#fixed=cbind(fixed,fixed_co2)
-
-ndottys=10000
-
-fit.ca=F
-dtmax=1
-kin_sol=F
-Nboot=100
-Probe="undist"
-obs=all_s
-rmse_pos=4
 ###############################
 #mc out function
 #Funktion um die Ergebnisse der Monte Carlo Runs zu Plotten
@@ -21,14 +9,25 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
                  dtmax=10,#maximaler zeitschritt
                  obs=all_s,#Messung mit der das Modell verglichen wird
                  Probe="undist",#wurde die gestörte oder die ungestörte Probe benutzt
-                 kin_sol=F,
+                 kin_sol=F,#soll kinetic solution verwendet werden
                  Nboot=100,#Anzahl an Bootstrapping-Läufen
-                 traintime=4500,
-                 plot=F,
-                 Mat=c(rep(1,3),rep(2,5),3),
+                 traintime=4500,#Länge der Warm-up Periode in Minuten
+                 plot=F,#sollen die Ergebnisse des MC als Plots gespeichert werden
+                 Mat=c(rep(1,3),rep(2,5),3),#Horizontgrenzen im modell
+                 #rmse_pos gibt an welcher RMSE verwendet werden soll
+                 #rmse_pos=1 für RMSE CO2
+                 #rmse_pos=4 für RMSE Ca
+                 #rmse_pos=5 für RMSE both
                  rmse_pos=1,
+                 #für welchen Prozentteil der  MC-Läufe soll die Standardabweichung 
+                 #als Maß für die Parameterunsicherheit bestimmt werden
                  crit_perc=5,
-                 taskkill=F,
+                 #soll das Fenster von Hydrus angezeigt werden
+                 hide_hydrus=F,
+                 #n_best gibt an der wievielt beste MC-Lauf geplottet werden soll
+                 #da teilweise der beste Lauf durch einen Fehler im Modell erzeugt wurde 
+                 #bei dem zufällig eine gute übereinstimmung mit den Daten entstand 
+                 #kann hier eingestellt werden dass der zweitbeste Lauf geplottet wird 
                  n_best=1){
   
   #falls Hydrus gerade noch ausgeführt wird dier es jetzt gestoppt, 
@@ -39,31 +38,25 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   #definieren der Pfade
   mcpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/"
   plotpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/abbildungen/plots/mc/"
-  if(exists("rmse")){
-    rm(rmse,envir = .GlobalEnv)
-    }
+  
   #Output des MC-Laufs laden
   load(file = paste0(mcpfad,loadfile,".R"))
-  if(exists("rmse")){
-  mc<-list(rmse,par,nse,rmse_ca,rmse_both)
-  }
-  #if(!exists("rmse")){
+
   #der Output ist in die Liste mc geschrieben
   #die einzelnen listenelemente auspacken
-  par<-mc[[2]]
-  if(rmse_pos<6){
-  rmse<-mc[[rmse_pos]]
-  }
-  nse<-mc[[3]]
-  #}#ende if exists
-  if(rmse_pos==6){
-    rmse_ca<-(mc[[4]]-mean(mc[[4]],na.rm = T))/sd(mc[[4]],na.rm = T)
-    rmse_co2<-(mc[[1]]-mean(mc[[1 ]],na.rm = T))/sd(mc[[1]],na.rm = T)
-    rmse<-(rmse_ca+rmse_co2)/2
-  }
-  
+  par<-mc[[2]]#das zweite element enthält die Parametersätze
+
+  rmse<-mc[[rmse_pos]]#das erste bzw. 4. & 5. element enthält die RMSE-Werte
+
+  nse<-mc[[3]]#das 3. element enthält die NSE-Werte
+
+  #Anzeigen wieviele Modellruns nicht NAs sind
   print(paste(length(which(!is.na(rmse))),"Models succesfully calculated"))
+  
+  #namen der loadfile für verwendeten RMSE anpassen 
   loadfile<-paste0(c("fit_CO2-_","","","fit_Ca-_","fit_both-_","fit_both2-_")[rmse_pos],loadfile)
+  
+  #runname wirs später als Überschrift von Plots verwendet
   runname<-gsub("-_mc_..000-|_"," ",loadfile)
   #packages laden
   library(ggplot2)
@@ -97,12 +90,15 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   #Den Besten Parametersatz des MC-Laufs auswählen
   pars<-cbind(par[order(rmse)[n_best],],fixed)
   pars_opt<-par[order(rmse)[n_best],][order(colnames(par))]
+  
+  #und in die Global Environment schreiben
   assign("pars_opt",pars_opt,envir = .GlobalEnv)
   assign("colnames_par",colnames(par)[order(colnames(par))],envir = .GlobalEnv)
+  
   #mit function das Modell ausführen und output laden
   out<-hydrus(params = pars,
               UNSC=T,
-              taskkill=taskkill,
+              hide_hydrus=hide_hydrus,
               free_drain=T,
               print_times = 2000,
               dtmax = dtmax,
@@ -114,6 +110,8 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   
   #tiefe von factor in numeric
   out$tiefe<-as.numeric(out$tiefe)
+  
+  #wenn geplottet werden soll kommt das jetzt
   if(plot==T){
   #######################################
   #SAFER für Sensitivitätsanalyse
@@ -142,17 +140,20 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   mc_type<-stringr::str_replace(loadfile,"mc_\\d+(_|-)","")
   
   #X, Y und range als .csv abspeichern um die EE-Funktion auch in Matlab zu testen
-  #write.table(X,paste0(mcpfad,"X",mc_type,".csv"),row.names = F,col.names = F,sep=",")
-  #write.table(Y,paste0(mcpfad,"Y",mc_type,".csv"),row.names = F,col.names = F,sep=",")
-  #write.table(range,paste0(mcpfad,"range",mc_type,".csv"),row.names = F,col.names = F,sep=",")
+  write.table(X,paste0(mcpfad,"X",mc_type,".csv"),row.names = F,col.names = F,sep=",")
+  write.table(Y,paste0(mcpfad,"Y",mc_type,".csv"),row.names = F,col.names = F,sep=",")
+  write.table(range,paste0(mcpfad,"range",mc_type,".csv"),row.names = F,col.names = F,sep=",")
   
-  #wenn kein Bootstrapping gemacht wird
+ 
 
     # Elementary Effects mit für NA's umgeschriebener Funktion  berechnen
     EETind <- EET_na(r=r,xrange= DistrPar, X=X, Y=Y, design_type="radial",Nboot = Nboot)
     #Output liste als Data.frame
+    
+    #wenn kein Bootstrapping gemacht wird
     if(Nboot==1){
     EET<-as.data.frame(EETind[1:2])
+    #wenn Bootstrapping gemacht wird
     }else{
     EET<-as.data.frame(EETind[c(1:2,4:9)]) 
     }
@@ -166,7 +167,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     EET$Mat<-ifelse(is.na(mat),"1",mat)
 
     #Farben für die  Parameter angeben
-    colorscale<-c(2:6,"orange","darkgreen")[1:length(unique(EET$par))]
+    colorscale<-c(2,"purple",4:5,"green","orange","darkgreen")[1:length(unique(EET$par))]
     colors<-factor(EET$par,labels = setNames(colorscale,unique(EET$par)))
     colors<-as.character(colors)
     
@@ -174,13 +175,16 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     shapes<-factor(EET$Mat,labels = setNames(c(16,17,15),unique(EET$Mat)))
     shapes<-as.numeric(as.character(shapes))
     
-
     #Namen der Parameter als Expression
     names<-c(expression(alpha[1],alpha[2],D[a],h[opt],K[S1],K[S2],K[S3],n[1],n[2],P[distr],P[opt]))
+    #der Parameter Da wurde später nicht mehr beim MC verwendet 
+    #über die Parameteranzahl wird geschaut ob Da noch in der MC-Datei dabei ist oder nicht
+    #wenn nicht wird Da auch aus 'names' entfernt
     if(length(names)!=ncol(par)){
       names<-names[-3]
     }
     
+    #wenn kein Bootstrapping gemacht wird
     if(Nboot==1){    
       #Ergebnisse plotten
     print("saving GSA plot")
@@ -203,8 +207,8 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
       scale_shape_manual(name="Parameter",labels=names,values = shapes[order(colnames(par))])+
       scale_color_manual(name="Parameter",labels=names,values = colors[order(colnames(par))])+
       scale_fill_manual(name="",labels=names,values = colors[order(colnames(par))])+
-      labs(title=runname,x=expression(S[i]),y="sigma")#+
-      #ggsave(paste0(plotpfad,"EE/EE_boot",loadfile,".pdf"),height = 4,width = 7)
+      labs(title=runname,x=expression(S[i]),y="sigma")+
+      ggsave(paste0(plotpfad,"EE/EE_boot",loadfile,".pdf"),height = 4,width = 7)
     assign(paste0(loadfile,"EET_plt"),EET_plt,envir = .GlobalEnv)
   }#Ende EE Plots
   }
@@ -249,8 +253,10 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   print("saving dotty plots")
   library(scales)
 
-
+  #für die MC-läufe free ranges und realistic ranges der ungestörten probe 
+  #werden auch dottyplots mit farbskala gemacht
   if(length(grep("mc_55000-free",loadfile))==1){ 
+    #n2 plot mit farbskala für p_opt
     n2plt<-ggplot(dotty_rmse)+
       geom_rect(data=subset(realistic_range,variable=="n2"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
       geom_point(aes(n2,rmsegood,col=p_opt),size=0.5)+
@@ -258,7 +264,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
       theme_classic()+
       labs(x=expression(n[2]),y="RMSE",col=expression(P[opt]))
 
-    
+    #p_opt plot mit farbskala für n2
     poptplt<-ggplot(dotty_rmse)+
       geom_rect(data=subset(realistic_range,variable=="p_opt"),aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
       geom_point(aes(p_opt,rmsegood,col=n2),size=0.5)+
@@ -266,20 +272,21 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
       theme_classic()+
       labs(x=expression(P[opt]),y="",col=expression(n[2]))
     
-
-    pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 3,width = 8)
+    #beide plots zusammen speichern
+    pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 4,width = 8)
     gridExtra::grid.arrange(n2plt,poptplt,ncol=2)#,top = textGrob(runname,gp=gpar(fontsize=20,font=3)))
     dev.off()
   }
   
   if(length(grep("mc_55000-realistic",loadfile))==1){ 
+    #p_distr plot mit Farbskala für p_opt
     pdistrplt<-ggplot(dotty_rmse)+
       geom_point(aes(p_distr,rmsegood,col=p_opt),size=0.5)+
       scale_color_gradientn(colors=c("blue","yellow","red"))+
       theme_classic()+
       labs(x=expression(P[distr]),y="RMSE",col=expression(P[opt]))
     
-    
+    #ks2 plot mit Farbskala für p_distr
     ks2plt<-ggplot(dotty_rmse)+
       geom_point(aes(ks2,rmsegood,col=p_distr),size=0.5)+
       scale_color_gradientn(colors=c("blue","yellow","red"))+
@@ -287,13 +294,13 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
       labs(x=expression(K[S2]),y="",col=expression(P[distr]))
     ks2plt
     
-    
-    pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 3,width = 8)
+    #beide plots zusammen speichern
+    pdf(paste0(plotpfad,"dottyplots/RMSE/color_",loadfile,".pdf"),height = 4,width = 8)
     gridExtra::grid.arrange(pdistrplt,ks2plt,ncol=2)#,top = textGrob(runname,gp=gpar(fontsize=20,font=3)))
     dev.off()
   }
   
-  
+  #dottyplot aller Parameter
   ggplot()+
     geom_point(data=dotty_melt,aes(value,rmsegood),size=0.2)+
     geom_point(data=subset(dotty_melt,rmsegood==(sort(rmsegood)[n_best])),aes(value,rmsegood),col=2)+
@@ -304,7 +311,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   
 
   ##################################
-  #export dottyplots for RMSE  for most sensitve Parameters
+  #export dottyplots für RMSE  der sensitvsten Parameters
   ##################################
   if(Nboot>0){
   #4 Sensitivste Parameter aus EE entnehmen
@@ -316,8 +323,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   dotty_rmse<-cbind(rmsegood,pargood)
   
   #Labels erstellen
-  #lbls<-sort(paste(colnames(pargood),"best =",signif(pargood[which.min(rmsegood),],2)))
-  parnames<-names#expression(alpha[1],alpha[2],D[A],h[opt],K[S1],K[S2],K[S3],n[1],n[2],P[distr],P[opt])
+  parnames<-names
   lbls<-names[pmatch(sort(colnames(pargood)),sort(colnames(par)))]
   lbls2<-names[pmatch(sort(colnames(realistic_ranges)),sort(colnames(par)))]
   #Datensatz ins long-format bringen
@@ -331,17 +337,21 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   #Plotten
   print("saving dotty plots best 4")
 
-  ggplot()+
-    geom_point(data=dotty_melt,aes(value,rmsegood),size=0.5)+
+  best2_plt<-ggplot()+
+    geom_point(data=dotty_melt,aes(value,rmsegood),size=0.5)
+  if(nrow(realistic_range[realistic_range$label%in%lbls,])>0){
+    best2_plt<-best2_plt+
     #geom_point(data=subset(dotty_melt,rmsegood==min(rmsegood)),aes(value,rmsegood),col=2)+
-    geom_rect(data=realistic_range[realistic_range$label%in%lbls,],aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
+    geom_rect(data=realistic_range[realistic_range$label%in%lbls,],aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")
+  }
+  best2_plt+
     facet_wrap(~label,scales = "free",ncol = 2,labeller = label_parsed)+
     theme_bw()+
     labs(x="",y="RMSE")+
     ggsave(paste0(plotpfad,"dottyplots/RMSE/best2_",loadfile,".pdf"),height = 3,width = 7)
   }
   ##################################
-  #export dottyplots for NSE
+  #export dottyplots für NSE
   ##################################
   
   #Analog zum RMSE wird dassselbe mit NSE gemacht

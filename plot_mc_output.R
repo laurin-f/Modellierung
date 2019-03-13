@@ -1,3 +1,4 @@
+#pfade definieren
 hydruspfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/"
 projektpfad1<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/undisturbed/"
 projektpfad2<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/undisturbed2/"
@@ -5,37 +6,26 @@ programmpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/programme/Hydrus-1D 4.xx
 mcpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/montecarlo/"
 plotpfad<-"C:/Users/ThinkPad/Documents/Masterarbeit/abbildungen/plots/mc/"
 
+#datensatz all laden
 load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/all.R")
 
+#skripte mit Funktionen ausführen
 source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/hydrus_input.R")
 source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/mc_out_function.R")
 source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/modellierung/EET_na.R")
 source("C:/Users/ThinkPad/Documents/Masterarbeit/rcode/durchf-hrung/event.R")
 
+#packages laden
 library(ggplot2)
 library(stringr)
 tiefenstufen<-c(-2,-6,-10,-14)
+
 ####################################Z
 #Monte Carlo
 ###################################
-fixed<-data.frame(thr=0.11,
-                  ths=0.75,
-                  thr2=0.13,
-                  ths2=0.64,
-                  thr3=0.13,
-                  ths3=0.64,
-                  hseep=0,
-                  l=0.5,
-                  bulk=0.7561984,
-                  bulk2=1.1480438,
-                  difuz=0,
-                  disperl=1.7,
-                  cec=140,#aus scheffer schachtschabel tabelle parabraunerde KAKeff
-                  calcit=0.2,
-                  CaAds=500,
-                  CaPrec=500)
 
-fixed_da<-data.frame(thr=0.11,
+
+fixed<-data.frame(thr=0.11,
                   ths=0.75,
                   thr2=0.13,
                   ths2=0.64,
@@ -53,7 +43,7 @@ fixed_da<-data.frame(thr=0.11,
                   CaPrec=500,
                   DispA=9.54)
 
-fixed_dist_da<-data.frame(thr=0.067,
+fixed_dist<-data.frame(thr=0.067,
                        ths=0.45,
                        thr2=0.067,
                        ths2=0.45,
@@ -71,22 +61,7 @@ fixed_dist_da<-data.frame(thr=0.067,
                        CaPrec=500,
                        DispA=9.54)
 
-fixed_dist<-data.frame(thr=0.067,
-                       ths=0.45,
-                       thr2=0.067,
-                       ths2=0.45,
-                       thr3=0.067,
-                       ths3=0.45,
-                       hseep=0,
-                       l=0.5,
-                       bulk=0.7561984,
-                       bulk2=1.1480438,
-                       difuz=0,
-                       disperl=1.7,
-                       cec=140,
-                       calcit=0.2,
-                       CaAds=500,
-                       CaPrec=500)
+
 
 fixed_co2<-data.frame(act_en=6677,
                       h_crit=-10^6,
@@ -112,7 +87,7 @@ colnames(std_tab)<-colnames(rmse_norms)
 
 for (i in 1:3){
   for (j in 1:length(loadfiles)){
-  mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = loadfiles[j],dtmax = 10,kin_sol = T,plot = T,rmse_pos = c(1,4,5)[i],Nboot = 100,ndottys = 10000,taskkill = T)
+  mc_out(fixed=cbind(fixed,fixed_co2),loadfile = loadfiles[j],dtmax = 10,kin_sol = T,plot = T,rmse_pos = c(1,4,5)[i],Nboot = 100,ndottys = 10000,hide_hydrus = T)
     rmse_norms[,i+3*(j-1)]<-c(rmse_co2,rmse_ca,rmse_both)
     
     std_tab[1:10,i+3*(j-1)]<-std
@@ -167,8 +142,8 @@ colnames(std_tab_dist)<-colnames(par_tab_dist)
 
   for (i in 1:length(loadfiles2)){
       
-    fixed_pars<-cbind(fixed_dist_da,fixed_co2)
-    mc_out(fixed=fixed_pars,loadfile = loadfiles2[i],dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = T,obs=alldist_s,traintime = 8000,Probe = "dist",n_best = c(1,2,2,1)[i])
+    fixed_pars<-cbind(fixed_dist,fixed_co2)
+    mc_out(fixed=fixed_pars,loadfile = loadfiles2[i],dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,hide_hydrus = T,obs=alldist_s,traintime = 8000,Probe = "dist",n_best = c(1,2,2,1)[i])
     
       std_tab_dist[1:10,i]<-std
       par_tab_dist[11,i]<-rmse_co2
@@ -235,18 +210,18 @@ dev.off()
 ################
 #tabelle co2mean
 #Output des MC-Laufs laden
-load(file = paste0(mcpfad,"mc_55000-realistic",".R"))
+load(file = paste0(mcpfad,"mc_55000-realistic_ranges",".R"))
   #der Output ist in die Liste mc geschrieben
   #die einzelnen listenelemente auspacken
   par<-mc[[2]]
   rmse<-mc[[1]]
   nse<-mc[[3]]
-  pars<-cbind(par[which.min(rmse),],fixed_da,fixed_co2)
+  pars<-cbind(par[which.min(rmse),],fixed,fixed_co2)
   
   #mit function das Modell ausführen und output laden
   out<-hydrus(params = pars,
               UNSC=T,
-              taskkill=F,
+              hide_hydrus=F,
               free_drain=T,
               print_times = 2000,
               dtmax = 10,
@@ -266,7 +241,7 @@ pars$p_distr<-0.2
 
 out<-hydrus(params = pars,
             UNSC=T,
-            taskkill=F,
+            hide_hydrus=F,
             free_drain=T,
             print_times = 2000,
             dtmax = 10,
@@ -383,9 +358,6 @@ qplt+
 #modelläufe zusammmen dist
 ########################
 
-# runname<-str_extract(loadfiles_dist,"-.+")
-# runname<-substr(runname,2,nchar(runname)) 
-# runname<-gsub("_"," ",runname)
 runname<-gsub("mc_55000-dist_|_"," ",loadfiles2)
 
 
@@ -438,11 +410,6 @@ qplt+
 #plot modellläufe zusammen calcium
 ##########################
 
-# runname<-str_extract(loadfiles_ca,"_-.+")
-# loadfiles_ca2<-ifelse(str_detect(loadfiles_ca,"^m.+kinsol"),paste0("kinsol-",loadfiles_ca),loadfiles_ca)
-# runname<-sub("kinsol","",runname)
-# runname<-substr(runname,3,nchar(runname)) 
-# runname<-gsub("_"," ",runname)
 runname<-gsub("-_mc_55000-|_"," ",loadfiles_undist)
 
 #zeitspanne ausschneiden
@@ -463,182 +430,4 @@ caplt+
   theme_classic()+
   scale_fill_manual(name="Beregnung",values="blue")+scale_y_continuous(limits = c(40,NA))+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
   ggsave(paste0(plotpfad,"ca_mod_undist.pdf"),width=7,height = 4)
-
-#############################################
-#
-
-loadfile<-"mc_60000-realistic_free_ks"
-load(file = paste0(mcpfad,loadfile,".R"))
-par<-mc[[2]]
-rmse<-mc[[1]]
-pars<-par[which.min(rmse),]
-pars$DispA<-9.54
-pars$p_distr<-0.2
-par[which.min(rmse),]<-pars
-mc[[2]]<-par
-save(mc,file=paste0(mcpfad,loadfile,"_DA.R"))
-
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-both_realistic_free_ks_kinsol" ,dtmax = 10,kin_sol = T,ndottys = 10000,plot = T)
-
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-realistic_free_ks_fix_pdis_kinsol" ,dtmax = 10,kin_sol = T,ndottys = 10000,plot = T)
-
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_120000-free_ranges",dtmax = 1)
-
-
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000_-fit_ca_realistic_free_ks_kinsol",dtmax = 10,kin_sol = F,plot = T)
-
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_59995_realistic_fix_p_dis",dtmax = 0.01,Nboot = 0)
-
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-realistic_free_ks_DA",dtmax = 10,kin_sol = T,plot = T)
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-realistic_free_ks",dtmax = 10,kin_sol = F,plot = T)
-rmse_co2
-
-for (i in c(1,4,5)){
-mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_55000-free_ranges_DA",dtmax = 10,kin_sol = T,plot = T,Mat = c(rep(1,3),rep(2,5),3),rmse_pos = i,Nboot = 100,ndottys = 1000)
-}
-
-for (i in c(1,4,5)){
-mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_55000-free",dtmax = 10,kin_sol = T,plot = T,rmse_pos = i,Nboot = 100,ndottys = 10000)
-}
-
-mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_55000-realistic_ranges",dtmax = 10,kin_sol = T,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = T)
-mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_55000-free",dtmax = 10,kin_sol = T,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000)
-
-mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_55000-dist_free",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = T,obs=alldist_s,traintime = 8000,Probe = "dist")
-
-mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_55000-dist_realistic2",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = T,obs=alldist_s,traintime = 8000,Probe = "dist")
-
-mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_temp",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = T,obs=alldist_s,traintime = 8000,Probe = "dist",n_best = 2)
-
-mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_55000-dist_fit_tiefe_1-2",dtmax = 1,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = F,obs=alldist_s,traintime = 8000,Probe = "dist")
-
-mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_temp_fit_tiefe2",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = F,obs=alldist_s,traintime = 8000,Probe = "dist",n_best = 2)
-
-for (i in c(1,4,5)){
-  mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_550-dist_free",dtmax = 10,kin_sol = T,plot = T,Mat = c(rep(1,3),rep(2,5),3),rmse_pos = i,Nboot = 1,ndottys = 100,obs=alldist_s)
-}
-
-mc_out(fixed=cbind(fixed_da,fixed_co2),loadfile = "mc_5500-free_ranges_DA",dtmax = 1,kin_sol = F,plot = T,Mat = c(rep(1,4),rep(2,4),3),ndottys = 1000)
-
-mc_out(fixed=cbind(fixed,fixed_co2),loadfile = "mc_60000-fitca_realistic_free_ks",dtmax = 10,plot=T)
-
-mc_out(fixed=cbind(fixed_dist,fixed_co2),loadfile = "mc_120000-free_dist",dtmax = 10,obs=alldist_s)
-
-######################
-#EE outpput from Matlab function
-#######################
-  
-misi<-list.files(mcpfad,pattern = "mi|si.*.csv")
-mc_types1<-misi[grep("_-",misi)]
-mc_types<-unique(stringr::str_replace(mc_types1,"^[a-z]+_*[a-z]+",""))
-mc_types<-unique(stringr::str_replace(mc_types,".csv",""))
-mc_types2<-unique(stringr::str_replace(mc_types,"_-",""))
-mc_types2[-grep("dist",mc_types2)]<-paste0("0-",mc_types2[-grep("dist",mc_types2)])
-mc_types2[grep("dist",mc_types2)]<-paste0("0_",mc_types2[grep("dist",mc_types2)])
-
-mc_name<-gsub("_|-|(.csv)"," ",mc_types)
-
-for (j in 1:length(mc_types)){
-tempfile<-misi[grep(mc_types[j],misi)]
-
-misi_val<-matrix(NA,11,length(tempfile))
-for (i in 1:length(tempfile)){
-
-misi_val[,i]<-t(read.csv(paste0(mcpfad,tempfile[i]),header = F))
-}
-j<-2
-loadfile<-loadfiles[grep(mc_types2[j],loadfiles)]
-load(file = paste0(mcpfad,loadfiles[j],".R"))
-  par<-mc[[2]]
-  
-library(stringr)
-EET_oct<-as.data.frame(misi_val)
-colnames(EET_oct)<-gsub("_-.+","",tempfile)
-EET_oct$id<-colnames(par)
-EET_oct$par<-str_replace(colnames(par),"2|3","")
-mat<-str_extract(colnames(par),"2|3")
-EET_oct$Mat<-ifelse(is.na(mat),"1",mat)
-colors<-factor(EET_oct$par,labels = setNames(c(2:6,"orange","darkgreen"),unique(EET_oct$par)))
-colors<-as.character(colors)
-library(dplyr)
-shapes<-factor(EET_oct$Mat,labels = setNames(c(16,17,15),unique(EET_oct$Mat)))
-shapes<-as.numeric(as.character(shapes))
-names<-c(expression(alpha[1],alpha[2],D[a],h[opt],K[S1],K[S2],K[S3],n[1],n[2],P[distr],P[opt]))
-
-# Plot results in the plane (mean(EE),std(EE)):
-print("saving GSA plot")
-
-library(ggplot2)
-
-ggplot(EET_oct)+
-  geom_rect(aes(xmin=mi_lb,xmax=mi_ub,ymin=sigma_lb,ymax=sigma_ub,fill=id),col=0,alpha=0.15,show.legend = F)+
-  geom_point(aes(mi,sigma,col=id,shape=id),size=2)+
-  theme_classic()+
-  scale_shape_manual(name="Parameter",labels=names,values = shapes[order(colnames(par))])+
-  scale_color_manual(name="Parameter",labels=names,values = colors[order(colnames(par))])+
-  scale_fill_manual(name="",labels=names,values = colors[order(colnames(par))])+
-  labs(title=mc_name[j],x=expression(S[i]),y="sigma")+
-  ggsave(paste0(plotpfad,"/EE/","M_",gsub("(mi_-|.csv)","",tempfile[1]),".pdf"),width=7,height=4)
-}
-
-
-
-####################################
-#Tabelle der Parametersätze
-####################################
-
-pars<-matrix(NA,10,length(loadfiles_undist))
-std<-matrix(NA,10,length(loadfiles_undist))
-for (i in 1:length(loadfiles)){
-load(file = paste0(mcpfad,loadfiles[i],".R"))
-par<-mc[[2]]
-for (j in 1:3){
-rmse<-mc[[c(1,4,5)[j]]]
-pars[,i]<-t(par[which.min(rmse),])
-}
-##################################
-#standardabweichung als Unsicherheit der Parameter berechnen
-######################################
-best.5perc<-order(rmse)[1:round(length(rmse)/100*5)]
-std[,i]<-apply(par[best.5perc,],2,sd)
-  }
-
-rownames(pars)<-stringr::str_replace(loadfiles,"mc_\\d+(_|-)","")
-rownames(pars)<-stringr::str_replace_all(rownames(pars),"_"," ")
-
-pars<-pars[order(rownames(pars)),]
-pars<-pars[,order(colnames(pars))]
-xtable::xtable(t(pars))
-
-# load(file = paste0(mcpfad,"mc_55000-dist_fit_tiefe_1-22.R"))
-# 
-# #if(!exists("rmse")){
-# #der Output ist in die Liste mc geschrieben
-# #die einzelnen listenelemente auspacken
-# par<-mc[[2]]
-# rmse<-mc[[1]]
-# nse<-mc[[3]]
-# 
-# rmse[order(rmse)[1:50]]<-NA
-# mc<-list(rmse,par,nse)
-# save(mc,file=paste0(mcpfad,"mc_55000-dist_fit_tiefe_1-22.R"))
-
-mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_55000-dist_fit_tiefe_1-22",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = F,obs=alldist_s,traintime = 8000,Probe = "dist")
-
-mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_55000_fit_tiefe_1-2",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 100,ndottys = 10000,taskkill = F,obs=alldist_s,traintime = 8000,Probe = "dist")
-
-# load(file = paste0(mcpfad,"mc_60000_dist-fit_tiefe_1-2.R"))
-# 
-# #if(!exists("rmse")){
-# #der Output ist in die Liste mc geschrieben
-# #die einzelnen listenelemente auspacken
-# par<-mc[[2]]
-# rmse<-mc[[1]]
-# nse<-mc[[3]]
-# par$DispA<-9.54
-# #par<-par[,-which(colnames(par)=="DispA")]
-# mc<-list(rmse,par,nse)
-# save(mc,file=paste0(mcpfad,"mc_60000_dist-fit_tiefe_1-2_Da.R"))
-mc_out(fixed=cbind(fixed_dist_da,fixed_co2),loadfile = "mc_60000_dist-fit_tiefe_1-2_Da",dtmax = 10,kin_sol = F,plot = T,rmse_pos = 1,Nboot = 0,ndottys = 10000,taskkill = F,obs=alldist_s,traintime = 8000,Probe = "dist")
-
 

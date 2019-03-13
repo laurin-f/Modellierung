@@ -14,7 +14,6 @@ projektpfad1<-"//FUHYS013/Freiberg/Hydrus/undisturbed/"
 projektpfad2<-"//FUHYS013/Freiberg/Hydrus/undisturbed2/"
 programmpfad<-"//FUHYS013/Freiberg/programme/Hydrus-1D 4.xx/"
 load("//FUHYS013/Freiberg/daten/all.R")
-#load("C:/Users/ThinkPad/Documents/Masterarbeit/daten/bodenparameter/params.R")
 source("//FUHYS013/Freiberg/rcode/modellierung/hydrus_input.R")
 source("//FUHYS013/Freiberg/rcode/modellierung/montecarlo_function.R")
 
@@ -81,28 +80,13 @@ mc<-mc_parallel2(nr=55000,sleep=23,ranges=data.frame(alpha=c(0.27,1.89),
                                                ks2=c(0.007,0.75),
                                                ks3=c(0.0001,0.1),
                                                p_opt=c(0.00001,0.0003),
-                                               #DispA=c(0.5,5),
                                                h_opt=c(-80,-10),
                                                p_distr=c(0.05,0.2)),
                 fixed=cbind(fixed,fixed_co2),
                 dtmax = 10,
                 n_parallel = 16,obs=all_s,kin_sol = T)
 
-# #free ranges fit both
-# mc<-mc_parallel2(nr=60000,sleep=15,ranges=data.frame(alpha=c(0.27,1.89),
-#                                                  n=c(1.17,4.5),
-#                                                  ks=c(0.001,0.8),
-#                                                  alpha2=c(0.19,1.85),
-#                                                  n2=c(1.16,1.8),
-#                                                  ks2=c(0.0001,0.75),
-#                                                  ks3=c(0.0001,0.1),
-#                                                  p_opt=c(0.0000001,0.0003),
-#                                                  #DispA=c(0.5,5),
-#                                                  h_opt=c(-80,-10),
-#                                                  p_distr=c(0.05,0.2)),
-#                  fixed=cbind(fixed,fixed_co2),fit.calcium = "both",
-#                  dtmax = 10,
-#                  n_parallel = 16,obs=all_s)
+
  
 #dist free ranges
 mc<-mc_parallel2(nr=55000,sleep=20,ranges=data.frame(alpha=c(0.005,1.2),
@@ -113,7 +97,6 @@ mc<-mc_parallel2(nr=55000,sleep=20,ranges=data.frame(alpha=c(0.005,1.2),
                                                       ks2=c(0.0075,0.8),
                                                       ks3=c(0.0001,0.3),
                                                       p_opt=c(0.000001,0.00026),
-                                                      #DispA=c(0.1,3),
                                                       h_opt=c(-80,-10),
                                                       p_distr=c(0.05,0.2)),
                  fixed=cbind(fixed_dist,fixed_co2),
@@ -130,7 +113,6 @@ mc<-mc_parallel2(nr=55000,sleep=11,ranges=data.frame(alpha=c(0.005,1),
                                                       ks2=c(0.01,0.8),
                                                       ks3=c(0.001,0.3),
                                                       p_opt=c(0.000001,0.00005),
-                                                      #DispA=c(0.1,3),
                                                       h_opt=c(-80,-10),
                                                       p_distr=c(0.05,0.2)),
                  fixed=cbind(fixed_dist,fixed_co2),fit.calcium = F,
@@ -140,24 +122,12 @@ mc<-mc_parallel2(nr=55000,sleep=11,ranges=data.frame(alpha=c(0.005,1),
 
 
 ###############################################################
-#co2 with changing water paramters realistic ranges
+#co2 with changing water paramters realistic ranges dist
 ###############################################################
-
-
 load("//FUHYS013/Freiberg/daten/bodenparameter/ranges.R")
-ranges<-cbind(realistic_ranges,data.frame(ks3=c(0.0001,0.1),
-                                          h_opt=c(-80,-10),
-                                          p_distr=c(0.0001,0.105)))
-
-
-mc<-mc_parallel2(nr=55000,sleep=11,ranges=ranges,
-                 fixed=cbind(fixed,fixed_co2),n_parallel = 16)
-
-#mc dist
 ranges<-cbind(realistic_ranges_dist,data.frame(ks3=c(0.0001,0.1),
                                           h_opt=c(-80,-10),
-                                          p_distr=c(0.000005,0.05)))#,
-                                          #DispA=c(0.5,2.75)))
+                                          p_distr=c(0.000005,0.05)))
 
 
 mc<-mc_parallel2(nr=55000,sleep=11,ranges=ranges,
@@ -166,7 +136,7 @@ mc<-mc_parallel2(nr=55000,sleep=11,ranges=ranges,
 
 
 ###############################################################
-#co2 with changing water paramters realistic ranges changing ks
+#co2 with changing water paramters realistic ranges undist
 ###############################################################
 
 
@@ -195,53 +165,5 @@ ranges$ks2<-c(0.1,1.5)
 mc<-mc_parallel2(nr=55000,sleep=23,ranges=ranges,
                  fixed=cbind(fixed,fixed_co2),n_parallel = 16,kin_sol = T)
 
-#mc dist
-# ranges<-cbind(realistic_ranges_dist,data.frame(ks3=c(0.0001,0.1),
-#                                                h_opt=c(-80,-10),
-#                                                p_distr=c(0.0001,0.2)))
-# 
-# ranges$ks<-c(0.0075,0.8)
-# ranges$ks2<-c(0.0075,0.8)
-# 
-# mc<-mc_parallel2(nr=55000,sleep=11,ranges=ranges,
-#                  fixed=cbind(fixed_dist,fixed_co2),min_nrows = 2200,n_parallel = 16,obs=alldist_s)
-# 
 
 
-########################
-#
-loadfile<-"mc_55000_fit_tiefe_1-2"
-obs<-alldist_s
-plot(alldist_s$CO2_raw)
-load(file = paste0(mcpfad,loadfile,".R"))
-par<-mc[[2]]
-rmse<-mc[[1]]
-pars<-cbind(par[which.min(rmse),],fixed_dist,fixed_co2)
-tmax<-as.numeric(difftime(max(obs$date),min(obs$date),units = "min"))
-
-n_parallel=20
-file<-paste0("UNSC",1:n_parallel) 
-projektpfad<-paste0("//FUHYS013/Freiberg/Hydrus/UNSC",1:n_parallel,"/")
-programmpfad<-paste0("//FUHYS013/Freiberg/programme/Hydrus-1D_4-",1:n_parallel,"/")
-
-system("taskkill /IM H1D_UNSC.EXE",show.output.on.console=F)
-
-selector.in(params = pars,
-            projektpfad = projektpfad[1],
-            tmax=tmax,
-            UNSC =T,
-            free_drain=T,
-            print_times = 2000,
-            dtmax = 10,
-            kin_sol = F)
-
-atmos.in(obs=obs,
-         total_t = tmax,
-         projektpfad = projektpfad[1],mainpath ="//FUHYS013/Freiberg/")
-#hydrus ausführen
-hydrus.exe(file = file[1],UNSC=T,taskkill = F,programmpfad = programmpfad[1],wait = T,scriptpath = "//FUHYS013/Freiberg/Hydrus/")
-out<-read_hydrus.out(projektpfad=projektpfad[1],obs = obs,min_nrows = 100,traintime = 4500)
-out1<-out[[1]]
-plot(out1$t_min,out1$CO2_mod)
-out[[2]]
-min(rmse,na.rm=T)

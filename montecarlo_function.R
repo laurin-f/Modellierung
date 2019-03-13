@@ -123,7 +123,7 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
         
         
         #hydrus ausführen
-        hydrus.exe(file = file[j],UNSC=UNSAT,taskkill = T,programmpfad = programmpfad[j],wait = T,scriptpath = "//FUHYS013/Freiberg/Hydrus/")
+        hydrus.exe(file = file[j],UNSC=UNSAT,hide_hydrus = T,programmpfad = programmpfad[j],wait = T,scriptpath = "//FUHYS013/Freiberg/Hydrus/")
       }
     }
     #kurz verschnaufen
@@ -213,20 +213,6 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
       }#ende length rmse
       }#ende j-parallel
     
-   
-    # #eventuell nicht mehr nötig aber redundanz schadet nie
-    # #also nochmal checken ob hydrus noch offen ist, da sonst function abbricht
-    # exe_check<-shell('tasklist /FI "IMAGENAME eq H1D_UNSC.EXE"',intern = T)
-    # 
-    # #wenn es offen ist dann wird es jetzt geschlossen
-    # while(length(grep("INFORMATION",exe_check))==0){
-    #   Sys.sleep(0.01)
-    #   exe_check<-shell('tasklist /FI "IMAGENAME eq H1D_UNSC.EXE"',intern = T)
-    #   system("taskkill /IM H1D_UNSC.EXE",show.output.on.console=F)
-    # }
-    
-    
-    
     #Fortschritt der Schleife ausgeben
     print(paste(i/nr*100,"%"))
     #RMSE werte der parallelen modelruns ausgeben
@@ -289,7 +275,7 @@ mc_parallel2<-function(nr=100,#anzahl Modellläufe
                       dtmax = dtmax2)
           
           #hydrus ausführen
-          hydrus.exe(file = file[j],UNSC=UNSAT,taskkill = T,programmpfad = programmpfad[j],wait = T,scriptpath = "//FUHYS013/Freiberg/Hydrus/")
+          hydrus.exe(file = file[j],UNSC=UNSAT,hide_hydrus = T,programmpfad = programmpfad[j],wait = T,scriptpath = "//FUHYS013/Freiberg/Hydrus/")
         }#ende if nrow par
       }#ende for j
     Sys.sleep(1)
