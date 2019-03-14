@@ -303,7 +303,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
   #dottyplot aller Parameter
   ggplot()+
     geom_point(data=dotty_melt,aes(value,rmsegood),size=0.2)+
-    geom_point(data=subset(dotty_melt,rmsegood==(sort(rmsegood)[n_best])),aes(value,rmsegood),col=2)+
+    geom_point(data=subset(dotty_melt,rmsegood==sort(unique(rmsegood))[n_best]),aes(value,rmsegood),col=2)+
     geom_rect(data=realistic_range,aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")+
     facet_wrap(~variable,scales = "free",ncol = 3,labeller = as_labeller(named))+
     theme_bw()+labs(x="Value",y="RMSE")+
@@ -341,7 +341,7 @@ mc_out<-function(fixed,#fixe Parameterwerte des MC-laufs
     geom_point(data=dotty_melt,aes(value,rmsegood),size=0.5)
   if(nrow(realistic_range[realistic_range$label%in%lbls,])>0){
     best2_plt<-best2_plt+
-    #geom_point(data=subset(dotty_melt,rmsegood==min(rmsegood)),aes(value,rmsegood),col=2)+
+      geom_point(data=subset(dotty_melt,rmsegood==sort(unique(rmsegood))[n_best]),aes(value,rmsegood),col=2)+
     geom_rect(data=realistic_range[realistic_range$label%in%lbls,],aes(xmin=value,xmax=max,ymin=-Inf,ymax=Inf), alpha = 0.15,fill="green")
   }
   best2_plt+

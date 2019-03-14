@@ -1,9 +1,13 @@
-
+---
+title: ''
+output: pdf_document
+---
+\pagenumbering{gobble}
+```{r setup, include=T,eval=F,echo=T}
 #########################################
 #Funktion für Monte carlo Runs mit Hydrus
 #parallelisiert
 #########################################
-
 
 mc_parallel2<-function(nr=100,#Anzahl Modellläufe
                       #Parameter Ranges
@@ -143,7 +147,7 @@ mc_parallel2<-function(nr=100,#Anzahl Modellläufe
       
       #Cmd-line Abfrage für Liste aller tasks mit CPU Angabe
       tasklist<-system(
-        "wmic path Win32_PerfFormattedData_PerfProc_Process get Name,PercentProcessorTime",
+    "wmic path Win32_PerfFormattedData_PerfProc_Process get Name,PercentProcessorTime",
         intern=T)
       #diese Liste an Stellen mit mindestens zwei Leerzeichen zerschneiden
       tasksplit<-strsplit(tasklist[2:(length(tasklist)-1)]," \\s+")
@@ -164,7 +168,7 @@ mc_parallel2<-function(nr=100,#Anzahl Modellläufe
           Sys.sleep(0.1)
           #Taskliste aktualisieren
           tasklist<-system(
-            "wmic path Win32_PerfFormattedData_PerfProc_Process get Name,PercentProcessorTime",
+      "wmic path Win32_PerfFormattedData_PerfProc_Process get Name,PercentProcessorTime",
             intern=T)
           tasksplit<-strsplit(tasklist[2:(length(tasklist)-1)]," \\s+")
           tasks<-do.call("rbind",tasksplit)
@@ -412,6 +416,4 @@ mc_parallel2<-function(nr=100,#Anzahl Modellläufe
   #Ausgabe der Parameter & entsprechenden Modellfits
   return(mc)
 }#Ende
-
-
-
+```

@@ -1,25 +1,26 @@
 
 #############################
-#Funktion um hydrus auszuführen
+#Funktion um Hydrus auszuführen
 
-hydrus.exe<-function(file="undisturbed",#auf welche datei soll hydrus zugreifen
-                     #pfad zum powershell script in dem auf die .exe zugegriffen wird
+hydrus.exe<-function(file="undisturbed",#auf welche Datei soll Hydrus zugreifen
+                     #Pfad zum Powershell Script in dem auf die .exe zugegriffen wird
                      scriptpath="C:/Users/ThinkPad/Documents/Masterarbeit/daten/hydrus/",
-                     #wenn UNSC=T wird das modul UNSATCHEM zur modellierung von CO2 
+                     #wenn UNSC=T wird das Modul UNSATCHEM zur modellierung von CO2 
                      #und Hauptionen verwendet
                      UNSC=T,
-                     #wenn hide_hydrus=T dann wird das fenster von hydrus nicht geöffnet 
-                     #das modell läuft dann im hintergrund
+                     #wenn hide_hydrus=T dann wird das Fenster von Hydrus nicht geöffnet 
+                     #das Modell läuft dann im Hintergrund
                      #wichtig für Monte Carlo
                      hide_hydrus=F,  
-                     #programmpfad von hydrus definieren
+                     #Programmpfad von Hydrus definieren
                      programmpfad=
                        "C:/Users/ThinkPad/Documents/Masterarbeit/programme/Hydrus-1D_4/",
                      #soll auf den system befehl gewartet werden
                      wait=F){
 
 
-  #wenn die Hydrus.exe von extern ausgeführt wird verwendet sie das Projekt das in der Datei
+  #wenn die Hydrus.exe außerhalb der GUI ausgeführt wird 
+  #verwendet sie das Projekt das in der Datei
   #LEVEL_01.dir steht
   
   #Level_01.dir einlesen
@@ -29,9 +30,10 @@ hydrus.exe<-function(file="undisturbed",#auf welche datei soll hydrus zugreifen
   #geänderte Datei speichern
   writeLines(level_01,paste0(programmpfad,"Level_01.dir"))
   
-  #wenn hide_hydrus==T wird das Powershellscript mit dem eingebauten hide_hydrus befehl verwendet
+  #wenn hide_hydrus==T wird das Powershellscript 
+  #mit dem eingebauten hide_hydrus Befehl verwendet
   if(hide_hydrus==T){
-    #hydrus_exe.txt mit vorlage für Powershell-Code lesen
+    #hydrus_exe.txt mit Vorlage für Powershell-Code lesen
     #darin steht:
     #cd "programmpfad"
     #start H1D_UNSC.EXE
@@ -54,21 +56,20 @@ hydrus.exe<-function(file="undisturbed",#auf welche datei soll hydrus zugreifen
     script<-sub("UNSC","CALC",script)}
   
   scriptname<-ifelse(UNSC==T,"hydrus_UNSC_exe.ps1","hydrus_CALC_exe.ps1")
-  #der Powershell-Code wird in einer scriptdatei .ps1 gespeichert
-  #writeLines(script,paste0(scriptpath,scriptname))
+  #der Powershell-Code wird in einer Scriptdatei .ps1 gespeichert
   writeLines(script,paste0(programmpfad,scriptname))
   
-  #über  shell wird der Commandline übergeben, dass powershell das script ausführen soll
+  #über  system wird der Commandline übergeben, dass powershell das script ausführen soll
   #-executionpoloicy bypass wird verwendet, 
-  #da im powershell im default keine scripte ausführen darf
+  #da powershell im default keine Scripte ausführen darf
   system(paste0("powershell.exe -noprofile -executionpolicy bypass -file ",
                 programmpfad,scriptname),
          wait=wait,
-         show.output.on.console=F)}#ende function
+         show.output.on.console=F)}#Ende Funktion
 
 
 ######################################
-#Function um atmospherischen Input einzustellen
+#Funktion um atmosphärischen Input einzustellen
 
 atmos.in<-function(total_t=4000,#zu simulierender Gesamtzeitraum in min
                    obs=all,#Messungen von denen der Niederschlagsinput übernommen wird
@@ -408,13 +409,14 @@ read_hydrus.out<-function(obs=all,#Messungen
     #in denen numerische Fehlwerte sind
     skip_more<-0
     #wenn in den ersten 10 Zeilen falsche Spaltenzahlen vorkommen
+    if(length(wrong_fields)>0){
     if(min(wrong_fields)<10){
       #werden diese Felder übersprungen
     skip_more<-max(wrong_fields[wrong_fields<10])
     #und es werden von da an erneut die Felder gezählt
       fields<-count.fields(paste0(projektpfad,"Obs_Node.out"),
                            blank.lines.skip = F,skip=10+skip_more)
-    }
+    }}
     
     #wenn die Spaltenzahl teilweise von der erwarteten abweicht ist 
     #nrows die Reihe mit der ersten Abweichung von ncols -2
