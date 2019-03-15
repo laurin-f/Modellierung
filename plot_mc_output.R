@@ -409,10 +409,11 @@ co2plt+
 #theta plot exportieren
 bfplt+
   geom_rect(data=event2,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
-  facet_wrap(~as.factor(-tiefe),labeller = as_labeller(name_tiefe),ncol = 1,scales = "free")+
+  facet_wrap(~as.factor(-tiefe),labeller = as_labeller(name_tiefe),ncol = 1)+
   labs(title="ungestörte Probe",x="",y=expression(theta*" [cm"^3/cm^3*"]"),col="mod",linetype="obs")+
   theme_classic()+
-  scale_fill_manual(name="Beregnung",values="blue")+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
+  scale_fill_manual(name="Beregnung",values="blue")+
+  guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
   ggsave(paste0(plotpfad,"bf_mod_undist.pdf"),width=7,height = 6)
 
 #q plot exportieren
@@ -464,7 +465,7 @@ co2plt+
 #theta plot exportieren
 bfplt+
   geom_rect(data=event2,aes(xmin=start,xmax=stop,ymin = -Inf, ymax = Inf,fill=""), alpha = 0.15)+
-  facet_wrap(~as.factor(-tiefe),labeller = as_labeller(name_tiefe),ncol = 1,scales = "free")+
+  facet_wrap(~as.factor(-tiefe),labeller = as_labeller(name_tiefe),ncol = 1)+
   labs(title="gestörte Probe",x="",y=expression(theta*" [cm"^3/cm^3*"]"),col="mod",linetype="obs")+
   theme_classic()+
   scale_fill_manual(name="Beregnung",values="blue")+guides(color = guide_legend(order=2),linetype = guide_legend(order=1),fill = guide_legend(order=3))+
